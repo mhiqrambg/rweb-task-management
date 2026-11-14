@@ -32,6 +32,7 @@ makes the benchmark meaningful.
 | An AI agent | [`AGENTS.md`](AGENTS.md) → [`RULES.md`](RULES.md) → [`DESIGN.md`](DESIGN.md) |
 | A team member writing code | [`AGENTS.md`](AGENTS.md) §5, then the blueprint document for your area |
 | Looking for a decision or requirement | `.planning/12-architecture-review.md` (index of the blueprint) |
+| Wondering where a file goes | [`STRUCTURE.md`](STRUCTURE.md) |
 | Building or reviewing UI | [`DESIGN.md`](DESIGN.md) and `.planning/14-ui-ux-specification.md` |
 | Opening the design | `design/rweb-task-management.figcraft` (FigCraft), renders in `design/exports/` |
 
@@ -45,6 +46,7 @@ design/exports/   PNG renders of every page for review
 AGENTS.md         how an agent works in this repo
 RULES.md          numbered MUST/NEVER rules, citable in review
 DESIGN.md         visual system: tokens, components, screens, states, copy, accessibility
+STRUCTURE.md      the full tree: what exists now, what Phase 3 creates, where each file goes
 DEVELOPMENT-GUIDELINES.md  branching, PRs, reviews, testing obligations
 ```
 

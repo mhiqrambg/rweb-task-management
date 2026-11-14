@@ -50,6 +50,9 @@ If a document is wrong, fix the document in the same PR as the code. Never quiet
 
 ## 4. Repository map (target monorepo)
 
+`STRUCTURE.md` is the full tree: what exists today, what Phase 3 creates, and where each kind of file
+goes. The short version:
+
 ```
 apps/
   web-astro/     Astro SSR, MPA. Server-rendered HTML per navigation.
@@ -60,7 +63,7 @@ packages/
   design-tokens/ tokens.css + tokens.json (single source for both frontends).
 .planning/       the approved blueprint (read-only reference; changes need a PR + review)
 design/          FigCraft file, exports, diagrams, icons, design docs
-DEVELOPMENT-GUIDELINES.md, AGENTS.md, RULES.md, DESIGN.md
+DEVELOPMENT-GUIDELINES.md, AGENTS.md, RULES.md, DESIGN.md, STRUCTURE.md
 ```
 
 Dependency direction is `apps/* → packages/*`. Never `apps/web-next → apps/web-astro`, never
