@@ -26,7 +26,7 @@ risk, and who owns what remains. It does not re-review the work.
 | ID | Resolution |
 |---|---|
 | DR-029 prose claims | Fixed: `02` header now says 43 frames. The remaining caption corrections are folded into the next product-design pass; the frames, not the prose, are authoritative. |
-| DR-030 no landing-preview asset | Fixed: `design/assets/landing-preview.svg` (1120×280) exported from frame 769. The 2× PNG rendition is still missing — owner: product designer. |
+| DR-030 no landing-preview asset | Resolved: the hero illustration ships as `design/assets/landing-illustration.svg` (+ PNG), and the product preview is drawn in the frame `product-preview` inside `l-01`, not shipped as a separate image. The earlier `landing-preview.svg` export was removed as dead weight. |
 | DR-020 / DR-021 deck gaps | Partly fixed: eleven strings used by C-12 and C-19 were added to `06` §13. The frames' remaining wording (`Could not save changes.`) is now covered by `toast.error.save`; `Retry` → `Try again` is a frame edit still open. |
 | DR-022 counter colour | Open, owner: design system. `184/200` stays `ink-muted` in C-03; the ≥90 % rule needs a second counter specimen. |
 
@@ -39,7 +39,7 @@ None of these are hidden; each is a real gap against `.planning/01` §3.
 | DR-005 | Task cards omit last-updated time (FR-TASK-004) | Needs a C-08 variant; card internals are a component change, not a frame fix |
 | DR-006 | Pinned note card has no thumbnail strip (FR-NOTE-004) | Same: C-09 variant |
 | DR-007 | No pin control on list cards (FR-NOTE-007) | Needs an icon-button slot on C-09 |
-| DR-008 | Lightbox has no visible close control (FR-ATT-005) | C-11 needs the close button; Escape/backdrop alone is not enough |
+| DR-008 | Lightbox had no visible close control (FR-ATT-005) | **Fixed**: close control (32 px, `color/paper`, 16 px ×) added to `C-11` on the components board and to the screen instance in `tk-11-task-detail-lightbox`; previous/next already existed in the frame. Export: `design/exports/05b-task-lightbox.png`. |
 | DR-009 | `a-03` password field no longer shows a field error | Deliberate: an empty password with `Enter your password.` contradicted the generic form error. The spec text in `02` §3 must follow the frame |
 | DR-010 | `tk-03` / `tk-04` empty-state instances render ~138 px wide | Instance size overrides, quick fix for the next pass |
 | DR-011 | Filters are single selects, not multi-select chips (`.planning/14` §6) | Chip component does not exist; needs a C-24 multi-select chip |

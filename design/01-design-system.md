@@ -80,7 +80,7 @@ everywhere.
 | C-08 | `C-08-task-card` (184) | mains 186/200/214/228 | default, overdue, 3 thumbs + `+2`, selected |
 | C-09 | `C-09-note-card` (239) | mains 241/248/254 | default, pinned, hover |
 | C-10 | `C-10-attachment-thumb` (258) | mains 260/263/267/271 | loading (4:3 reserved), loaded, broken, removing |
-| C-11 | `C-11-lightbox` (275) | mains 277/280/284 | open-loading, open-loaded, open-error |
+| C-11 | `C-11-lightbox` (275) | mains 277/280/284 | open-loading, open-loaded, open-error; caption `n of m`, previous/next, close 32 px |
 | C-12 | `C-12-file-dropzone` (289) | mains 291/295/299/312/318 | idle, drag-over, uploading (+per-file progress), rejected, complete |
 | C-13 | `C-13-modal` (322) | mains 324/332 | open, closing |
 | C-14 | `C-14-confirm-dialog` (340) | mains 342/350/360 | default, destructive, pending |
