@@ -1,3 +1,5 @@
+* text=auto eol=lf
+
 # Binary assets: keep them out of text diffs
 *.png binary
 *.jpg binary

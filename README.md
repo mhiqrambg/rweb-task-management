@@ -33,6 +33,8 @@ makes the benchmark meaningful.
 | A team member writing code | [`AGENTS.md`](AGENTS.md) §5, then the blueprint document for your area |
 | Looking for a decision or requirement | `.planning/12-architecture-review.md` (index of the blueprint) |
 | Wondering where a file goes | [`STRUCTURE.md`](STRUCTURE.md) |
+| Contributing code | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Reporting a vulnerability | [`SECURITY.md`](SECURITY.md) |
 | Building or reviewing UI | [`DESIGN.md`](DESIGN.md) and `.planning/14-ui-ux-specification.md` |
 | Opening the design | `design/rweb-task-management.figcraft` (FigCraft), renders in `design/exports/` |
 

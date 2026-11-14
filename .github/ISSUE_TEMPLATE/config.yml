@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/mhiqrambg/rweb-task-management/security/policy
+    about: Report a vulnerability privately, never in a public issue.
+  - name: How we work
+    url: https://github.com/mhiqrambg/rweb-task-management/blob/main/CONTRIBUTING.md
+    about: Branching, PR rules, and where the blueprint lives.
