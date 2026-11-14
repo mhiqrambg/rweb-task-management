@@ -10,7 +10,7 @@ skills:
   selected: [backend-development, security-review]
   used: [backend-development]
   changed:
-    - "backend-development: its 70-20-10 test split and 'contract testing for services' line became Hamzah's enforceable gate ownership instead of a vague 'QA at the end'."
+    - "backend-development: its 70-20-10 test split and 'contract testing for services' line became Erika's enforceable gate ownership instead of a vague 'QA at the end'."
 ---
 
 # 13 — Team Responsibility Matrix

@@ -22,7 +22,7 @@ makes the benchmark meaningful.
 | Phase | State |
 |---|---|
 | 1 — Blueprint (`.planning/00`…`14`) | Complete, awaiting owner sign-off |
-| 2 — Design (`design/`) | Design system, 43 member screens, admin console extension, landing sections, 5 diagrams |
+| 2 — Design (`design/`) | Design system, 43 frames covering the 11 member screens, admin console extension, landing sections, 5 diagrams |
 | 3 — Implementation | Not started. No `package.json`, no app source yet |
 
 ## Start here

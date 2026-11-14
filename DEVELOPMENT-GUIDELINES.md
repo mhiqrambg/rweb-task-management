@@ -117,7 +117,7 @@ Review rules:
 | UI component | component test or Playwright step covering the state (empty/loading/error/success) |
 | Any new page | Playwright smoke: renders in both apps, same visible content |
 
-Test names reference requirement IDs (`FR-TASK-04 …`) so a failure names the broken promise.
+Test names reference requirement IDs (`FR-TASK-004 …`) so a failure names the broken promise.
 No PR lowers coverage of the modules it touches.
 
 ## 8. Definition of Done (every task)

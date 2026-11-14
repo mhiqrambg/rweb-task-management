@@ -137,9 +137,10 @@ Geometry that never changes: controls 40 high, badges 24, card padding 16, thumb
 | Dashboard | `/app` | `/b/app/?view=dashboard` | skeleton, per-widget empty, per-widget error |
 | Task list | `/tasks?q&status&priority&due&hasImages&sort&cursor` | `/b/app/?view=tasks&…` | skeleton, empty, no-results, error, toast |
 | Task detail | `/tasks/[id]` | `/b/app/?view=tasks&id=` | 404 for foreign id, lightbox, inline status change |
-| Task form | `/tasks/new`, `/tasks/[id]/edit` | `…&mode=edit` | validation, single-submit guard |
+| Task form | modal on `/tasks` (create), `/tasks/[id]/edit` (edit) | `…&mode=edit` | validation, single-submit guard |
 | Note list | `/notes?q&pinned&cursor` | `/b/app/?view=notes&…` | skeleton, empty, no-results, error |
 | Note detail | `/notes/[id]` | `/b/app/?view=notes&id=` | 404, pin toggle, gallery |
+| Note form | modal on `/notes` (create and edit) | `…&view=notes` + modal | validation, single-submit guard |
 | Account | `/account` | `/b/app/?view=account` | loading, error, logout |
 | Not found | `/404` | `/404.html` | public + in-app variant |
 | Admin (extension) | `/admin` | not exported | table, pills, row actions, form, confirm |
