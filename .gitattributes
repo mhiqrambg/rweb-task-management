@@ -1,0 +1,7 @@
+# Binary assets: keep them out of text diffs
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.figcraft binary
+*.drawio binary
