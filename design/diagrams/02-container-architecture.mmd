@@ -1,0 +1,66 @@
+%% 02 — Container / component view
+%% Sources: .planning/03-system-architecture.md §2, §2.1; 04 ADR-01, ADR-03, ADR-05, ADR-09, ADR-12, ADR-15
+flowchart TB
+  Browser["Browser - one origin"]
+
+  Proxy["Reverse proxy (nginx)<br>one origin, terminates TLS<br>routes / and /b/* and /api/v1/*<br>refuses /uploads/*"]
+
+  subgraph Apps["apps/* - three deployables"]
+    Astro["apps/web-astro<br>on-demand SSR - every page prerender false<br>form endpoints, flash cookie"]
+    Next["apps/web-next<br>static export under /b<br>client router, auth probe"]
+    subgraph ApiBox["apps/api - Fastify 5.12.x, one process"]
+      Edge["HTTP entry<br>plugins, error envelope, validation, request id"]
+      Auth["auth module<br>users, sessions"]
+      Tasks["tasks module<br>tasks"]
+      Notes["notes module<br>notes"]
+      Dashboard["dashboard module<br>one round trip"]
+      Health["health module<br>liveness and readiness"]
+      Att["attachments module<br>attachments, binaries, thumbnails"]
+      Db["db - pg Pool, parameterized SQL<br>one query per list, keyset cursor"]
+    end
+  end
+
+  subgraph Pkgs["packages/* - build-time imports only"]
+    Contracts["contracts<br>types, Zod schemas, error codes, copy, route constants"]
+    Tokens["design-tokens<br>tokens.css and tokens.json"]
+  end
+
+  Pg[("PostgreSQL 16")]
+  Store[("Upload storage<br>UPLOAD_ROOT")]
+
+  Browser -->|"HTTPS, sid cookie"| Proxy
+  Proxy -->|"pages and form posts"| Astro
+  Proxy -->|"static shell and assets"| Next
+  Proxy -->|"/api/v1/*"| Edge
+  Astro -->|"server-side fetch, Cookie forwarded"| Edge
+  Next -->|"browser fetch with credentials include"| Edge
+  Edge --> Auth
+  Edge --> Tasks
+  Edge --> Notes
+  Edge --> Dashboard
+  Edge --> Health
+  Edge --> Att
+  Auth --> Db
+  Tasks --> Db
+  Notes --> Db
+  Dashboard --> Db
+  Health --> Db
+  Att --> Db
+  Att -->|"binaries and thumbnails"| Store
+  Db -->|"pg wire protocol"| Pg
+  Astro -.->|"build-time import"| Contracts
+  Next -.->|"build-time import"| Contracts
+  ApiBox -.->|"build-time import"| Contracts
+  Astro -.->|"tokens.css"| Tokens
+  Next -.->|"tokens.css"| Tokens
+
+  classDef app fill:#EEF4FF,stroke:#9DB8F2,color:#1B1F24
+  classDef module fill:#FFFFFF,stroke:#9DB8F2,color:#1B1F24
+  classDef store fill:#F3EEFF,stroke:#B9A6F0,color:#1B1F24
+  classDef shared fill:#F3EEFF,stroke:#B9A6F0,color:#1B1F24
+  classDef ext fill:#F2F4F7,stroke:#B8C0CC,color:#1B1F24
+  class Astro,Next,Edge app
+  class Auth,Tasks,Notes,Dashboard,Health,Att,Db module
+  class Pg,Store store
+  class Contracts,Tokens shared
+  class Browser,Proxy ext

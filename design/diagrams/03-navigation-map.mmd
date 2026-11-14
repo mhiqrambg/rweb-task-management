@@ -1,0 +1,47 @@
+%% 03 — Screen and navigation map (11 screens, both route schemes)
+%% Sources: .planning/14-ui-ux-specification.md §4, §6; 03-system-architecture.md §3.1, §3.2; 04 ADR-04, ADR-13
+flowchart LR
+  Landing["Landing<br>Astro: /<br>Next: /b/"]
+  Login["Login<br>Astro: /login<br>Next: /b/login"]
+  Register["Register<br>Astro: /register<br>Next: /b/register"]
+  Gate{"Auth gate<br>valid sid session?"}
+  Dashboard["Dashboard<br>Astro: /app<br>Next: /b/app/?view=dashboard"]
+  TaskList["Task list<br>Astro: /tasks<br>Next: /b/app/?view=tasks"]
+  TaskDetail["Task detail<br>Astro: /tasks/[id]<br>Next: /b/app/?view=tasks&id=uuid"]
+  TaskEdit["Task edit<br>Astro: /tasks/[id]/edit<br>Next: /b/app/?view=tasks&id=uuid&mode=edit"]
+  NoteList["Note list<br>Astro: /notes<br>Next: /b/app/?view=notes"]
+  NoteDetail["Note detail<br>Astro: /notes/[id]<br>Next: /b/app/?view=notes&id=uuid"]
+  Account["Account<br>Astro: /account<br>Next: /b/app/?view=account"]
+  NotFound["In-app not found<br>C-18 error state in the shell<br>absent id = foreign-owned id, no data<br>(FR-TASK-019, FR-NOTE-013)"]
+  Public404["Public 404<br>Astro: /404<br>Next: 404.html<br>unknown route only"]
+  PublicNote["Public routes<br>Landing, Login, Register<br>A signed-in Member is offered the dashboard instead"]
+
+  Landing -->|"Sign in"| Login
+  Login -->|"Create account"| Register
+  Landing -.->|"Member call to action"| Dashboard
+  Login -->|"credentials accepted"| Gate
+  Register -->|"account created"| Gate
+  Gate -->|"sid valid, 303 to /app"| Dashboard
+  Gate -->|"no or expired or idle-revoked sid, 302 /login?next=current-path"| Login
+  Dashboard -->|"sidebar"| TaskList
+  Dashboard -->|"sidebar"| NoteList
+  Dashboard -->|"user menu"| Account
+  Dashboard -.->|"401 mid-session, redirect to /login?next=current-path"| Gate
+  TaskList --> TaskDetail
+  TaskList -->|"create, modal on the list"| TaskEdit
+  TaskDetail --> TaskEdit
+  TaskDetail -.->|"unknown or foreign id"| NotFound
+  NoteList --> NoteDetail
+  NoteDetail -.->|"unknown or foreign id"| NotFound
+  PublicNote -.->|"unknown public path"| Public404
+
+  classDef public fill:#E7F6EC,stroke:#8BCB9F,color:#1B1F24
+  classDef gate fill:#FFF6E0,stroke:#E8C36A,color:#1B1F24
+  classDef member fill:#EEF4FF,stroke:#9DB8F2,color:#1B1F24
+  classDef missing fill:#FDECEC,stroke:#EBA3A3,color:#1B1F24
+  classDef note fill:#F2F4F7,stroke:#B8C0CC,color:#1B1F24
+  class Landing,Login,Register public
+  class Gate gate
+  class Dashboard,TaskList,TaskDetail,TaskEdit,NoteList,NoteDetail,Account member
+  class NotFound,Public404 missing
+  class PublicNote note

@@ -1,0 +1,25 @@
+%% 04 — Task lifecycle, attachment cascade, note pinning
+%% Sources: .planning/05-database-design.md §1.1, §1.2, §2; 06-api-contracts.md §2.4, §5.18-5.21, §8
+stateDiagram-v2
+  direction LR
+  state "Task Status" as TaskStatus {
+    [*] --> todo : POST /api/v1/tasks (status todo, priority medium)
+    todo --> in_progress : PATCH status=in_progress
+    in_progress --> completed : PATCH status=completed
+    completed --> in_progress : PATCH status=in_progress (reopen)
+    in_progress --> todo : PATCH status=todo
+    todo --> [*] : DELETE /api/v1/tasks/:id
+    in_progress --> [*] : DELETE /api/v1/tasks/:id
+    completed --> [*] : DELETE /api/v1/tasks/:id
+  }
+  state "Attachment" as Attachment {
+    [*] --> stored : POST /api/v1/attachments, two gates passed
+    stored --> removed : DELETE /api/v1/attachments/:id
+    stored --> removed : target DELETE cascades the row
+    removed --> [*]
+  }
+  state "Note pinning" as NotePinning {
+    [*] --> unpinned : POST /api/v1/notes (pinned false)
+    unpinned --> pinned : PATCH pinned=true
+    pinned --> unpinned : PATCH pinned=false
+  }

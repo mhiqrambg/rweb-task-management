@@ -1,0 +1,38 @@
+%% 01 — System context (C4 level 1)
+%% Sources: .planning/03-system-architecture.md §1, §2; 00-project-discovery.md §7; 06-api-contracts.md §1.1
+flowchart LR
+  Visitor(["Visitor"])
+  Member(["Member - owner"])
+  Browser["Browser<br>one origin"]
+  Harness["Benchmark harness<br>Playwright + Lighthouse"]
+
+  subgraph Boundary["System boundary - one host (Docker Compose)"]
+    Astro["apps/web-astro<br>Astro - on-demand SSR"]
+    Next["apps/web-next<br>Next - static export under /b"]
+    Api["apps/api<br>Fastify - REST /api/v1"]
+    Pg[("PostgreSQL 16<br>one database")]
+    Storage[("Upload storage<br>UPLOAD_ROOT volume")]
+  end
+
+  Proxy["Reverse proxy (nginx)<br>one origin, terminates TLS<br>refuses /uploads/*"]
+  Outside["Outside the boundary<br>no email transport, no object storage, no CDN, no analytics"]
+
+  Visitor --> Browser
+  Member --> Browser
+  Browser -->|"HTTPS 443, sid cookie"| Proxy
+  Harness -->|"HTTPS page loads and /api/v1/health"| Proxy
+  Proxy -->|"HTTP / and /login and /register and /app and /tasks and /notes and /account"| Astro
+  Proxy -->|"static files /b/*"| Next
+  Proxy -->|"HTTP /api/v1/*"| Api
+  Astro -->|"server-side fetch, Cookie header forwarded"| Api
+  Api -->|"pg wire protocol 5432"| Pg
+  Api -->|"read and write binaries and thumbnails"| Storage
+
+  classDef actor fill:#E7F6EC,stroke:#8BCB9F,color:#1B1F24
+  classDef app fill:#EEF4FF,stroke:#9DB8F2,color:#1B1F24
+  classDef store fill:#F3EEFF,stroke:#B9A6F0,color:#1B1F24
+  classDef ext fill:#F2F4F7,stroke:#B8C0CC,color:#1B1F24
+  class Visitor,Member actor
+  class Astro,Next,Api app
+  class Pg,Storage store
+  class Proxy,Outside ext

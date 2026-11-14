@@ -1,0 +1,50 @@
+%% 05 — Request authorization, multipart upload and binary read
+%% Sources: .planning/06-api-contracts.md §1.9, §2.1-2.3, §5.18-5.21, §8.3-8.5; 05-database-design.md §3.5
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant P as Reverse proxy
+  participant A as apps/api
+  participant D as PostgreSQL
+  participant S as Upload storage
+
+  Note over B,P: Flow A - authorized read of an owned Attachment
+  B->>P: GET /api/v1/attachments/:id/content?variant=full with sid cookie
+  P->>A: forward on one origin, no authorization decision
+  A->>A: read sid, SHA-256 it, check Origin on unsafe methods only
+  A->>D: SELECT session JOIN users by token_hash, expires_at, last_used_at
+  alt no session, expired or idle-revoked
+    A-->>B: 401 UNAUTHENTICATED with expired Set-Cookie
+  else session valid
+    A->>D: SELECT attachment WHERE id = $1 AND user_id = $sessionUserId
+    alt zero rows - absent and foreign are indistinguishable
+      A-->>B: 404 NOT_FOUND
+    else row owned
+      A->>S: open storage_key for variant full or thumb
+      A-->>B: 200 bytes with ETag, private max-age 86400, nosniff
+      Note over B: ETag match on the next request returns 304
+    end
+  end
+
+  Note over B,P: Flow B - multipart upload with two-gate validation and thumbnail
+  B->>P: POST /api/v1/attachments multipart file, targetType, targetId
+  P->>A: forward
+  A->>A: exactly one file part, file under 5 MiB, else 413 or 422
+  A->>D: SELECT target WHERE id = $targetId AND user_id = $sessionUserId
+  alt target absent or foreign
+    A-->>B: 404 NOT_FOUND, nothing written
+  else target owned
+    A->>A: gate 1 sniff magic bytes in image/jpeg, image/png, image/webp, else 415
+    A->>A: gate 2 sharp decode metadata, else 422 undecodable_image
+    A->>S: write full file via temp then rename
+    A->>S: derive thumbnail, longest edge 320 px, WebP
+    A->>D: BEGIN, parent row FOR UPDATE, count existing rows
+    alt target already holds 10 attachments
+      A->>S: unlink full file and thumbnail
+      A-->>B: 422 attachment_limit
+    else under the cap
+      A->>D: INSERT attachments, COMMIT
+      A-->>B: 201 Created with AttachmentSummary thumbUrl and fullUrl
+    end
+  end
+  Note over A,S: The row is the commit point - no row ever points at a missing binary
