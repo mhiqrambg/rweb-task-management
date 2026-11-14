@@ -162,7 +162,7 @@ else is an anecdote and is labelled as such.
 | Situation | Who decides |
 |---|---|
 | Contract shape dispute | Iqram, then the architect's blueprint, then project owner |
-| Cross-frontend visual divergence | Erika + Azra agree against `.planning/14-ui-ux-specification.md`; the spec wins |
-| Perf protocol dispute | Hamzah; the protocol in `.planning/08` is the referee |
+| Cross-frontend visual divergence | Hamzah + Azra agree against `.planning/14-ui-ux-specification.md`; the spec wins |
+| Perf protocol dispute | Erika; the protocol in `.planning/08` is the referee |
 | Scope change | Project owner; log it in `.planning/12-architecture-review.md` §6 (contradiction log) |
 | Blocked > 1 day | Raise it, do not absorb it silently |

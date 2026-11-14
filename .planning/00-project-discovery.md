@@ -86,10 +86,10 @@ Real, named people from the brief. No other stakeholder is invented; the evaluat
 
 | Stakeholder | Type | Interest | Influence |
 |---|---|---|---|
-| Erika | Team — Astro SSR frontend | Correct SSR architecture, MPA navigation, deployment config | Owns `apps/web-astro` |
+| Hamzah | Team — Astro SSR frontend | Correct SSR architecture, MPA navigation, deployment config | Owns `apps/web-astro` |
 | Azra | Team — Next.js SSG frontend | Static export correctness, client routing, auth-state handling | Owns `apps/web-next` |
-| Iqram | Team — backend | Fastify + PostgreSQL, API contract fidelity, session and upload security | Owns `apps/api`, migrations |
-| Hamzah | Team — QA, performance, analysis | Reproducible measurement, fair protocol, defensible report | Owns benchmark protocol and results; gate on every phase |
+| Iqram | Team — backend | Fastify + PostgreSQL, API contract fidelity, session and upload security | Owns `apps/api`, `packages/contracts`, migrations, `infra/` |
+| Erika | Team — QA, performance testing, analysis | Reproducible measurement, fair protocol, defensible report | Owns benchmark protocol and results; runs testing and analysis at the end of the roadmap |
 | Project owner / academic evaluator | Decision authority | Coherent plan, working software, defensible comparison | Approval gate on this blueprint; not named in the brief (see Q-01) |
 
 ## 6. Domain context and vocabulary

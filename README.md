@@ -55,11 +55,11 @@ Dependency direction, once code exists: `apps/* → packages/*`. Never the rever
 | Area | Owner | Reviewer |
 |---|---|---|
 | `packages/contracts`, `apps/api`, `infra/` | Iqram | Hamzah |
-| `apps/web-astro` | Erika | Azra |
-| `apps/web-next` | Azra | Erika |
-| `design-tokens`, UI specification | Erika + Azra | Iqram |
-| Benchmark protocol, dataset, harness, results | Hamzah | Iqram |
-| Final comparative report | Hamzah (lead), all contribute | Project owner |
+| `apps/web-astro` | Hamzah | Azra |
+| `apps/web-next` | Azra | Hamzah |
+| `design-tokens`, UI specification | Hamzah + Azra | Iqram |
+| Benchmark protocol, dataset, harness, results | Erika | Iqram |
+| Testing, performance analysis, final report | Erika (runs at the end of the roadmap) | Project owner |
 
 Full detail: `.planning/13-team-responsibility-matrix.md`.
 

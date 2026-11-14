@@ -16,7 +16,7 @@ edited_on_persistence: "Condensed from the specialist's 1175-line output. Claim 
 
 # 08 — Performance Strategy and Benchmark Protocol
 
-This is what Hamzah executes. It derives the workload from `05` §9, the objectives from `01` §4.1/§4.7/§4.8
+This is what Erika executes. It derives the workload from `05` §9, the objectives from `01` §4.1/§4.7/§4.8
 and the mechanisms from `03` §3-§6. It defines no test levels (that is `09`) and contains **no measurement
 of its own**. Protocol assumptions `A-30`..`A-46` are defined in Appendix A and are distinct from
 `01` §7 `A-01`..`A-21`.
@@ -512,7 +512,7 @@ These are the boundary of every claim, not caveats to soften.
 
 ## 11. Benchmark results template
 
-Placeholders are filled by the harness; `<angle brackets>` is Hamzah's text. No cell is left with an
+Placeholders are filled by the harness; `<angle brackets>` is Erika's text. No cell is left with an
 estimate.
 
 ### 11.1 Run manifest (per repetition, `run.json`)
@@ -635,12 +635,12 @@ Parity-safe additions, identical in both apps, no user-visible change, no featur
 
 | Need | Requirement | Owner |
 |---|---|---|
-| `Server-Timing` on Astro documents (`render`, `upstream`, per call) | NFR-PERF-008, NFR-OBS-003 | Erika |
+| `Server-Timing` on Astro documents (`render`, `upstream`, per call) | NFR-PERF-008, NFR-OBS-003 | Hamzah |
 | Per-request timing + request id in the API log, and `Server-Timing: db` | NFR-OBS-001/003 | Iqram |
 | Readiness gate before measuring (`/health`) | NFR-REL-007 | Iqram |
 | `pg_stat_statements` enabled on the campaign database | NFR-PERF-010 | Iqram |
-| Deterministic dataset + manifest/checksum | A-04, `05` §9 | Iqram + Hamzah |
-| `run_id` correlation between harness, proxy and API logs | NFR-OBS-002 | Hamzah + Iqram |
+| Deterministic dataset + manifest/checksum | A-04, `05` §9 | Iqram + Erika |
+| `run_id` correlation between harness, proxy and API logs | NFR-OBS-002 | Erika + Iqram |
 
 ## Appendix C — Traceability
 

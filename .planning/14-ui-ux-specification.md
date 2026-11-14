@@ -194,7 +194,7 @@ skeletons must be dimension-stable or CLS will (correctly) penalise it.
 - `prefers-reduced-motion: reduce` disables transitions.
 - Images need `alt`; decorative images `alt=""`.
 
-## 9. Parity checklist (Hamzah's gate, per screen)
+## 9. Parity checklist (Erika's gate, per screen)
 
 1. Same visible text content for the same data, both apps.
 2. Same DOM order of primary elements (title → meta → actions → body).

@@ -24,17 +24,17 @@ phase gates are approvals, not ceremonies.
 | Phase | Name | Weeks | Owner | Gate |
 |---|---|---|---|---|
 | P1 | Planning & discovery | W1 | architect + project owner | **G1** blueprint approved |
-| P2 | UI/UX specification | W1–W2 | Erika + Azra | **G2** tokens + screen inventory frozen |
+| P2 | UI/UX specification | W1–W2 | Hamzah + Azra | **G2** tokens + screen inventory frozen |
 | P3 | Data model & API contract | W2 | Iqram | **G3** contract frozen (`packages/contracts` tagged) |
 | P4 | Repository & environment setup | W2–W3 | Iqram | **G4** `dev` runs all three apps from a clean clone |
 | P5 | Backend development | W3–W6 | Iqram | **G5** all endpoints + integration tests green |
-| P6 | Astro frontend | W4–W8 | Erika | **G6a** Astro feature-complete |
+| P6 | Astro frontend | W4–W8 | Hamzah | **G6a** Astro feature-complete |
 | P7 | Next.js frontend | W4–W8 | Azra | **G6b** Next feature-complete, static-output check green |
 | P8 | Integration | W8–W9 | Iqram | **G7** both apps behind one origin, parity run green |
-| P9 | Functional testing | W9–W10 | Hamzah | **G8** test matrix green, defects triaged |
-| P10 | Performance benchmarking | W10–W11 | Hamzah | **G9** all runs complete, raw data archived |
-| P11 | Analysis & documentation | W11–W12 | Hamzah | **G10** report draft reviewed by all |
-| P12 | Final presentation | W12 | Hamzah | **G11** owner sign-off |
+| P9 | Functional testing | W9–W10 | Erika | **G8** test matrix green, defects triaged |
+| P10 | Performance benchmarking | W10–W11 | Erika | **G9** all runs complete, raw data archived |
+| P11 | Analysis & documentation | W11–W12 | Erika | **G10** report draft reviewed by all |
+| P12 | Final presentation | W12 | Erika | **G11** owner sign-off |
 
 ```mermaid
 gantt
@@ -80,12 +80,12 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 
 | ID | Task | Owner | Depends on | Deliverable |
 |---|---|---|---|---|
-| T-201 | Finalize tokens into `packages/design-tokens` | Erika | G1 | `tokens.css`, `tokens.json` |
-| T-202 | Component inventory with states (C-01..C-23) | Erika + Azra | T-201 | component checklist |
+| T-201 | Finalize tokens into `packages/design-tokens` | Hamzah | G1 | `tokens.css`, `tokens.json` |
+| T-202 | Component inventory with states (C-01..C-23) | Hamzah + Azra | T-201 | component checklist |
 | T-203 | Screen inventory + route map for both apps | Azra | T-202 | route table confirmed against `14` §4 |
-| T-204 | Copy strings file | Erika | T-202 | `packages/contracts/src/copy.ts` |
-| T-205 | Acceptance + parity checklist per FR | Hamzah | T-102 | checklist in `09` appendix |
-| T-206 | Map the 11 benchmark scenarios to screens | Hamzah | T-203 | scenario→screen table |
+| T-204 | Copy strings file | Hamzah | T-202 | `packages/contracts/src/copy.ts` |
+| T-205 | Acceptance + parity checklist per FR | Erika | T-102 | checklist in `09` appendix |
+| T-206 | Map the 11 benchmark scenarios to screens | Erika | T-203 | scenario→screen table |
 
 ### P3 — Data model & API contract (W2)
 
@@ -93,7 +93,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 |---|---|---|---|---|
 | T-301 | Schema review → numbered migration plan | Iqram | `05` | migration list (`0001_init`…) |
 | T-302 | `packages/contracts` scaffold: types, Zod schemas, error codes, route constants | Iqram | T-301 | compilable package |
-| T-303 | Contract tests (schema round-trip, enum closure, envelope) | Hamzah | T-302 | Vitest suite |
+| T-303 | Contract tests (schema round-trip, enum closure, envelope) | Erika | T-302 | Vitest suite |
 | T-304 | Freeze + tag `contracts@0.1.0` | Iqram | T-302, T-303 | G3 |
 | T-305 | Mock API from contract (dev fixture server) | Iqram | T-304 | `scripts/mock-api` so P6/P7 never block |
 
@@ -107,9 +107,9 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | T-404 | Workspace skeleton: `pnpm-workspace.yaml`, root `package.json`, tsconfig bases, eslint/prettier | Iqram | T-402 | `pnpm install` succeeds |
 | T-405 | `infra/`: compose (api, pg), reverse proxy config (one origin, `/`, `/b`, `/api`) | Iqram | T-403 | `docker compose up` serves the proxy |
 | T-406 | `.env.example` + config loader with schema validation | Iqram | T-404 | documented env contract |
-| T-407 | Seed + dataset generator (deterministic, ID-tagged) | Iqram + Hamzah | T-301 | `scripts/seed --dataset=m1` |
+| T-407 | Seed + dataset generator (deterministic, ID-tagged) | Iqram + Erika | T-301 | `scripts/seed --dataset=m1` |
 | T-408 | CI: typecheck, lint, unit, integration (pg service), e2e skeleton | Iqram | T-404 | green pipeline on `main` |
-| T-409 | Environment parity checklist | Hamzah | T-403 | checked list in `09` appendix |
+| T-409 | Environment parity checklist | Erika | T-403 | checked list in `09` appendix |
 
 ### P5 — Backend development (W3–W6)
 
@@ -123,7 +123,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | T-506 | Notes module (list, CRUD, pinned ordering) | Iqram | T-504 | module + tests |
 | T-507 | Attachments: multipart, sniffing, size limit, storage write, thumbnail, stream endpoint, delete | Iqram | T-505, T-506 | module + tests |
 | T-508 | Dashboard aggregate endpoint | Iqram | T-505, T-506 | module + test |
-| T-509 | Contract tests run against the live API | Hamzah | T-505, T-506, T-507, T-508 | contract suite green |
+| T-509 | Contract tests run against the live API | Erika | T-505, T-506, T-507, T-508 | contract suite green |
 | T-510 | Per-request timing logs for the harness | Iqram | T-501 | log fields documented |
 | T-511 | Maintenance script: session purge, orphan binary sweep, orphan row reconciliation + nightly host cron entry (M1–M3) | Iqram | T-502, T-507 | `db-maintenance` script + crontab line in `infra/` |
 | T-512 | Backup + restore drill: `pg_dump` + uploads archive, one rehearsed restore into a clean stack, dataset checksum compared (NFR-REL-008, M5) | Iqram | T-407 | recorded rehearsal with checksum |
@@ -132,18 +132,18 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 
 | ID | Task | Owner | Depends on | Deliverable |
 |---|---|---|---|---|
-| T-601 | Project setup: `output:'server'`, `@astrojs/node` standalone, runtime API base | Erika | T-404, T-304 | dev server proxies `/api` |
-| T-602 | Sign-in-proxy/transport layer: server-side fetch with cookie forwarding, 401 handling | Erika | T-503, T-601 | `lib/api.ts` |
-| T-603 | Auth pages (login, register) with validation, states | Erika | T-602 | pages + tests |
-| T-604 | App shell, sidebar, nav, account menu, logout | Erika | T-603 | shell |
-| T-605 | Landing page | Erika | T-201 | `/` |
-| T-606 | Dashboard (counts + recent tasks/notes + search entry) | Erika | T-604, T-508 | `/app` |
-| T-607 | Task list: search, filters, pagination, thumbnails | Erika | T-604, T-505 | `/tasks` |
-| T-608 | Task detail + edit + delete confirm + status update | Erika | T-607 | `/tasks/[id]` |
-| T-609 | Notes list + detail + pin + edit/delete | Erika | T-604, T-506 | `/notes`, `/notes/[id]` |
-| T-610 | Attachments UI: dropzone, progress, thumbnails, lightbox, remove | Erika | T-607, T-609, T-507 | shared components |
-| T-611 | Empty/loading/error/success states across screens | Erika | T-603..T-610 | state matrix complete |
-| T-612 | Accessibility + responsive pass | Erika | T-611 | checklist ≥ AA |
+| T-601 | Project setup: `output:'server'`, `@astrojs/node` standalone, runtime API base | Hamzah | T-404, T-304 | dev server proxies `/api` |
+| T-602 | Sign-in-proxy/transport layer: server-side fetch with cookie forwarding, 401 handling | Hamzah | T-503, T-601 | `lib/api.ts` |
+| T-603 | Auth pages (login, register) with validation, states | Hamzah | T-602 | pages + tests |
+| T-604 | App shell, sidebar, nav, account menu, logout | Hamzah | T-603 | shell |
+| T-605 | Landing page | Hamzah | T-201 | `/` |
+| T-606 | Dashboard (counts + recent tasks/notes + search entry) | Hamzah | T-604, T-508 | `/app` |
+| T-607 | Task list: search, filters, pagination, thumbnails | Hamzah | T-604, T-505 | `/tasks` |
+| T-608 | Task detail + edit + delete confirm + status update | Hamzah | T-607 | `/tasks/[id]` |
+| T-609 | Notes list + detail + pin + edit/delete | Hamzah | T-604, T-506 | `/notes`, `/notes/[id]` |
+| T-610 | Attachments UI: dropzone, progress, thumbnails, lightbox, remove | Hamzah | T-607, T-609, T-507 | shared components |
+| T-611 | Empty/loading/error/success states across screens | Hamzah | T-603..T-610 | state matrix complete |
+| T-612 | Accessibility + responsive pass | Hamzah | T-611 | checklist ≥ AA |
 
 ### P7 — Next.js frontend (W4–W8)
 
@@ -168,36 +168,36 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | ID | Task | Owner | Depends on | Deliverable |
 |---|---|---|---|---|
 | T-801 | Compose: api + pg + astro + next + proxy, production builds only | Iqram | T-405, G6a, G6b | one-origin stack |
-| T-802 | Cookie/redirect smoke across both apps under the proxy | Iqram + Hamzah | T-801 | signed-in flow works on `/` and `/b` |
-| T-803 | Cross-app parity run (same dataset, same assertions) | Hamzah | T-802 | parity report |
+| T-802 | Cookie/redirect smoke across both apps under the proxy | Iqram + Erika | T-801 | signed-in flow works on `/` and `/b` |
+| T-803 | Cross-app parity run (same dataset, same assertions) | Erika | T-802 | parity report |
 | T-804 | Fix integration defects, triage list | all | T-803 | defects closed or accepted |
 | T-805 | Documentation of run commands (README) | Iqram | T-801 | onboarding doc |
 
 ### P9 — Functional testing (W9–W10)
 
-| T-901 | Execute the `09` test matrix; log defects with requirement IDs | Hamzah | T-803 |
-| T-902 | Security test pass (auth, ownership, upload, headers) | Hamzah + Iqram | T-901 |
-| T-903 | Accessibility and responsive pass | Hamzah | T-901 |
-| T-904 | Regression re-run after fixes; G8 sign-off | Hamzah | T-903 |
+| T-901 | Execute the `09` test matrix; log defects with requirement IDs | Erika | T-803 |
+| T-902 | Security test pass (auth, ownership, upload, headers) | Erika + Iqram | T-901 |
+| T-903 | Accessibility and responsive pass | Erika | T-901 |
+| T-904 | Regression re-run after fixes; G8 sign-off | Erika | T-903 |
 
 ### P10 — Performance benchmarking (W10–W11)
 
-| T-1001 | Harness: Playwright + Lighthouse driver, run manifest, raw output | Hamzah | T-409 |
-| T-1002 | Dry runs on both apps, threshold/rate-limit sanity | Hamzah | T-1001, T-801 |
-| T-1003 | Cache-cold and cache-warm runs, **≥10 repetitions per scenario** and per app, first repetition discarded, raw samples archived (NFR-RESEARCH-004; this supersedes any smaller count) | Hamzah | T-1002 | raw sample files + summary |
-| T-1004 | Archive raw data + summarize medians/IQR | Hamzah | T-1003 |
+| T-1001 | Harness: Playwright + Lighthouse driver, run manifest, raw output | Erika | T-409 |
+| T-1002 | Dry runs on both apps, threshold/rate-limit sanity | Erika | T-1001, T-801 |
+| T-1003 | Cache-cold and cache-warm runs, **≥10 repetitions per scenario** and per app, first repetition discarded, raw samples archived (NFR-RESEARCH-004; this supersedes any smaller count) | Erika | T-1002 | raw sample files + summary |
+| T-1004 | Archive raw data + summarize medians/IQR | Erika | T-1003 |
 
 ### P11 — Analysis & documentation (W11–W12)
 
-| T-1101 | Results tables + charts per metric and scenario | Hamzah | T-1004 |
+| T-1101 | Results tables + charts per metric and scenario | Erika | T-1004 |
 | T-1102 | Architecture, data, API chapters from `.planning` (rewritten for the report, not copy-pasted) | Iqram | T-1101 |
-| T-1103 | Frontend implementation chapters | Erika + Azra | T-1101 |
-| T-1104 | Threats to validity + limitations section | Hamzah | T-1101 |
+| T-1103 | Frontend implementation chapters | Hamzah + Azra | T-1101 |
+| T-1104 | Threats to validity + limitations section | Erika | T-1101 |
 | T-1105 | Full-document consistency review | all | T-1104 |
 
 ### P12 — Final presentation (W12)
 
-| T-1201 | Slide deck, demo script, live fallback recording | Hamzah | T-1105 |
+| T-1201 | Slide deck, demo script, live fallback recording | Erika | T-1105 |
 | T-1202 | Owner sign-off | project owner | T-1201 |
 
 ## 3. Blocking prerequisites (must clear before P4 completes)
@@ -252,6 +252,6 @@ verification commands; and `.planning/` is updated in the same PR for any shape/
 |---|---|---|
 | G1 blueprint | project owner | Every later phase cites these documents |
 | G3 contract freeze | Iqram, reviewed by Hamzah | Both frontends build on it |
-| G6a/G6b feature-complete | Hamzah (parity checklist) | Divergence must be caught before integration |
-| G9 benchmark complete | Hamzah | Report cannot start on partial data |
+| G6a/G6b feature-complete | Erika (parity checklist) | Divergence must be caught before integration |
+| G9 benchmark complete | Erika | Report cannot start on partial data |
 | G11 final | project owner | Deliverable acceptance |

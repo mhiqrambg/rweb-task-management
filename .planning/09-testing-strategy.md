@@ -47,7 +47,7 @@ Durations are planning budgets, not measurements.
 | **Integration** | Vitest, Node env, real PostgreSQL 16 migrated from empty | API routes through the Fastify instance (`inject` for functional cases), real SQL, real constraints, migrations, transactions, cascades, pagination under mutation, error envelope, request id, log redaction. Every owned-resource operation runs against a second owner. | Mock `pg`, fake a transaction, assert UI selectors or copy in rendered markup, or use the browser. Database constraints are never replaced by validator assertions. | 3-6 min | PR |
 | **E2E per app** | Playwright, two projects (`astro`, `next`), pinned Chromium, composed stack | The 13 journeys, state matrix, deep links, URL-backed list state, dialogs, lightbox, keyboard operation, loading/empty/error/success states, responsive viewports. Both projects execute the same spec files. | Read/write the database with SQL, import API internals, mock the API, assert request counts as a performance claim, or fail on a timing value. Fixtures come from the typed API client. | 8-12 min per project | pre-merge |
 | **Security (API-level)** | Vitest + typed API client over real HTTP; Playwright only for the cases `07` §10 assigns to e2e; build scripts for `S-47/48/51/52` | The security suite in `07` §10 (56 tests in the `S-01..S-63` numbering; non-contiguous, with some rows co-labelled): authentication/session, cross-owner matrix, upload battery, CSRF/origin/redirect, rate limits, headers/CSP/static output/encoding | Go through the UI for an ownership assertion, mock authentication, mock PostgreSQL, or treat a hidden button as a control. | 4-6 min | PR, pre-merge, pre-campaign |
-| **Performance / benchmark** | Playwright + Lighthouse, production builds, composed stack; executed by Hamzah | `08` S1-S11, cold/warm, 11 executed → 10 admitted, three traffic scopes, `INV-01..INV-14`, `AC-B01..AC-B10` | Use dev builds or dev servers, run a campaign in CI, publish CI timings as results, compute a median in CI, or fail a gate on an LCP/INP value. | smoke ≤ 15 min; campaign is a manual block | pre-campaign, release |
+| **Performance / benchmark** | Playwright + Lighthouse, production builds, composed stack; executed by Erika | `08` S1-S11, cold/warm, 11 executed → 10 admitted, three traffic scopes, `INV-01..INV-14`, `AC-B01..AC-B10` | Use dev builds or dev servers, run a campaign in CI, publish CI timings as results, compute a median in CI, or fail a gate on an LCP/INP value. | smoke ≤ 15 min; campaign is a manual block | pre-campaign, release |
 | **Build gates** | Node scripts + Playwright CSP console check | Static-output privacy grep, source-map absence, `NEXT_PUBLIC_*` allowlist, CSP hash-list staleness, Astro `is:inline` absence, migration-from-empty and schema-snapshot diff, lint/typecheck, copy-deck and banned-synonym greps, secret scan | Exercise runtime behaviour, start the app for grep gates, or use a browser except for the CSP console assertion. | 3-5 min | PR |
 
 **70/20/10 split.** Counted by test case, not wall time; each logical scenario counts once even though
@@ -112,7 +112,7 @@ generated report fails when a cited test does not exist.
 
 | Area | Requirement IDs | Level(s) | Test artefact name | Gate |
 |---|---|---|---|---|
-| Performance | `NFR-PERF-001..010` | benchmark, perf smoke, build manifest | `perf/campaign/` (manual, Hamzah); `perf/smoke/`; `perf/manifest.check` | pre-campaign, release |
+| Performance | `NFR-PERF-001..010` | benchmark, perf smoke, build manifest | `perf/campaign/` (manual, Erika); `perf/smoke/`; `perf/manifest.check` | pre-campaign, release |
 | Security | `NFR-SEC-001..014` | integration, security, e2e, build, manual | `security/` six-category suite; `gate/static-privacy`; `gate/csp`; `security/credentials.manual.md` (`S-63`) | PR, pre-merge, pre-campaign |
 | Reliability | `NFR-REL-001..008` | integration, process-level, manual | `api/integration/db-constraints.int.test.ts`; `api/integration/transactions.int.test.ts`; `api/integration/pagination-under-mutation.int.test.ts`; `api/integration/db-down.int.test.ts`; `ops/restore-drill.manual.md` | PR, pre-campaign, release |
 | Accessibility | `NFR-A11Y-001..007` | e2e, a11y, manual | `e2e/a11y-scan.spec.ts`; `e2e/keyboard-journey.spec.ts`; `e2e/zoom-320.spec.ts`; `a11y/manual-screen-reader.md` | pre-merge, release |
@@ -222,7 +222,7 @@ fixture files; failed-test traces are retained as CI artefacts.
 |---|---|---|---|---|---|
 | **Local dev** | Astro dev server, `next dev`, API with `tsx watch`; unit, contract, integration, framework-free logic | `taskapp_dev` migrated from empty; integration uses per-worker databases from the local compose PostgreSQL | Development builds only | Not measured | pre-commit, PR |
 | **CI** | Lint/typecheck, contract, unit, integration, security, build gates, Playwright e2e and parity, migration-from-empty, protocol smoke | Ephemeral `postgres:16`; `taskapp_gate` → template → per-worker databases; `taskapp_e2e`; `taskapp_smoke` | Production builds for e2e and smoke; dev builds for unit only | Pinned Chromium, same version as the campaign | PR, pre-merge, pre-campaign |
-| **Composed measured stack** | Astro standalone, static Next export at `/b`, API, PostgreSQL, nginx on one origin over TLS; campaign run by Hamzah | `taskapp_bench`, seeded `m1`, checksum per repetition | Production only; `NODE_ENV=production`; source maps off; no dev overlay | Pinned Chromium, one host, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
+| **Composed measured stack** | Astro standalone, static Next export at `/b`, API, PostgreSQL, nginx on one origin over TLS; campaign run by Erika | `taskapp_bench`, seeded `m1`, checksum per repetition | Production only; `NODE_ENV=production`; source maps off; no dev overlay | Pinned Chromium, one host, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
 
 The composed stack is the only place where e2e, parity and benchmark results are produced. `next dev` and
 the Astro dev server are never measured (`03` §6.4, NFR-PERF-006). The dev CORS allowlist is absent from
@@ -302,7 +302,7 @@ For every screen × applicable state × viewport (375, 768, 1440), the parity ru
 app after the same settle rule. The pair is compared to itself, not only to a golden:
 
 - **Cross-app diff:** pixel difference ≤ 0.1 % of the frame and zero differences inside text regions after
-  normalisation. A non-zero diff is attached to the report and reviewed by Hamzah; a text difference is a
+  normalisation. A non-zero diff is attached to the report and reviewed by Erika; a text difference is a
   failure regardless of pixel percentage.
 - **Per-app baselines:** each app also keeps its own baseline, so a change affecting both apps identically
   is still caught as a regression.
@@ -339,7 +339,7 @@ manifest. The campaign cannot start without a green report on the exact build id
 CI and the campaign have different jobs. CI proves the protocol still runs; the campaign produces the
 numbers.
 
-| Concern | CI | Campaign (manual, Hamzah) |
+| Concern | CI | Campaign (manual, Erika) |
 |---|---|---|
 | Readiness | `GET /api/v1/health` returns `200` with `db: "ok"`; a stopped database returns `503` and the smoke run refuses to start | Same readiness gate before every campaign |
 | Build identity | Record `astro_build_id`, `next_build_id`, `api_build_id`, `contracts_tag`; refuse to run if any is missing | Same ids in every `run.json`; a pair requires all three to match (`08` §7.3) |
@@ -368,7 +368,7 @@ missing vitals buffer, or a protocol structural predicate. It never fails becaus
 | **G4 — e2e and accessibility** | Pre-merge, after G1-G3 | `pnpm test:e2e && pnpm test:a11y` | Both projects green; zero AA violations in the audited rule set; keyboard journey passes; no console error | Merge |
 | **G5 — security** | Pre-merge; on every PR touching auth, ownership, upload, headers or session code; always before release | `pnpm test:security` | Every applicable case defined in `07` §10 passes (56 tests; the ID range is non-contiguous); cross-owner responses byte-identical to `randomAbsentId`; zero bytes on foreign binaries | Merge |
 | **G6 — parity smoke** | Pre-merge for screens touched by the PR; full matrix before campaign | `pnpm test:parity --grep <touched screens>`; `pnpm test:parity` | 100 % of executed cells pass all eight checks; missing cell = fail | Merge; campaign start |
-| **G7 — pre-campaign** | Before every campaign | `pnpm gate:campaign` | Production builds on the exact reported ids; `/health` ready; `dataset_id` + `checksums.total` match; full parity report green; security suite green; no third-party request; no dev overlay; host-load band recorded | Hamzah — no repetition may start |
+| **G7 — pre-campaign** | Before every campaign | `pnpm gate:campaign` | Production builds on the exact reported ids; `/health` ready; `dataset_id` + `checksums.total` match; full parity report green; security suite green; no third-party request; no dev overlay; host-load band recorded | Erika — no repetition may start |
 | **G8 — pre-release/demo** | Before a release or demo | `pnpm verify:release` | G1-G7 green on the release commit; `AC-B01..AC-B10` true; raw archive path and checksum recorded; §11 exclusions stated in the report | Release/demo |
 
 **Failure policy.** A red gate blocks the merge, not the discussion. The fix is a code change, a corrected
@@ -462,5 +462,5 @@ is stated above rather than hidden behind a green suite.
 | TQ-09 | Which accessibility rules are automated? | WCAG 2.2 AA rules in one pinned scanner, plus keyboard and focus assertions in Playwright; screen-reader and zoom judgement remain manual. |
 | TQ-10 | What happens when the dataset anchor window lapses mid-campaign? | Stop, re-seed with a new `dataset_id`, discard unpaired repetitions, restart the affected cells. |
 | TQ-11 | How is storage failure induced for NFR-REL-003? | Through the storage adapter's test fault hook, not by unmounting a real volume in CI. |
-| TQ-12 | Who owns the generated FR→test map? | Iqram generates it in CI; Hamzah audits it before a campaign; a missing `MUST` FR is a merge blocker. |
+| TQ-12 | Who owns the generated FR→test map? | Iqram generates it in CI; Erika audits it before a campaign; a missing `MUST` FR is a merge blocker. |
 | TQ-13 | Is a failed parity cell ever waivable? | No for a benchmark. For a non-campaign merge, the gate owner may record a waiver only with the user-visible impact and a linked fix. |

@@ -232,7 +232,7 @@ requirement is met differently; it never relaxes the acceptance criteria.
 ## 4. Non-functional requirements
 
 **Numeric targets.** Every number marked `assumed` is an *unvalidated objective*, not a measurement.
-Authoritative performance numbers come from the benchmark protocol (`08`) executed by Hamzah (C-09,
+Authoritative performance numbers come from the benchmark protocol (`08`) executed by Erika (C-09,
 C-11). "TBD by measurement protocol" means the protocol defines the number and this document does not.
 
 ### 4.1 Performance (`NFR-PERF`)
