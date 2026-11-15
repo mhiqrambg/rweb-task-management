@@ -41,12 +41,18 @@ body {
 }
 
 /* The footer links are the landing's only bare links, so they keep the browser underline the
-   Astro base layer leaves in place (1 px, 2 px offset). */
+   Astro base layer leaves in place (1 px, 2 px offset). The skip link is the same: globals.css
+   strips its underline, Astro's base layer does not. */
 .m-footer__links a,
-.m-footer__links a:hover {
+.m-footer__links a:hover,
+.skip-link {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+.skip-link:hover {
+  color: var(--color-accent-hover);
 }
 
 /* ---------------------------------------------------------------- base utilities */
