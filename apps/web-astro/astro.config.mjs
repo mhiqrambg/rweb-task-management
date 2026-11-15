@@ -1,17 +1,23 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import node from '@astrojs/node';
+import cloudflare from '@astrojs/cloudflare';
 
 /**
  * Astro SSR (MPA), .planning/03 §2 and §6.4:
- * - output 'server' + @astrojs/node standalone: HTML is rendered per navigation, cookie included.
- * - dev proxy: /api -> Fastify on 3001, so dev is same-origin and no CORS is needed.
+ * - output 'server' + @astrojs/cloudflare: HTML is rendered per navigation, cookie included, on
+ *   Cloudflare Workers. Pure Cloudflare free tier — no Node host, no Docker Compose.
+ * - dev proxy: /api -> wrangler dev on 8787, so dev is same-origin and no CORS is needed.
  * - no client hydration for page data (R-A5); islands are UI-only (dialog, lightbox, dropzone).
+ * - no `server.port`: a Worker has no listen port; `wrangler dev` serves it on 8787.
  */
 export default defineConfig({
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
-  server: { port: 4321, host: true },
+  adapter: cloudflare({ platformProxy: { enabled: true }, imagesBindingName: false }),
+  // `imagesBindingName: false` and `session: false` keep this on the Cloudflare free tier: no
+  // Images binding (images live in R2, not re-optimised by Astro) and no KV session binding (this
+  // app owns its session via the `sid` cookie to the API Worker).
+  imageService: 'passthrough',
+  session: false,
   devToolbar: { enabled: false },
   // CSP is `style-src 'self'` (07 §6.5): no stylesheet may be inlined into the document.
   build: { inlineStylesheets: 'never' },
@@ -28,7 +34,7 @@ export default defineConfig({
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'http://localhost:8787',
           changeOrigin: false,
         },
       },

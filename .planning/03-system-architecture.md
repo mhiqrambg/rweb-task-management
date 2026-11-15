@@ -29,10 +29,10 @@ Two roles only (`00` §4). A **Visitor** reaches the landing, login and register
 the owner of every row they can see — reaches the dashboard, tasks, notes, account and attachment
 binaries. No admin, no sharing, no public content, no second authorization axis.
 
-The system boundary is one Cloudflare zone and one origin. Everything needed runs inside it: two frontend
-deliverables, one Worker, one D1 database, one R2 bucket. There is **no external system** other than the
-browser and the Cloudflare edge (zone routing, TLS material). No email transport (A-06), no CDN, no
-analytics (NFR-OBS-004 forbids third-party requests outright).
+The system boundary is one Cloudflare zone and one Cloudflare-hosted origin. Everything needed runs inside
+it: two frontend deliverables, Workers, one D1 database and one R2 bucket. There is **no external system**
+other than the browser and Cloudflare edge (zone routing, with TLS terminating at the edge). No email
+transport (A-06), no CDN, no analytics (NFR-OBS-004 forbids third-party requests outright).
 
 ```mermaid
 flowchart LR
@@ -54,15 +54,15 @@ boundary but are never reachable from the browser.
 
 ## 2. Architecture style and components
 
-**Deliverable shape: 3 deployables + 1 database + 1 origin.**
+**Deliverable shape: 3 deployables + 1 database + 1 Cloudflare-hosted origin.**
 
 | # | Deliverable | Runtime form | Deployable? |
 |---|---|---|---|
 | 1 | `apps/api` | Cloudflare Worker script (Hono), no listen port | yes |
-| 2 | `apps/web-astro` | Astro on-demand server (`@astrojs/node`, standalone), port 4321 | yes |
+| 2 | `apps/web-astro` | Astro on-demand SSR Worker (`@astrojs/cloudflare` adapter) | yes |
 | 3 | `apps/web-next` | Next static export artifact — **no runtime process**; files served by the Cloudflare edge | yes (build artifact) |
 | 4 | D1 | one database, one schema | datastore |
-| 5 | Cloudflare zone routing | one origin in front of all of the above | infrastructure, not a product application |
+| 5 | Cloudflare zone routing / Workers routes | provides the Cloudflare-hosted origin for all of the above | infrastructure, not a product application |
 
 The style is a **modular monolith API inside a three-deployable system** (ADR-01, ADR-15). Modules share
 one Worker, one D1 binding and one migration history; they are separated by directory, route
@@ -141,16 +141,19 @@ database; binary removal is a separate storage call performed after the transact
 ## 3. Rendering paths
 
 The two frontends are not two configurations of one design. They produce HTML at different times, from
-different processes, with different data available. Everything below follows from that.
+different execution models, with different data available. Everything below follows from that.
 
 ### 3.1 Astro — on-demand SSR, multi-page navigation
 
 - **The adapter is mandatory.** On-demand rendering requires an adapter; `output: 'server'` only flips
-  the per-route default. This project uses `@astrojs/node` in `mode: 'standalone'`: standalone owns its
-  HTTP server, which is the unit the Cloudflare zone routes to as the Astro origin.
-  `mode: 'middleware'` would only help if we already ran a Node server to embed in; we do not.
+  the per-route default. This project uses `@astrojs/cloudflare` to run Astro as a Worker, routed on the
+  same Cloudflare-hosted origin as the API and static Next assets. `astro.config.mjs` sets
+  `adapter: cloudflare(...)` and has no `server.port`; the Worker has no listen port.
   (docs.astro.build/en/guides/on-demand-rendering; ADR-13 records the adapter as a choice among the four
   official adapters, not a law.)
+- **Free-tier bindings.** `imagesBindingName: false` and `session: false` mean no Cloudflare Images
+  binding and no KV session binding. Images live in R2; the app owns its session through the `sid` cookie
+  sent to the API Worker.
 - **`prerender` per route.** Because `output: 'server'` makes every route on-demand by default, each page
   declares `export const prerender = false` explicitly, so a future global default change cannot silently
   prerender a per-user page. A repository test asserts every page module contains that declaration.
@@ -177,7 +180,7 @@ different processes, with different data available. Everything below follows fro
   (`PUBLIC_API_BASE_URL`, e.g. `https://<origin>/api/v1`) read via `process.env` at request time — never
   `import.meta.env`, which is inlined at build.
 - **Writes.** Forms post to Astro endpoints (`src/pages/*.ts` handlers such as `POST /tasks/create`) which
-  proxy to the API, forward `Set-Cookie` from login/register verbatim, then answer `303` to the
+  forward requests to the API, pass `Set-Cookie` from login/register verbatim, then answer `303` to the
   destination with a short-lived `flash` cookie carrying the success wording (FR-UI-004 must survive the
   reload an MPA performs).
 - **Navigation.** Every navigation is a new document: new HTML, revalidated hashed CSS/JS, fresh image
@@ -428,7 +431,7 @@ and cascades attachment rows.
 | `HttpOnly` | yes — no script access, no duplication into storage | FR-AUTH-004, FR-AUTH-012 |
 | `SameSite` | `Lax` | NFR-SEC-006: blocks cookie attachment on cross-site unsafe methods while keeping top-level navigation usable |
 | `Path` | `/` | one cookie for `/`, `/b` and `/api` |
-| `Domain` | absent (host-only) | prevents subdomain leakage; only one host exists |
+| `Domain` | absent | prevents cookie scope from extending to subdomains; all apps share the Cloudflare-hosted origin |
 | `Secure` | set in production (Worker env) | NFR-SEC-003; the measured stack runs over TLS at the Cloudflare edge so the production-shaped cookie works |
 | `Max-Age` | 604800 (7 days) at login; re-issued with the remaining absolute lifetime on refresh | api-surface cookie contract |
 | Server storage | `sessions.token_hash` = SHA-256 of the token (`BLOB`, unique, `CHECK length(token_hash) = 32`). The plaintext token never persists | NFR-SEC-002 |
@@ -465,48 +468,54 @@ The server is the only place a rule is decided (G-2, NFR-SEC-004). Each row name
 
 ### 6.1 Topology
 
+The accepted Cloudflare Workers free-tier limits are 100,000 requests/day, 10 ms CPU/request, and 50
+subrequests/request. Argon2id password hashing and `@jsquash` image decoding/thumbnail generation are CPU-
+heavy operations that remain part of the design and may approach or exceed the CPU budget; this is a known
+platform constraint, not a reason to remove either operation. There is no Node process, no listening port,
+and no container/Docker/Compose deployment; Cloudflare zone routing / Workers routes provide the shared origin.
+
 ```mermaid
 flowchart LR
   Harness["Benchmark harness - Playwright + Lighthouse on the host"]
   Dev["Developer browser"]
-  subgraph Edge["One Cloudflare zone - one origin"]
-    Proxy["Cloudflare edge - zone routing, TLS, one origin"]
-    AstroC["web-astro origin - Astro node standalone :4321"]
+  subgraph Edge["Cloudflare zone - one origin"]
+    CFRoute["Cloudflare edge - zone routing, Workers routes, TLS"]
+    AstroC["web-astro - Astro on @astrojs/cloudflare (Worker)"]
     ApiC["api - Cloudflare Worker (Hono), no port"]
     DbC[("D1 database - internal only")]
     StaticB["next export artifact served by the zone at /b/*"]
     Vol[("R2 bucket - binaries and thumbnails")]
     Logs["Worker JSON logs - tail / Logpush"]
   end
-  Dev -->|"https one origin"| Proxy
-  Harness -->|"https one origin, same host"| Proxy
-  Harness -->|"readiness gate"| Proxy
-  Proxy -->|"/ and /login and /app and /tasks and /notes"| AstroC
-  Proxy -->|"/b/* static export"| StaticB
-  Proxy -->|"/api/*"| ApiC
+  Dev -->|"same-origin HTTPS"| CFRoute
+  Harness -->|"same-origin HTTPS"| CFRoute
+  Harness -->|"readiness gate"| CFRoute
+  CFRoute -->|"/ and app paths"| AstroC
+  CFRoute -->|"/b/* static export"| StaticB
+  CFRoute -->|"/api/*"| ApiC
   ApiC --> DbC
   ApiC --> Vol
   AstroC -->|"server-side fetch to public origin /api"| ApiC
   ApiC --> Logs
 ```
 
-There is no `web-next` process in production: the export artifact is a directory served by the zone
-(see §12, O-1). One origin, one zone, no horizontal scaling (A-03).
+There is no `web-next` process in production: its static export is served by Cloudflare at `/b/*`
+(see §12, O-1). Cloudflare zone routing and Workers routes provide one origin; horizontal scaling is out of scope (A-03).
 
 ### 6.2 Path table
 
 | Path | Served by | Notes |
 |---|---|---|
-| `/` | Astro origin (`:4321`) | Astro owns the root; on-demand for the cookie-aware CTA |
-| `/login`, `/register`, `/app`, `/tasks*`, `/notes*`, `/account`, `/404` | Astro origin (`:4321`) | all on-demand |
-| `/b/`, `/b/login`, `/b/register`, `/b/app/`, `/b/404.html` | zone static `root /srv/b` | static export; directory-index resolution to `/b/404.html` |
-| `/b/_next/*` | zone static `root /srv/b` | immutable hashed assets, long `Cache-Control` |
-| `/api/*` | Worker | prefix preserved; Hono routes `/api/v1/*` |
-| `/uploads/*` | zone `return 404` | never routed to an origin |
-| `/healthz` | zone static file | zone liveness only, no application data |
+| `/` | Astro `@astrojs/cloudflare` Worker | Astro owns the root; on-demand for the cookie-aware CTA |
+| `/login`, `/register`, `/app`, `/tasks*`, `/notes*`, `/account`, `/404` | Astro `@astrojs/cloudflare` Worker | all on-demand |
+| `/b/`, `/b/login`, `/b/register`, `/b/app/`, `/b/404.html` | Cloudflare static assets | Next static export, served at `/b/*` |
+| `/b/_next/*` | Cloudflare static assets | immutable hashed assets, long `Cache-Control` |
+| `/api/*` | API Worker | prefix preserved; Hono routes `/api/v1/*` |
+| `/uploads/*` | Cloudflare zone route returns `404` | never routed to a Worker |
+| `/healthz` | Cloudflare static asset | zone liveness only, no application data |
 
-Route order in the zone is `/b/`, `/api/`, `/uploads/` before `/` — otherwise the Astro catch-all would
-swallow the Next artifact and the Worker.
+Cloudflare zone routing / Workers routes select `/b/*`, `/api/*`, `/uploads/*` and `/` handling; the Astro
+Worker owns app routes; it is not a catch-all routing layer.
 
 ### 6.3 Health, readiness, logs, harness access
 
@@ -520,20 +529,20 @@ swallow the Next artifact and the Worker.
   (NFR-OBS-001, NFR-OBS-004).
 - Harness access: Playwright drives `https://<origin>/` and `https://<origin>/b/` through the zone, in the
   same browser, viewport and network profile, never while the other app is under load (NFR-PERF-007).
-  TLS terminates at the Cloudflare edge with the zone certificate; the Playwright context sets
-  `ignoreHTTPSErrors` so the certificate is not a variable, while the scheme stays `https` so `Secure`
-  cookies behave as in production.
+  TLS terminates at the Cloudflare edge with the zone certificate; the measured stack uses that trusted
+  HTTPS origin so `Secure` cookies behave as in production.
 
 ### 6.4 Development equivalent, and why it is never measured
 
 | App | Dev mechanism | Consequence |
 |---|---|---|
-| `web-astro` | Astro dev server with a Vite `server.proxy` entry for `/api` → `http://localhost:8787` | same-origin in dev; no CORS needed |
+| `web-astro` | `astro dev` serves the page shell; Vite dev proxy routes `/api` → `http://localhost:8787` | Astro page shell plus API Worker dev server; no CORS needed |
 | `web-next` | `next dev` cannot use `rewrites` under `output: 'export'`; it uses an absolute `NEXT_PUBLIC_API_BASE_URL=http://localhost:8787/api/v1` plus a dev-only CORS allowlist `['http://localhost:3000']` with `credentials: true` | ports differ but the site is the same, so the `Lax` cookie still travels (cookie scope ignores ports); CORS is still required because the origin differs. `origin: '*'` must never be used — with `credentials: true` browsers reject it. `Secure` is off because dev is `http` |
 | `api` | `wrangler dev` on `:8787`, with local D1/R2 under `.wrangler/state` | no `tsx watch`: the Worker runs under `wrangler dev` |
 
-Dev servers are excluded from all measurement (C-09, NFR-PERF-006); the dev CORS allowlist is registered
-only outside production and is absent from the measured stack.
+Local dev servers are excluded from measurement (C-09, NFR-PERF-006). Production preview uses `wrangler dev`
+on the built Astro Worker; the dev CORS allowlist is registered only outside production and is absent
+from the measured stack.
 
 ## 7. Repository and project structure
 
@@ -546,7 +555,7 @@ rweb-task-management/
 │   │   ├── test/{unit,integration}/
 │   │   ├── wrangler.jsonc        # Worker config: D1 + R2 bindings, compat date, routes, Cron Triggers
 │   │   └── .wrangler/state/      # local dev D1/R2 state (gitignored) — replaces the dev upload root
-│   ├── web-astro/                # Astro 7.4.x, output 'server', @astrojs/node standalone
+│   ├── web-astro/                # Astro 7.4.x, output 'server', @astrojs/cloudflare Worker
 │   │   └── src/{pages,layouts,components,lib,styles,assets}/
 │   └── web-next/                 # Next.js 16.4.x App Router, output 'export', basePath '/b'
 │       └── src/{app,components,lib,styles}/
@@ -606,8 +615,8 @@ different session semantics than the documented ones.
 
 **Root scripts.** `dev`, `build`, `test`, `test:e2e`, `lint`, `typecheck`, `db:migrate`, `db:seed`,
 `bench`, plus `db:sweep` for §11. `db:migrate` = `wrangler d1 migrations apply`; the §11 sweep runs as a
-Worker Cron Trigger. `build` produces the Astro standalone server and the Next export; the
-measured stack runs `build` output only.
+Worker Cron Trigger. `build` produces the Astro Worker and the Next static export; the
+measured stack runs production build output only.
 
 **Branching and review.** Trunk-based: short-lived `feat/<area>-<slug>`, `fix/…`, `docs/…` branches off
 `main`; conventional commits; a PR needs one review, green `typecheck`/`lint`/`test`, no direct pushes to
@@ -659,7 +668,7 @@ screen-local string (NFR-MAINT-006).
 | Maintainability and contract single source | NFR-MAINT-001/002/005/006 | `packages/contracts` as the only shape source; dependency-direction rules; one copy deck | `09`; repo rules |
 | Observability | NFR-OBS-001..005 | Worker `console.log` JSON (one object per request) with request id and acting user id → Workers tail/Logpush; server-timing; zero third-party requests | `08` log/trace sample |
 | Research validity | NFR-RESEARCH-001..009 | one origin, one Worker, one D1 database, one dataset; parity gate before runs; build id per run | `08` |
-| Compatibility | NFR-COMPAT-003/004 | recorded Workers compat date + D1 + browser (pinned Chromium); Astro pinned via Node adapter; one origin | `10`; `08` manifest |
+| Compatibility | NFR-COMPAT-003/004 | recorded Workers compat date + D1 + browser (pinned Chromium); Astro on `@astrojs/cloudflare`; Cloudflare zone routing / Workers routes provide one origin | `10`; `08` manifest |
 
 ## 10. Technology justification table
 
@@ -682,7 +691,7 @@ screen-local string (NFR-MAINT-006).
 | `file-type` | current | NFR-SEC-009 (magic-byte sniffing) | Extension/MIME trust → renamed-file bypass | Baseline |
 | `@jsquash` (Wasm WebP/JPEG codec) | current | FR-ATT-004 (≤320 px thumbnail), FR-ATT-010 (dimensions), decode validation | No thumbnails; list payloads carry full images; CLS budget unenforceable | Baseline |
 | `zod` | current | ADR-09, NFR-MAINT-001 | Duplicated validators in three packages | Baseline |
-| Astro + `@astrojs/node` | **7.4.x**, standalone | C-01, FR-AUTH-008 (server gate) | No SSR path; comparison impossible | Baseline |
+| Astro + `@astrojs/cloudflare` | **7.4.x**, Worker | C-01, FR-AUTH-008 (server gate) | No SSR path; comparison impossible | Baseline |
 | Next.js + React | **16.4.x**, `output: 'export'` | C-02 | No SSG path; comparison impossible | Baseline |
 | Vitest + `@cloudflare/vitest-pool-workers` | current | ADR-14, NFR-MAINT-003 | Slower suite, worse ESM ergonomics; no real-D1 integration tests | Baseline |
 | Playwright | current, pinned Chromium | NFR-COMPAT-001, NFR-RESEARCH-004; also the benchmark driver | No reproducible browser; INP unmeasurable | Baseline |
@@ -693,7 +702,7 @@ screen-local string (NFR-MAINT-006).
 | CDN | — | **No confirmed driver**; NFR-OBS-004 forbids third-party origins | No gain on one origin; would add a variable to the benchmark | **Optional / deferrable** |
 | Worker Cron Triggers | current | §11 session purge + orphan sweep; single-runner per schedule | Cleanup must be scheduled another way | Baseline |
 | APM / OpenTelemetry collector | — | **No confirmed driver**: NFR-OBS-001..004 are satisfied by Worker JSON logs + server-timing | No distributed traces; not required | **Optional / deferrable** |
-| Kubernetes | — | **No confirmed driver**: one host, four part-time contributors (A-05) | Entirely disproportionate operational burden | **Rejected** |
+| Kubernetes | — | **No confirmed driver**: four part-time contributors (A-05) | Entirely disproportionate operational burden | **Rejected** |
 
 ## 11. Operational mechanisms
 
@@ -716,7 +725,7 @@ nothing competes with request latency during a measured run.
 
 | # | Item | Objection / question | Evidence | Proposed resolution |
 |---|---|---|---|---|
-| O-1 | Locked topology lists `/b/*` upstream as `web-next:3000` "(static files via a proxy `root`)" | These are two different deployment shapes: a `web-next:3000` upstream implies a static file-server; a proxy `root` implies no process | `arch-fixed-inputs.md` §1 | Resolved as **the artifact is mounted at `/srv/b` and served by the Cloudflare zone**; there is no Next runtime. A static file-server here would add nothing to the comparison |
+| O-1 | Locked topology lists `/b/*` upstream as `web-next:3000` (static files) | This describes a server process, while the confirmed deployment uses static assets | `arch-fixed-inputs.md` §1 | Resolved as **the Next static export is served by Cloudflare at `/b/*`**; there is no Next runtime. A static file-server here would add nothing to the comparison |
 | O-2 | Locked tree annotates `web-astro` as "Astro 5" and `web-next` as "Next.js 15 App Router" | Contradicts the verified facts (Astro 7.4.x, Next 16.4.x), which explicitly override | fixed inputs §3 vs §7 | Tree comments corrected to 7.4.x / 16.4.x; the §7 table wins |
 | O-3 | `GET /api/v1/health` returns `{ status, db }` only | NFR-REL-007 requires readiness to reflect **database and storage**; the storage signal is missing and the harness cannot gate on it | api-surface #22; NFR-REL-007 | Add `checks: { db, storage }` to the health payload (shape change → needs approval). Until then the harness gates on `status` and treats a storage failure as an upload-test failure, not a readiness failure |
 | O-4 | Locked module list is `{auth,tasks,notes,attachments,health}` | Endpoint #7 `/dashboard` exists with aggregate semantics but belongs to no listed module | api-surface #7 vs fixed inputs §3 | Add `modules/dashboard/` (read-only aggregate). No new endpoint, no new table |

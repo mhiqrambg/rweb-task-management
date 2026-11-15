@@ -117,8 +117,7 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 
 - `apps/api` — Workers REST API (Hono), authentication, authorization, validation, upload handling, binary
   serving, D1 access, migrations.
-- `apps/web-astro` — Astro SSR app (Node adapter), server-rendered pages, form posts / server-side
-  fetch to the API.
+- `apps/web-astro` — Astro SSR app on the `@astrojs/cloudflare` adapter as a Worker, with server-rendered pages, form posts / server-side fetch to the API.
 - `apps/web-next` — Next.js static export, client-side data fetching and routing.
 - `packages/contracts` — types, Zod schemas, error codes, route constants.
 - `packages/design-tokens`, `assets/` — shared visual tokens and static media.
@@ -161,7 +160,7 @@ existing practice.
 | Ref | Use |
 |---|---|
 | `local://phase1-scope.md` | Authoritative product intent for this phase |
-| Astro docs — on-demand rendering, `@astrojs/node` adapter | Stage 4 rendering model |
+| Astro docs — on-demand rendering, `@astrojs/cloudflare` adapter | Stage 4 rendering model |
 | Next.js docs — `output: 'export'` unsupported features | Stage 4 rendering model |
 | web.dev — Core Web Vitals (LCP/CLS/INP) definitions and thresholds | Stage 9 |
 | OWASP ASVS 4.0.3, OWASP Cheat Sheet Series (sessions, file upload, CSRF) | Stage 8 |
@@ -176,21 +175,21 @@ themselves (see `12-architecture-review.md` §5).
 |---|---|---|
 | A-01 | Academic project with a fixed deadline; absolute dates unknown, so the roadmap is expressed in **weeks** (W1..W12) | Re-scale phase durations; phase order and dependencies hold |
 | A-02 | Single-tenant product: a user sees only their own rows; no sharing | Adds a membership table and a second authorization axis (out of scope, would reopen 05/06/07) |
-| A-03 | Deployment target is one custom origin behind Cloudflare zone routing; all apps behind one origin | Different origins → cookie `SameSite`/CORS changes (ADR-05 alternatives cover it) |
+| A-03 | Deployment target is one Cloudflare-hosted origin provided by Cloudflare zone routing; all apps share that origin | Different origins → cookie `SameSite`/CORS changes (ADR-05 alternatives cover it) |
 | A-04 | Benchmark dataset generated synthetically (per user: 50 tasks, 50 notes, 3 images ≤ 1 MB) | Dataset spec changes; protocol and metric definitions do not |
 | A-05 | Four part-time contributors; ~10–12 effective hours/week each | Timeline stretches; critical path unchanged |
 | A-06 | No email verification, no password reset, no email change flow | Adds mail transport + token tables + two endpoints |
 | A-07 | Attachments: `image/jpeg`, `image/png`, `image/webp`; ≤ 5 MB each; ≤ 10 per task/note | Limits are constants in `packages/contracts`; one-line change plus migration-free |
-| A-08 | Runtime: Cloudflare Workers with D1 and R2 bindings on this machine; Node 24 LTS locally for tooling (Node 26 LTS is current; 22 and 24 also LTS), Node floor ≥ 22.23.4 as required by Astro 7; pnpm 9 | Version drift only; Astro 7 documents ≥ 22.23.4 and Next 16 documents ≥ 20.9, both satisfied |
+| A-08 | Runtime: Cloudflare Workers with D1 and R2 bindings; Node 24 LTS locally for tooling (Node 26 LTS is current; 22 and 24 also LTS), Node floor ≥ 22.23.4 as required by Astro 7; pnpm 9 | Version drift only; Astro 7 documents ≥ 22.23.4 and Next 16 documents ≥ 20.9, both satisfied |
 | A-09 | Responsive target desktop-first, breakpoints 640/768/1024/1280 | Token changes only |
-| A-10 | Benchmark browser is Playwright-pinned Chromium on one machine, one viewport (1440×900) | Protocol rerun with a different pinned browser |
+| A-10 | Benchmark browser is Playwright-pinned Chromium at one viewport (1440×900) | Protocol rerun with a different pinned browser |
 
 Requirement-level assumptions `A-11`..`A-21` (password policy, session lifetime, field limits, counter
 definitions, date-only due date, thumbnail rendition, post-registration behaviour, page size, partial
 uploads, language, extra dashboard statistics) are defined once, in `01-requirements.md` §7. They are
 not repeated here. Design- and protocol-level assumptions are defined once each where they are used:
-`A-22`..`A-25` in `03` (proxy version, framework constraints, native module), `A-26`..`A-29` in `07` §12
-(upload decode limits, decode queue, proxy header handling, body cap), `A-30`..`A-46` in `08` Appendix A
+`A-22`..`A-25` in `03` (zone-routing version, framework constraints, native module), `A-26`..`A-29` in `07` §12
+(upload decode limits, decode queue, edge header handling, body cap), `A-30`..`A-46` in `08` Appendix A
 (benchmark protocol constants). `A-23` is intentionally unused.
 
 ## 12. Open questions

@@ -101,8 +101,8 @@ flowchart TB
 | Anonymous internet | Any request, no cookie | Enumerate, register, brute force, flood | Yes |
 | Member (owner) | Valid session, own rows | Legitimate use; accidental cross-tenant access via a bug | Yes |
 | Another member | Valid session, foreign ids | Read/destroy others' content, plant content | Yes |
-| Benchmark harness | Scripted browser on the host | Valid measurements; accidental data mutation | Yes (integrity, not access) |
-| Teammate with repo/host access | Deploy, read env, read dumps | Full control by design | Out of application scope (trusted, auditable) |
+| Benchmark harness | Scripted browser on the local runner | Valid measurements; accidental data mutation | Yes (integrity, not access) |
+| Teammate with repo/Cloudflare account access | Deploy, read env, read dumps | Full control by design | Out of application scope (trusted, auditable) |
 
 ## 2. Authentication
 
@@ -493,7 +493,7 @@ Severity is impact × likelihood *under this design's controls*, with the reason
 | T-33 | Log injection via newlines/control characters in UA, `q` or a header | api logs | Repudiation | Forged or unreadable audit trail | Low | **Low** — structured JSON escapes; no string interpolation into a line | Worker JSON serialization; fixed field set; enums for outcomes | Logger config §8.1 | Beta | S-60 |
 | T-34 | Attachment bytes lingering after delete (client cache, orphan R2 object) | browser cache, R2 bucket | Info disclosure | Deleted image still visible to that browser | Medium | **Low** — same-device only | Every new request `404`s; orphan sweep over R2 keys with a 24 h age guard; `private` cache | `attachments` §5.3 | Beta | S-61 |
 | T-35 | Health endpoint used for reconnaissance | api health | Info disclosure | Confirms DB availability | High (public) | **Low** — availability is already observable; no data | Payload limited to `{status, db}` today, with `{status, db, storage}` (R2 `head()`) pending D-5; no version, binding names, counts or error text | `health` §4.2 #22 | Beta | S-49 |
-| T-36 | Benchmark evidence tampering or contamination (dataset drift, mismatched build ids) | seed, harness | Tampering | Invalid or unfalsifiable comparison | Medium (four contributors, one host) | **Medium** — the deliverable's credibility | Deterministic seed; dataset checksum in the manifest; no pairing across build ids; PR review | seed + manifest `08` | Beta | S-62 |
+| T-36 | Benchmark evidence tampering or contamination (dataset drift, mismatched build ids) | seed, harness | Tampering | Invalid or unfalsifiable comparison | Medium (four contributors, one pinned Cloudflare runtime/region) | **Medium** — the deliverable's credibility | Deterministic seed; dataset checksum in the manifest; no pairing across build ids; PR review | seed + manifest `08` | Beta | S-62 |
 | T-37 | Harness credentials or seeded accounts reused outside the lab | harness | Spoofing | Access to benchmark accounts | Low | **Low** — seeded accounts hold synthetic data only | Seed-generated strong passwords in a gitignored file; synthetic dataset (A-04) | seed script §7.2 | Beta | S-63 |
 
 ## 10. Security test plan

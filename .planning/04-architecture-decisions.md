@@ -227,14 +227,14 @@ Status: Proposed · Deciders: project owner (approval pending)
 `Access-Control-Allow-Origin: *` with `credentials: true` is rejected by browsers; reflecting any origin
 is documented as unsafe in production. `credentials: 'include'` is a browser/CORS rule requiring a
 concrete allowed origin and, for cross-site cookies, `SameSite=None; Secure`. FR-AUTH-013 requires logout
-to invalidate the session in other tabs, so cookie scope must be one host, not per app subdomain.
+to invalidate the session in other tabs, so both apps and the API must share the Cloudflare-hosted origin, not separate app subdomains.
 
-**Problem.** Should the two frontends and the API share one origin, or be served from separate origins
-with CORS?
+**Problem.** Should the two frontends and the API share the Cloudflare-hosted origin or be served from
+separate origins with CORS?
 
 **Options considered.**
-1. One origin via Cloudflare zone routing: `/` → Astro origin, `/b/*` → Next static asset, `/api/*` →
-   Worker, `/uploads/*` → hard 404 (chosen).
+1. One Cloudflare-hosted origin via Cloudflare zone routing / Workers routes: `/` → Astro Worker,
+   `/b/*` → Next static assets, `/api/*` → API Worker, `/uploads/*` → hard 404 (chosen).
 2. Separate origins with a concrete CORS allowlist and `credentials: true`. Works, but forces
    `SameSite=None` (weakening CSRF posture relative to `Lax`), makes every JSON request preflighted
    (`application/json` is not safelisted), and makes the upload endpoint — whose `multipart/form-data`
@@ -243,27 +243,27 @@ with CORS?
    ports while `Origin` differs; CORS becomes mandatory while `SameSite` semantics stay same-site. A
    confusing middle ground with no benefit.
 
-**Decision.** Option 1. The Cloudflare zone routes `/api/*` to the Worker, `/b/*` to the Next static
-assets, `/` to the Astro origin, and returns a hard 404 for `/uploads/*`. No reverse-proxy config file is
-deployed; the route table in the zone is the whole mechanism. Workers CORS middleware is **not registered
-in production** and appears only in the dev configuration with a single concrete origin
+**Decision.** Option 1. Cloudflare zone routing / Workers routes send `/api/*` to the API Worker, `/b/*`
+to the Next static assets, `/` and Astro app paths to the Astro `@astrojs/cloudflare` Worker, and return a
+hard 404 for `/uploads/*`. The zone's route configuration is the routing mechanism. Workers CORS middleware
+is **not registered in production** and appears only in the dev configuration with a single concrete origin
 (`http://localhost:3000`, `credentials: true`).
 
 **Rationale.** One origin makes the cookie first-party with `SameSite=Lax`, `HttpOnly`, `Path=/` and no
-`Domain` (NFR-SEC-003) — exactly what FR-AUTH-004 specifies — with no CORS surface to misconfigure. It
+`Domain` (NFR-SEC-003), exactly what FR-AUTH-004 specifies, with no CORS surface to misconfigure. It
 satisfies NFR-COMPAT-004 literally, removes the preflight from every measured interaction (which would
-otherwise contaminate INP and payload metrics), and keeps the two apps addressable by path rather than by
-host.
+otherwise contaminate INP and payload metrics), and keeps the two apps addressable by path on the same
+Cloudflare-hosted origin.
 
-**Trade-offs.** The zone route table is a single point of configuration that can silently route the Astro
-catch-all over `/api` if ordering is wrong. Path-prefixing means the Next app must carry
+**Trade-offs.** The zone route table is a single point of configuration that can silently route Astro app
+paths over `/api` if route selection is wrong. Path-prefixing means the Next app must carry
 `basePath: '/b'` everywhere and the API must keep `/api/v1`. Local development cannot perfectly reproduce
 one origin for Next, so a dev-only CORS path exists and must never reach production.
 
 **Consequences.** The route table is asserted by a smoke check that `/`, `/b/`, `/api/v1/health` and
 `/uploads/x` return the expected status each. `APP_ORIGIN` is the only accepted `Origin` for unsafe
-methods (NFR-SEC-006). The measured stack runs over TLS so `Secure` cookies behave as in production; the
-harness trusts the lab certificate. Any future separate frontend host reopens this ADR.
+methods (NFR-SEC-006). The measured stack uses HTTPS with TLS terminating at the Cloudflare edge, so `Secure` cookies behave as
+in production. Any future separate frontend origin reopens this ADR.
 
 ### ADR-06 — Server-side opaque sessions in the `sid` cookie, not JWT
 
@@ -316,7 +316,7 @@ invalidation.
 Status: Proposed · Deciders: project owner (approval pending)
 
 **Context.** C-06 requires image binaries outside the database with metadata inside. A-07 fixes the format
-allowlist, 5 MB per file, 10 per target. A-03 fixes one host. FR-ATT-004 requires a ≤320 px thumbnail
+allowlist, 5 MB per file, 10 per target. A-03 fixes a Cloudflare-hosted origin provided by zone routing. FR-ATT-004 requires a ≤320 px thumbnail
 rendition; FR-ATT-008 requires binaries retrievable only within the owner's session; NFR-SEC-010 requires
 non-enumerable keys and no public addressability. NFR-REL-003 requires no served row without a readable
 binary.
@@ -597,8 +597,8 @@ request?
    FR-AUTH-004/012 and would add a second cookie contract.
 
 **Decision.** Option 1. `/` is on-demand like every other Astro route; the CTA is decided from the
-forwarded cookie before any HTML exists; there is no client fetch on the Astro landing. The Astro app
-keeps the Node adapter (ADR-10 pin) so it runs as an SSR origin behind the zone route (ADR-05).
+forwarded cookie before any HTML exists; there is no client fetch on the Astro landing. Astro runs on the
+`@astrojs/cloudflare` adapter as a Worker, reached through Cloudflare zone routing / Workers routes (ADR-05).
 
 **Rationale.** FR-LAND-003 and FR-LAND-005 are both `MUST` and both confirmed; options 2 and 3 each break
 one of them. Prerendering also cannot reduce Astro's measured cost honestly, because the requirement makes
@@ -671,9 +671,9 @@ multi-region or zero-downtime deploys.
 **Problem.** How is the stack deployed and operated so that any team member can reproduce a measured run?
 
 **Options considered.**
-1. Cloudflare deploy: the Worker (API) on a `/api/*` route, Astro SSR on the Node adapter behind the same
-   origin, Next static assets on `/b/*`, D1 for state, R2 for binaries, all on one custom origin over TLS
-   (chosen).
+1. Cloudflare deploy: API Worker on a `/api/*` route, Astro on the `@astrojs/cloudflare` adapter as a
+   Worker for `/` and app paths, Next static assets on `/b/*`, D1 for state, R2 for binaries, all on one
+   Cloudflare-hosted origin over TLS (chosen).
 2. A VPS with hand-installed Node and a reverse proxy. Fewer moving parts, but host drift is unrecorded,
    "works on my machine" returns, and restore has no declarative form — against NFR-RESEARCH-003.
 3. A second cloud (Kubernetes or a managed container platform). Provides rolling updates, self-healing
@@ -682,12 +682,12 @@ multi-region or zero-downtime deploys.
 4. One Worker running all three apps (serving Next HTML from the Worker too). Makes the three-deployable
    boundary (ADR-01) a fiction, couples deploy and log behaviour, and hides which app is slow.
 
-**Decision.** Option 1. Topology: one custom origin; `/api/*` → Worker (`apps/api`), `/` → Astro SSR
-origin, `/b/*` → Next static assets, `/uploads/*` → 404; D1 bound as `env.DB`; R2 bound as `env.BUCKET`;
-migrations applied by `wrangler d1 migrations apply --remote` as a deploy/CI step; Worker production
-environment (the Workers equivalent of `NODE_ENV=production`) so `Secure` cookies behave as in production;
-Cron Triggers on the Worker for session purge and the orphan sweep; logs as JSON per request via Workers
-tail / Logpush.
+**Decision.** Option 1. Cloudflare zone routing / Workers routes provide one Cloudflare-hosted origin:
+`/api/*` → API Worker (`apps/api`), `/` and app paths → Astro `@astrojs/cloudflare` Worker,
+`/b/*` → Next static assets, `/uploads/*` → 404. D1 is bound as `env.DB`; R2 is bound as `env.BUCKET`;
+migrations are applied by `wrangler d1 migrations apply --remote` as a deploy/CI step. The Workers
+production environment makes `Secure` cookies behave as in production; Worker Cron Triggers run session
+purge and the orphan sweep; per-request JSON logs go through Workers tail / Logpush.
 
 **Rationale.** The deploy is the smallest artefact that makes NFR-RESEARCH-003 checkable — the
 `wrangler.jsonc` file plus the lockfile plus `compatibility_date` *is* the environment record, and a run
@@ -699,10 +699,11 @@ Single-origin operation is a deliberate consequence of ADR-01/ADR-06.
 in-flight session and any benchmark run. No zero-downtime deploy — a Workers deploy briefly overlaps
 requests, so deploys must not overlap a measured campaign. D1 and R2 durability equals platform
 durability, which is why NFR-REL-008 backup (`wrangler d1 export` plus R2 object copy) is mandatory rather
-than optional. TLS uses a lab certificate, which is not a production trust story.
+than optional. TLS terminates at the Cloudflare edge using the Cloudflare zone certificate.
 
-**Consequences.** `wrangler.jsonc` is the deploy contract; there is no `infra/` proxy config, no
-container file, no named volume. Rehearsal means deploying to a preview environment and running NFR-REL-008 there.
+**Consequences.** Wrangler configuration and Cloudflare zone routes are the deploy contract. The deployment
+has no long-running server process. Rehearsal means deploying to a preview environment and running
+NFR-REL-008 there.
 The harness gates on readiness (`{status, db}`, with `storage` added when the attachments module lands)
 before measuring and never runs while another app is deployed. Migrations never run at Worker boot; they
 are a deploy step and fail closed. Revisit if a second origin or an availability requirement appears, at

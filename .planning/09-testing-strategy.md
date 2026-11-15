@@ -224,7 +224,7 @@ fixture files; failed-test traces are retained as CI artefacts.
 |---|---|---|---|---|---|
 | **Local dev** | Astro dev server, `next dev`, Worker under `wrangler dev`; unit, contract, integration, framework-free logic | local D1 (`.wrangler/state`) migrated from empty; integration uses per-worker isolated local D1 storage | Development builds only | Not measured | pre-commit, PR |
 | **CI** | Lint/typecheck, contract, unit, integration, security, build gates, Playwright e2e and parity, migration-from-empty, protocol smoke | Ephemeral local D1 under Miniflare; per-worker isolated D1 storage; preview D1 for e2e and smoke | Production builds for e2e and smoke; dev builds for unit only | Pinned Chromium, same version as the campaign | PR, pre-merge, pre-campaign |
-| **Composed measured stack** | Astro (Pages), static Next export at `/b`, Worker at `/api/*`, D1, R2 bucket on one origin over TLS; campaign run by Erika | preview D1, seeded `m1`, checksum per repetition | Production only; `NODE_ENV=production`; source maps off; no dev overlay | Pinned Chromium, one host, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
+| **Composed measured stack** | Astro `@astrojs/cloudflare` Worker, static Next export served from Cloudflare at `/b/*`, API Worker at `/api/*`, D1, R2 on one Cloudflare-hosted origin over TLS; campaign run by Erika | preview D1, seeded `m1`, checksum per repetition | Production only; production Worker build; source maps off; no dev overlay | Pinned Chromium and Cloudflare Worker runtime/region, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
 
 The composed stack is the only place where e2e, parity and benchmark results are produced. `next dev` and
 the Astro dev server are never measured (`03` §6.4, NFR-PERF-006). The dev CORS allowlist is absent from
@@ -444,7 +444,7 @@ and is never cited as a result.
 | Penetration testing and WAF/bot defence | Security work is bounded by NFR-SEC-* and `07` §11 | A public launch, or an external security review |
 | Non-R2 binary storage (CDN in front of the bucket, a different object store) | C-16 keeps storage behind the `BinaryStore` seam; only the R2 binding is built | A storage-provider change; then NFR-REL-003 fault injection is repeated against the adapter |
 | Database restore drill as an automated test | NFR-REL-008 is `SHOULD` and needs a clean environment and a human-run restore | A release that must demonstrate recoverability; the drill becomes a recorded manual gate |
-| Visual regression across GPUs and platforms | Only pinned Chromium on one host is measured; cross-GPU pixel equality is not a product requirement | A platform-tied visual defect, or a design-system release across platforms |
+| Visual regression across GPUs and platforms | Only one pinned Chromium / runtime configuration is measured; cross-GPU pixel equality is not a product requirement | A platform-tied visual defect, or a design-system release across platforms |
 | Dark mode, i18n/RTL, native mobile, offline/PWA | Out of scope in `01` §8; adding them doubles the state matrix and invalidates cache-cold/warm definitions | A scope change adding one of these |
 | Coverage percentage as a target | Coverage is a signal, not an objective; gates assert behaviour and traceability, not a number | A reviewer requests coverage as a diagnostic; it still does not become a gate |
 

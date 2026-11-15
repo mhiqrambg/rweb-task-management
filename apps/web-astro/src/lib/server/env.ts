@@ -3,7 +3,7 @@
  *
  * PUBLIC_API_BASE_URL is read with process.env at request time, never with import.meta.env: the
  * value must not be baked into the build (03 §7, O-11). API_MODE selects the contract-first
- * dummy dataset so the SSR screens can be built and reviewed before apps/api lands (13 §2,
+ * dummy dataset so the SSR screens can be built and reviewed before the Worker lands (13 §2,
  * "independent: page/layout/components against a contract-first mock").
  */
 
@@ -16,7 +16,7 @@ export function apiMode(): ApiMode {
 }
 
 export function apiBaseUrl(): string {
-  return (process.env.PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  return (process.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787/api/v1').replace(/\/+$/, '');
 }
 
 export function appOrigin(): string {

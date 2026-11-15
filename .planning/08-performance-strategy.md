@@ -43,7 +43,7 @@ The instrumentation is not the subject of the study.
 
 | Forbidden | Why |
 |---|---|
-| "SSR is faster/slower than SSG" as a law | One implementation of each, one dataset, one host, one browser (§10) |
+| "SSR is faster/slower than SSG" as a law | One implementation of each, one dataset, one pinned Cloudflare runtime/region, one browser (§10) |
 | Anything about real users | Scripted, single-user, no RUM (NFR-RESEARCH-006) |
 | A lab Lighthouse LCP presented as user experience | §1.5 |
 | Any summed "total network traffic" figure | §1.4, NFR-RESEARCH-007 |
@@ -305,7 +305,7 @@ Every row is recorded in the run manifest per repetition; any difference within 
 | # | Variable | Value |
 |---|---|---|
 | CV-1 | Browser | Playwright-pinned Chromium, exact version recorded; headed on a virtual display, `--disable-gpu` (A-33) |
-| CV-2 | OS / machine | one host, one OS build; host-load band fixed at campaign start from 20 idle samples (A-42) |
+| CV-2 | Cloudflare runtime / region | same pinned Workers runtime and deployment region for each paired run; platform-load variation is an accepted limitation |
 | CV-3 | Viewport | 1440 × 900, DSF 1, `reducedMotion: reduce`, `colorScheme: light`, `en-US`, `UTC` (A-34, A-39) |
 | CV-4 | Throttle | `P0` for the main set; `P1` for the secondary set, applied identically to both apps |
 | CV-5 | Backend | same Worker version, same D1 database, same R2 bucket, same session TTL config |
@@ -502,7 +502,7 @@ These are the boundary of every claim, not caveats to soften.
 
 | Limit | Consequence |
 |---|---|
-| One host, one Worker script, one D1 database (single-writer), one R2 bucket | Nothing about horizontal scaling, D1 single-writer contention, or R2 read-latency tails |
+| One Cloudflare-hosted origin and one D1 database (single-writer), one R2 bucket | Nothing about horizontal scaling, D1 single-writer contention, or R2 read-latency tails |
 | One browser, one version, one OS | Nothing about other engines or device classes |
 | Zero concurrency | Nothing about throughput, capacity or tail latency under load |
 | Synthetic dataset (50/50/3) | Nothing about large datasets; list cost is bounded by page size 20, not by table size |
