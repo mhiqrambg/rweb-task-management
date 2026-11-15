@@ -1516,18 +1516,16 @@ select.field__input {
   background: var(--color-surface-2);
 }
 
-/* The overflow count occupies the same 80x60 cell as a thumbnail, so it has to hold its label on
-   one line — a 14px "2 more" wraps inside 80px at the default 1.45 leading. */
-.preview-card__thumb--more {
-  display: grid;
-  place-items: center;
+/* `l-01` draws the overflow as plain label text after the strip, on the card's paper — not as a
+   fourth tinted cell. Baseline-aligned with the strip's lower edge, `ink-muted` at 12/600. */
+.preview-card__more {
+  align-self: flex-end;
+  margin-left: var(--sp-1);
   font-size: var(--fs-12);
   font-weight: 600;
   line-height: 1;
+  color: var(--color-ink-muted);
   white-space: nowrap;
-  text-align: center;
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
 }
 
 .cta-block {
