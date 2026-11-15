@@ -6,6 +6,10 @@
  *
  * Preview content: titles, statuses, and priorities are the deck's fixtures; the dates and
  * bodies are marketing fixtures as drawn in design/02 (they are not record copy).
+ *
+ * Hero image: design/assets/landing-illustration.png, intrinsic 576x433 (4:3). Rendered at 640
+ * wide -> 481 tall; the ratio-true width/height let the browser reserve the box before the image
+ * loads (CLS budget, 08 S1). Next must ship the identical illustration (FR-LAND-004 parity).
  */
 import { copy, fill, routes } from '@taskapp/contracts';
 import MarketingLayout from '../layouts/MarketingLayout.astro';
@@ -51,10 +55,10 @@ export const prerender = false;
 
     <figure class="hero__figure">
       <img
-        src="/landing-illustration.svg"
+        src="/landing-illustration.png"
         alt={copy.landing.previewAlt}
         width="640"
-        height="440"
+        height="481"
       />
     </figure>
   </section>
