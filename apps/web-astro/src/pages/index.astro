@@ -16,7 +16,7 @@
 import ImageIcon from '@lucide/astro/icons/image';
 import ListChecks from '@lucide/astro/icons/list-checks';
 import StickyNote from '@lucide/astro/icons/sticky-note';
-import { copy, fill, routes } from '@taskapp/contracts';
+import { copy, routes } from '@taskapp/contracts';
 import MarketingLayout from '../layouts/MarketingLayout.astro';
 import Button from '../components/Button.astro';
 
@@ -46,7 +46,6 @@ const previewTasks = [
     body: 'Compare three venues and hold the date before the deposit window closes.',
   },
 ] as const;
-const previewOverflow = fill(copy.task.attachments.overflow, { n: 2 });
 // On-demand only: the landing reads the session cookie for its auth CTA and must never be
 // prerendered into a static export (ADR-13).
 export const prerender = false;
@@ -110,7 +109,7 @@ export const prerender = false;
                     <ImageIcon size={20} stroke-width={1.6} />
                   </span>
                 ))}
-                <span class="preview-card__more">{previewOverflow}</span>
+                <span class="preview-card__more">+2</span>
               </div>
             </div>
           ))

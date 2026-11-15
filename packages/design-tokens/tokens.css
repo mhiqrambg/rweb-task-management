@@ -92,6 +92,10 @@
   /* components */
   --thumb-w: 80px;
   --thumb-h: 60px;
+  /* C-08 cards are 320 wide, so three thumbnails plus the `+N` label only fit at this size; the
+     80x60 C-10 size is for the detail screen. Measured from design/exports/02a-landing.png. */
+  --thumb-card-w: 48px;
+  --thumb-card-h: 36px;
   --thumb-detail-w: 208px;
   --thumb-detail-h: 156px;
   --card-min-h: 132px;

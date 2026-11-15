@@ -1504,22 +1504,23 @@ select.field__input {
 }
 
 /* Mocks draw the thumbnails as `surface-2` placeholders with a centred image glyph
-   (DESIGN.md §9, C-10); real screens swap in the image. Fixed 4:3 box, so a row of cards lines
-   up regardless of the copy above. */
+   (DESIGN.md §9, C-10); real screens swap in the image. */
 .preview-card__thumb {
   display: grid;
   place-items: center;
-  width: var(--thumb-w);
-  height: var(--thumb-h);
+  width: var(--thumb-card-w);
+  height: var(--thumb-card-h);
   border-radius: var(--r-sm);
   color: var(--color-ink-muted);
   background: var(--color-surface-2);
 }
 
 /* `l-01` draws the overflow as plain label text after the strip, on the card's paper — not as a
-   fourth tinted cell. Baseline-aligned with the strip's lower edge, `ink-muted` at 12/600. */
+   fourth tinted cell. The text is the design's fixed `+2` (design/02), not the record-level
+   `task.attachments.overflow` token. Vertically centred on the 36 px thumbnails, `ink-muted`
+   at 12/600. */
 .preview-card__more {
-  align-self: flex-end;
+  align-self: center;
   margin-left: var(--sp-1);
   font-size: var(--fs-12);
   font-weight: 600;
