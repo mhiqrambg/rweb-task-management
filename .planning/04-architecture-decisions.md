@@ -20,7 +20,7 @@ All statuses are `Proposed`. Nothing here is `Accepted`; acceptance belongs to t
 Alternatives rejected for being fashionable, modern or popular are not acceptable reasons and do not
 appear; every rationale is tied to a requirement or constraint ID from `01`/`00`.
 
-### ADR-01 — Modular monolith Worker, three deployables, one database
+### ADR-01 — Modular monolith API (Node + Worker), four deployables, one database
 
 Status: Proposed
 Proposed by: system-architecture-analyst
@@ -36,8 +36,9 @@ transaction boundary.
 decompose at deployable level?
 
 **Options considered.**
-1. Modular monolith Worker + two frontend deployables + one D1 database (chosen). Auth, tasks, notes,
-   attachments, dashboard and health are directories inside one Worker script, separated by route
+1. Modular monolith API (ElysiaJS on Node and Worker) + two measured frontends + the admin app + one
+   D1 database + one R2 bucket (chosen). Auth, tasks, notes, attachments, dashboard, admin and health are
+   directories inside one app, separated by route
    prefix, repository ownership and module boundaries. Cross-module reads (dashboard) are SQL against
    the same D1 binding.
 2. A single application containing the API and one frontend (Next route handlers or Astro endpoints
@@ -455,7 +456,7 @@ Status: Proposed · Deciders: project owner (approval pending)
 
 **Context.** NFR-COMPAT-003 requires recorded runtime and framework versions for every benchmark run;
 NFR-PERF-006/NFR-RESEARCH-003 require every run to record versions. The locked stack is a Cloudflare
-Worker for the API, D1 and R2 for state, Hono as the Worker framework, `@noble/hashes` for Argon2id,
+Worker for the API, D1 and R2 for state, ElysiaJS as the framework for both Node and Worker, `@noble/hashes` for Argon2id,
 `@jsquash` for image decode, Astro 7.4.x and Next 16.4.x for the two frontends, and pnpm as the workspace
 manager.
 
@@ -472,7 +473,7 @@ another run?
 4. No pin, rely on each developer's environment. Makes NFR-COMPAT-003 and NFR-RESEARCH-003 unverifiable.
 
 **Decision.** Option 1. Pinned in the lockfile and recorded in every run manifest: Workers
-`compatibility_date`, D1, R2, Hono, `@noble/hashes`, `@jsquash`, Astro 7.4.x, Next 16.4.x, pnpm. The
+`compatibility_date`, D1, R2, ElysiaJS, `@noble/hashes`, `@jsquash`, Astro 7.4.x, Next 16.4.x, pnpm. The
 `compatibility_date` in `wrangler.jsonc` is treated as a version like any other — a bump is a PR that
 changes the date, the lockfile and the run-manifest template together.
 

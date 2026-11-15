@@ -138,7 +138,7 @@ No PR lowers coverage of the modules it touches.
   the SHA-256 hash. Never put a token in `localStorage`, a URL, or a log line.
 - Ownership check on **every** read and write, in the query (`WHERE user_id = $1`), not after the fetch.
 - Uploads: check MIME by content (`file-type`), not by `Content-Type` or extension alone; enforce size
-  before writing to the filesystem; generate the storage key server-side; never serve the storage directory directly.
+  before writing to the R2 bucket; generate the storage key server-side; never serve the bucket directly.
 - Never interpolate user input into SQL, shell, HTML, or a file path.
 - Do not disable CSRF/same-origin checks to "make it work" — report it instead.
 - Report a suspected vulnerability to Iqram and Hamzah before writing a public issue.

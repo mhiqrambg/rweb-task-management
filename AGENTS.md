@@ -11,9 +11,9 @@ A group assignment (4 people, part-time) that compares two rendering models behi
 ```
 Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
         \                   |                          /
-     Node.js + Fastify (REST API · auth · business logic)
+     ElysiaJS on Node + Worker (REST API · auth · business logic)
                          |
-              Cloudflare D1 (SQLite · Serverless Database)
+     Cloudflare D1 (SQLite · Serverless Database) · R2 (attachment binaries)
 ```
 
 The admin console is a separate deployable (`apps/admin`) held outside the benchmark. It is not a
@@ -62,7 +62,7 @@ apps/
   web-astro/     Astro SSR, MPA. Server-rendered HTML per navigation.
   web-next/      Next.js static export, SPA-style data fetching.
   admin/         Admin SSR. Account administration only; not part of the benchmark.
-  api/           Node.js + Fastify. REST, sessions, ownership checks, uploads.
+  api/           ElysiaJS (Node + Worker). REST, sessions, ownership checks, uploads.
 packages/
   contracts/     Zod schemas + types + copy constants. Dependency-free except zod.
   design-tokens/ tokens.css + tokens.json (single source for both frontends).

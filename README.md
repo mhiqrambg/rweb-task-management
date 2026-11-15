@@ -9,9 +9,9 @@ exercise is the comparison, not the feature list.
 ```
 Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
         \                   |                          /
-     Node.js + Fastify (REST API · auth · business logic)
+     ElysiaJS on Node + Worker (REST API · auth · business logic)
                          |
-              Cloudflare D1 (SQLite · Serverless Database)
+     Cloudflare D1 (SQLite · Serverless Database) · R2 (attachment binaries)
 ```
 
 The admin console is its own deployable (`apps/admin`), outside the benchmark. Neither member

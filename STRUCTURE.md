@@ -30,7 +30,7 @@ rweb-task-management/
 │   └── icons/                    (retired) icons now come from Lucide Icons in both frontends
 │
 ├── apps/                         [P3]
-│   ├── api/                      Node.js + Fastify + TypeScript; the only component that talks to Cloudflare D1
+│   ├── api/                      ElysiaJS (Node + Worker) + TypeScript; the only component that talks to Cloudflare D1
 │   │   ├── src/{index.ts,app.ts,config/,routes/,modules/{auth,tasks,notes,attachments,dashboard,admin,health}/,db/,lib/}
 │   │   ├── migrations/           numbered forward-only SQL, applied by `wrangler d1 migrations apply`
 │   │   └── test/{unit,integration}/

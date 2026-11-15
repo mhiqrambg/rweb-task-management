@@ -32,7 +32,7 @@ authorization axis. Account administration is the approved extension BCR-01 and 
 deployable, `apps/admin`, outside the measured surface.
 
 The system boundary is one Cloudflare zone and one Cloudflare-hosted origin. Everything needed runs inside
-it: two frontend deliverables, Workers, one D1 database and one R2 bucket. There is **no external system**
+it: three frontend deliverables (two measured member apps and the admin app), the API on Node and Worker, one D1 database and one R2 bucket. There is **no external system**
 other than the browser and Cloudflare edge (zone routing, with TLS terminating at the edge). No email
 transport (A-06), no CDN, no analytics (NFR-OBS-004 forbids third-party requests outright).
 
@@ -60,7 +60,7 @@ boundary but are never reachable from the browser.
 
 | # | Deliverable | Runtime form | Deployable? |
 |---|---|---|---|
-| 1 | `apps/api` | Node.js + Fastify process, listens on :8787 | yes |
+| 1 | `apps/api` | ElysiaJS process on Node, listens on :8787; the same app also deploys as a Cloudflare Worker | yes |
 | 2 | `apps/web-astro` | Astro on-demand SSR (`@astrojs/node` standalone) | yes |
 | 3 | `apps/web-next` | Next static export artifact — **no runtime process** | yes (build artifact) |
 | 4 | `apps/admin` | Admin SSR (`@astrojs/node` standalone), route prefix `/admin`, outside the benchmark | yes |
@@ -79,7 +79,7 @@ flowchart TB
   Edge["Cloudflare edge - zone routing"]
   Astro["web-astro - Astro 7.4.x, on-demand SSR"]
   Next["web-next - Next 16.4.x, static export"]
-  subgraph ApiBox["api - Cloudflare Worker (Hono)"]
+  subgraph ApiBox["api - Cloudflare Worker (ElysiaJS)"]
     ApiEdge["HTTP entry - plugins, error envelope, logger, request id"]
     AuthM["auth module"]
     TasksM["tasks module"]
@@ -133,7 +133,7 @@ flowchart TB
 | `api` → `attachments` module | Multipart intake, size and count limits, content sniffing, decode validation, generated storage keys, thumbnail generation, owner-scoped streaming, delete | Must not derive a key from a client filename, accept a client MIME claim, write outside the R2 bucket's key namespace, or serve a row whose binary is missing (NFR-REL-003) | `attachments` rows, R2 binary objects, thumbnails |
 | `api` → `dashboard` module | One round trip returning counters, breakdown, overdue count and 5 + 5 recent items for the session owner | Must not return global counts, other users' rows, or run per-widget queries from the client | No rows; reads `tasks`/`notes` under the same ownership predicate |
 | `api` → `health` module | Liveness and readiness for the edge and the harness | Must not require auth, be rate-limited, or leak versions, binding names or counts | No data |
-| `packages/contracts` | Single source of entity types, Zod schemas, error codes, copy strings, route constants, formatting helpers | Must not import Astro, React, Next, Hono or a D1 driver; must not perform I/O; must not contain framework code | Shape authority for both apps and the API |
+| `packages/contracts` | Single source of entity types, Zod schemas, error codes, copy strings, route constants, formatting helpers | Must not import Astro, React, Next, Elysia or a D1 driver; must not perform I/O; must not contain framework code | Shape authority for both apps and the API |
 | `packages/design-tokens` | `tokens.css` + `tokens.json`, the only source of colour, type, space, radius, breakpoints | Must not contain component CSS, selectors for a specific markup structure, or application logic | Token values |
 | Binary storage (R2 bucket) | Hold full-resolution binaries and one ≤320 px thumbnail per attachment under server-generated keys | Must not be URL-addressable, be the authority for existence (the row is), or be reachable except through the API's stream handler | Bytes and derivative objects |
 | D1 | Hold all durable relational state; enforce enums, ownership, referential integrity, uniqueness, the attachment target check | Must not be reachable from a frontend or from outside the Worker; must not be the only place ownership is checked | Every row |
@@ -486,7 +486,7 @@ flowchart LR
   subgraph Edge["Cloudflare zone - one origin"]
     CFRoute["Cloudflare edge - zone routing, Workers routes, TLS"]
     AstroC["web-astro - Astro on @astrojs/cloudflare (Worker)"]
-    ApiC["api - Cloudflare Worker (Hono), no port"]
+    ApiC["api - Cloudflare Worker (ElysiaJS), no port"]
     DbC[("D1 database - internal only")]
     StaticB["next export artifact served by the zone at /b/*"]
     Vol[("R2 bucket - binaries and thumbnails")]
@@ -515,7 +515,7 @@ There is no `web-next` process in production: its static export is served by Clo
 | `/login`, `/register`, `/app`, `/tasks*`, `/notes*`, `/account`, `/404` | Astro `@astrojs/cloudflare` Worker | all on-demand |
 | `/b/`, `/b/login`, `/b/register`, `/b/app/`, `/b/404.html` | Cloudflare static assets | Next static export, served at `/b/*` |
 | `/b/_next/*` | Cloudflare static assets | immutable hashed assets, long `Cache-Control` |
-| `/api/*` | API Worker | prefix preserved; Hono routes `/api/v1/*` |
+| `/api/*` | API Worker | prefix preserved; Elysia routes `/api/v1/*` |
 | `/uploads/*` | Cloudflare zone route returns `404` | never routed to a Worker |
 | `/healthz` | Cloudflare static asset | zone liveness only, no application data |
 
@@ -554,7 +554,7 @@ from the measured stack.
 ```
 rweb-task-management/
 ├── apps/
-│   ├── api/                      # Cloudflare Worker (Hono) + TypeScript, the only component that binds D1 and the R2 bucket
+│   ├── api/                      # Cloudflare Worker (ElysiaJS) + TypeScript, the only component that binds D1 and the R2 bucket
 │   │   ├── src/{server.ts,app.ts,config/,plugins/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/,scripts/}
 │   │   ├── migrations/           # numbered forward-only SQL, applied by `wrangler d1 migrations`
 │   │   ├── test/{unit,integration}/
@@ -683,8 +683,8 @@ screen-local string (NFR-MAINT-006).
 | pnpm | 9 | ADR-11; strict resolution catches undeclared deps and contract drift | npm workspaces fallback: same layout, weaker strictness | Baseline (fallback documented) |
 | TypeScript | 5.x strict | NFR-MAINT-004 | Type drift between contracts and both apps | Baseline |
 | Cloudflare Workers runtime | current, recorded compat date | C-03, A-08 | No shared API; the comparison loses its instrument | Baseline |
-| Hono | current | C-03; small router surface for `/api/v1/*` | Hand-rolled routing and error envelope | Baseline |
-| Workers cookie handling (`hono/cookie`) | current | FR-AUTH-004 | Manual cookie parsing and signing errors | Baseline |
+| ElysiaJS | current | C-03; small router surface for `/api/v1/*` | Hand-rolled routing and error envelope | Baseline |
+| Workers cookie handling (`elysia` cookie) | current | FR-AUTH-004 | Manual cookie parsing and signing errors | Baseline |
 | Workers form-data parsing (Web `FormData`) | current | FR-ATT-001, FR-ATT-002 | Hand-rolled multipart parser | Baseline |
 | D1 `rate_limits` table | — | NFR-SEC-007 | Brute-forceable login; threshold test impossible | Baseline (D1-backed counters) |
 | Workers security headers middleware | current | NFR-SEC-014 | Security headers hand-written per route | Baseline |

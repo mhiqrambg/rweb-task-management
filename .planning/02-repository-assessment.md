@@ -87,7 +87,7 @@ whenever they choose to leave the planning phase.
 | Concern | Decision | Where it is argued |
 |---|---|---|
 | Node runtime | Node 24 LTS pinned for local tooling (`engines.node: ">=22.23.4"`), satisfying Astro 7 (≥22.23.4, no odd majors) and Next 16 (≥20.9) | ADR-10 |
-| Framework versions | Astro **7.4.x**, Next.js **16.4.x**, Hono on Cloudflare Workers | ADR-10, `03` §10 |
+| Framework versions | Astro **7.4.x**, Next.js **16.4.x**, ElysiaJS on Node + Cloudflare Workers | ADR-10, `03` §10 |
 | Package manager | pnpm workspaces (fallback: npm workspaces) | ADR-11 |
 | Database | D1 (SQLite), single database, one migration history, accessed via binding `env.DB` | ADR-02 |
 | Object/binary storage | R2 bucket behind the `BinaryStore` interface, accessed via binding `env.BUCKET` | ADR-07 |

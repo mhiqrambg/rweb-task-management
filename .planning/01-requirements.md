@@ -371,7 +371,7 @@ are new and are cited by FR/NFR rows above.
 |---|---|---|
 | C-01 | Astro frontend MUST be SSR + MPA | FR-AUTH-008/010, FR-TASK-014, FR-UI-001 are satisfied per request; server-side redirects are legitimate |
 | C-02 | Next.js frontend MUST be SSG + client-side navigation/data | The same FRs must be satisfied client-side; no FR may require per-user static HTML |
-| C-03 | One shared backend: Cloudflare Workers + Hono + D1 + R2, REST, cookie auth, multipart upload | No FR may assume a per-frontend service, BFF, or server action |
+| C-03 | One shared backend: Cloudflare Workers + ElysiaJS + D1 + R2, REST, cookie auth, multipart upload | No FR may assume a per-frontend service, BFF, or server action |
 | C-04 | Both frontends consume the same API and DB | Any FR satisfied by framework-specific data access is invalid |
 | C-05 | Identical UI/UX, features, data structures, API contracts | G-1; FR-UI-006/009; NFR-MAINT-001/005/006 |
 | C-06 | Image binaries outside the database, metadata inside | FR-ATT-004/008/011 stay storage-agnostic; no FR may require Base64 embedding |

@@ -115,7 +115,7 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 
 **Inside the system**
 
-- `apps/api` — Workers REST API (Hono), authentication, authorization, validation, upload handling, binary
+- `apps/api` — Workers REST API (ElysiaJS), authentication, authorization, validation, upload handling, binary
   serving, D1 access, migrations.
 - `apps/web-astro` — Astro SSR app on the `@astrojs/cloudflare` adapter as a Worker, with server-rendered pages, form posts / server-side fetch to the API.
 - `apps/web-next` — Next.js static export, client-side data fetching and routing.
@@ -137,7 +137,7 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 |---|---|---|
 | C-01 | Astro frontend MUST be SSR + MPA | brief §1 |
 | C-02 | Next.js frontend MUST be SSG + client-side navigation/data | brief §1 |
-| C-03 | One shared backend: Cloudflare Workers + Hono + D1 + R2, REST, cookie auth, multipart upload | brief §1 |
+| C-03 | One shared backend: Cloudflare Workers + ElysiaJS + D1 + R2, REST, cookie auth, multipart upload | brief §1 |
 | C-04 | Both frontends consume the same API and DB | brief §2.3 |
 | C-05 | Identical UI/UX, features, data structures, API contracts | brief §2.2 |
 | C-06 | Image binaries outside the database, metadata inside | brief §7 |

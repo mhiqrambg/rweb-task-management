@@ -13,7 +13,7 @@ a written reason in the PR.
 
 - **R-A1 MUST** ship four deployables against one database: `apps/web-astro` (SSR, MPA),
   `apps/web-next` (static export, SPA-style), `apps/admin` (SSR, server-authorised, outside the
-  benchmark), `apps/api` (Node.js + Fastify).
+  benchmark), `apps/api` (ElysiaJS on Node + Worker).
 - **R-A2 MUST** keep the dependency direction `apps/* → packages/*`. `apps/web-next` NEVER imports from
   `apps/web-astro`; `packages/*` NEVER imports from `apps/*`.
 - **R-A3 MUST** serve both frontends and the API from one origin so cookies and
@@ -52,7 +52,7 @@ a written reason in the PR.
   or a log.
 - **R-C3 MUST** check ownership inside the query (`WHERE user_id = $1`), not after fetching the row.
 - **R-C4 MUST** treat `disabled`/expired sessions as unauthenticated and invalidate on logout.
-- **R-C5 NEVER** serve attachment binaries directly from the filesystem; stream through an
+- **R-C5 NEVER** serve attachment binaries directly from the R2 bucket; stream through an
   authenticated route with the ownership check.
 - **R-C6 MUST** stop `.env` leaking: it is gitignored; `.env.example` documents names only.
 - **R-C7 NEVER** disable CSRF, same-origin, or CSP checks to make something work. Report it instead.

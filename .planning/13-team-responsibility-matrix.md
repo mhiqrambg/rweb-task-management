@@ -20,7 +20,7 @@ blocked by whom**. Technical detail lives in the other documents; phases (P1..P1
 are defined in `10-implementation-roadmap.md`.
 
 > **Ownership revision (2026-11-15, project owner).** Frontend and QA ownership swapped:
-> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, the admin app is shared by both, backend (**Node.js + Fastify + Cloudflare D1**, contracts, infra) is
+> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, the admin app is shared by both, backend (**ElysiaJS on Node + Worker + Cloudflare D1**, contracts, infra) is
 > **Iqram**, QA performance testing and analysis is **Erika**, executed at the end of the roadmap after
 > both apps are integrated. Superseded text in other documents was corrected in the same change.
 
