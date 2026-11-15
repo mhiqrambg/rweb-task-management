@@ -114,6 +114,12 @@ route-for-route honest.
 | Note detail | `/notes/[id]` (SSR) | `/b/app/?view=notes&id=<uuid>` | FR-NOTE, FR-ATT |
 | Profile (read-only + logout) | `/account` | `/b/app/?view=account` | FR-AUTH |
 | Not found | `/404` | static `404.html` | FR-UI |
+| Admin console (extension, `apps/admin`) | `/admin` | — (not in `web-next`) | FR-ADMIN |
+| Admin member edit (extension, `apps/admin`) | `/admin/members/[id]` | — (not in `web-next`) | FR-ADMIN |
+
+The two admin rows are the approved extension BCR-01 and belong to `apps/admin` only: they have no
+counterpart in either member app, are not part of the SSR-vs-SSG comparison, and are excluded from
+FR-UI-009 parity (`design/09-admin-console.md` §1).
 
 The Next.js depth is a **route-strategy consequence**, not a design preference — see ADR-04. The
 visible UI is identical: same sidebar, same URLs' *content*, same deep-link result after hydration.

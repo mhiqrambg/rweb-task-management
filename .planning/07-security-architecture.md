@@ -197,7 +197,21 @@ Owner and all derived fields are absent from every request schema, and every bod
 unknown key is `VALIDATION_FAILED`, not silently dropped, so an attempted `user_id` injection is a
 visible 422 rather than an invisible no-op. `PATCH /users/me` accepts `{ displayName }` only.
 
-### 3.4 Cross-owner test matrix
+### 3.4 The admin axis (extension BCR-01)
+
+`users.role` adds exactly one extra check, and it is not a second ownership axis: an admin reads other
+`users` rows only (`FR-ADMIN-001..005`). Task, note and attachment statements keep
+`row.user_id = $sessionUserId` unchanged, and no admin endpoint returns their content.
+
+| Rule | Enforcement |
+|---|---|
+| Every admin route (`/api/v1/admin/members*`, page `/admin*`) requires a session whose `role = 'admin'` | checked server-side before the handler body; `apps/admin` re-checks before emitting HTML so a non-admin never sees the shell |
+| A caller without the role gets `404`, never `403` | same indistinguishability rule as §3.2 — the route's existence is not disclosed |
+| A `status = 'disabled'` member loses access immediately | `status` is read when the session is resolved, so existing cookies fail the same request they arrive on |
+| An admin cannot demote, disable or delete itself | `409 CONFLICT` on the self-target path (`FR-ADMIN-007`) |
+| The admin surface never ships in a member build | `gate/admin-free-member-builds` greps both production outputs (`FR-ADMIN-006`) |
+
+### 3.5 Cross-owner test matrix
 
 Owner **A** creates a task with an attachment and a note with an attachment. Owner **B** (valid session)
 issues each request. Every cell must produce the *identical* response — status, code, message, body
@@ -528,7 +542,7 @@ or downstream may treat the range as fully occupied.
 
 | ID | Ref | Level | Asserts | Expected |
 |---|---|---|---|---|
-| S-11..S-16 | T-09 | integration | the six task/note operations in §3.4 | each `404`, target unchanged |
+| S-11..S-16 | T-09 | integration | the six task/note operations in §3.5 | each `404`, target unchanged |
 | S-17..S-19 | T-10 | integration | attachment metadata + both variants | `404`, zero bytes |
 | S-20, S-21 | T-11 | integration | upload to a foreign task/note | `404`, no row, no R2 object |
 | S-22, S-23 | T-12 | integration | `userId`/`id` in create bodies | `422 unknown_field` |

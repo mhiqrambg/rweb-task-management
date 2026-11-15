@@ -70,7 +70,7 @@ A ninth code is a defect and requires a version (§7). `details[].code` is a sta
 |---|---|---|
 | Safe | all `GET` | No user-visible state change. No state-changing operation is reachable by `GET`, so a top-level cross-site GET can do nothing |
 | Repeated-safe by effect | `DELETE`, `PATCH`, `POST /auth/logout` | A repeated delete yields `404` or `204` as appropriate but never creates state; a repeated PATCH writes the same values and does not move `updated_at` unless something actually changed |
-| Creating | `POST` #1, #9, #14, #18 | Each success creates a row. Double-submit protection is client-side (FR-TASK-018); no `Idempotency-Key` in v1 (Q-08) |
+| Creating | `POST` #1, #9, #14, #18, #24 | Each success creates a row. Double-submit protection is client-side (FR-TASK-018); no `Idempotency-Key` in v1 (Q-08) |
 
 ### 1.5 Time, dates and numbers
 
@@ -185,6 +185,10 @@ This is the only bootstrap the Next.js shell has, and the redirect decision for 
 | 20 | GET | `/api/v1/attachments/:id/content` | session | `SELECT … WHERE id AND user_id` **before** any file is opened | 300/min (user) | yes (safe) |
 | 21 | DELETE | `/api/v1/attachments/:id` | session | same predicate; row delete first, R2 object delete after | 300/min (user) | yes by effect |
 | 22 | GET | `/api/v1/health` | none | no data beyond dependency state; no counts, no versions | exempt | yes (safe) |
+| 23 | GET | `/api/v1/admin/members` | session + `role='admin'` | no ownership predicate by design: admin reads `users` rows only; non-admin caller → `404` (not `403`) | 60/min (admin user) | yes (safe) |
+| 24 | POST | `/api/v1/admin/members` | session + `role='admin'` | creates a `users` row with `role`/`status` from the body | 20/min (admin user) | no |
+| 25 | PATCH | `/api/v1/admin/members/:id` | session + `role='admin'` | `WHERE id = $id`; self-demote or self-disable → `409`; target's sessions revoked when `status` becomes `disabled` | 60/min (admin user) | yes by effect |
+| 26 | DELETE | `/api/v1/admin/members/:id` | session + `role='admin'` | `WHERE id = $id`; deleting own account → `409`; cascades tasks → notes → attachments and R2 objects | 20/min (admin user) | yes by effect (repeat → `404`) |
 
 Authorization authority is always the API. Astro's `302 /login` and Next's post-`401` route replacement
 are UX only (`03` §5.3). No frontend performs a per-row permission check, because there is nothing for it
@@ -359,7 +363,23 @@ interface ErrorEnvelope {
 
 `passwordHash` (credential material), `tokenHash` (session verifier), `storageKey` (server path),
 `userId` (ownership is implied by the session and would invite tampering), and `sessions.ip`/`userAgent`
-(operational).
+(operational). `temporaryPassword` is write-only for #24 and is never echoed.
+
+### 3.10 `AdminMember` (admin extension, BCR-01)
+
+```ts
+type AdminMember = {
+  id: string;
+  displayName: string;
+  email: string;                      // lower-cased, the sign-in identity
+  role: "member" | "admin";
+  status: "active" | "disabled";
+  createdAt: string;                  // ISO-8601 UTC
+};
+```
+
+Used by #23-#26 only (`design/09-admin-console.md` §3). It carries no task, note or attachment field:
+the admin module reads `users` rows and nothing else.
 
 ## 4. Validation rules
 
@@ -560,6 +580,40 @@ Liveness and readiness for the Cloudflare route and the harness (NFR-REL-007). A
 
 No counts, no versions, no connection strings. D-5 (`storage`, `503` with a success envelope) needs
 approval (O-3).
+
+### 5.23 #23-#26 — admin member management (approved extension BCR-01)
+
+Documented in `design/09-admin-console.md` §3; implemented by the `admin` module and called only by
+`apps/admin`. Neither member frontend routes to these endpoints, and no response ever carries task or
+note content.
+
+Path prefix is `/api/v1/admin/members`. Every route: `401` without a session, `404` for a session whose
+`role` is `member` (the 404-not-403 rule, §1.9 — a non-admin must not be able to probe for the route),
+`429` past the per-admin limit.
+
+```jsonc
+// #23 GET /api/v1/admin/members?q&role&status&cursor
+{ "data": { "items": [ { "id": "…", "displayName": "…", "email": "…", "role": "member",
+                         "status": "active", "createdAt": "2026-11-16T09:00:00Z" } ],
+            "nextCursor": null, "total": 128 } }
+
+// #24 POST /api/v1/admin/members   → 201
+{ "displayName": "…", "email": "…", "temporaryPassword": "…", "role": "member", "status": "active" }
+
+// #25 PATCH /api/v1/admin/members/:id   → 200, same `AdminMember` shape as a list item
+{ "displayName": "…", "role": "admin", "status": "disabled" }   // any subset
+
+// #26 DELETE /api/v1/admin/members/:id  → 204, no body
+```
+
+| Field | Rule |
+|---|---|
+| `email` | created with the same normalisation as #1; duplicate → `409`; read-only after creation (the sign-in identity) |
+| `temporaryPassword` | create-only, validated by the same password schema as #1, never echoed back |
+| `role`, `status` | closed enums; any other value → `422` |
+| self-lockout | `PATCH`/`DELETE` against `$sessionUserId` that would demote, disable or delete the caller → `409 CONFLICT` |
+| `q` | matches `display_name` or `email`, `LIKE` escaped per §4 |
+| `cursor` | same §6.1 cursor contract, sort id `u:created` |
 
 ## 6. Pagination, filtering, sorting
 
@@ -824,8 +878,8 @@ Every item has a default already applied, so implementation is not blocked.
 
 ## 11. Deviations from the locked surface
 
-No endpoint was added, removed or renamed. Paths, methods and numbering are exactly the 22 in
-`api-surface.md`.
+The locked 22 endpoints keep their paths, methods and numbering: none was removed or renamed. The
+approved admin extension BCR-01 adds four endpoints as #23-#26 (D-12); nothing in the 22 changed.
 
 | # | Item | Locked said | This document | Driver | Status |
 |---|---|---|---|---|---|
@@ -840,6 +894,7 @@ No endpoint was added, removed or renamed. Paths, methods and numbering are exac
 | D-9 | `ValidationDetail` | `{field,code,message}` | Adds optional `file` | FR-ATT-002 requires naming the rejected file | Additive |
 | D-10 | Status codes | closed set omits `503`/`405` | `503` used by #22 only; `405` never used (unknown method → `404`) | `03` §6.3 specifies `503` for readiness | Recorded |
 | D-11 | `GET /attachments/:id` | "metadata" | Full `Attachment` object, same shape as create | One schema per resource; lightbox needs dimensions and size | Additive |
+| D-12 | Admin surface | absent | Adds #23-#26 `/admin/members*`, the `users.role`/`users.status` columns and the 404-not-403 rule for non-admins | BCR-01 approved; `design/09-admin-console.md`; the only cross-member read in the system | **Approved** |
 
 Two things the locked surface leaves implicit, restated rather than changed: #1 and #2 both return
 `SessionProbe` (Next's bootstrap and Astro's cookie round trip need the same shape), and #7 returns

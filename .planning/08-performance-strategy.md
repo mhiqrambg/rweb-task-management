@@ -310,7 +310,7 @@ Every row is recorded in the run manifest per repetition; any difference within 
 | CV-4 | Throttle | `P0` for the main set; `P1` for the secondary set, applied identically to both apps |
 | CV-5 | Backend | same Worker version, same D1 database, same R2 bucket, same session TTL config |
 | CV-6 | Dataset | same `dataset_id` + `checksums.total`, rebuilt from the manifest |
-| CV-7 | Builds | production builds of both frontends and the API; `NODE_ENV=production`; source maps off |
+| CV-7 | Builds | production builds of both member frontends and the API; `NODE_ENV=production`; source maps off. `apps/admin` is not a measured target |
 | CV-8 | Build ids | `astro_build_id`, `next_build_id`, `api_build_id` recorded; a pair requires all three to match |
 | CV-9 | Cache policy | `no-store` on both apps' HTML (parity, §9.3); binary `private, max-age=86400` |
 | CV-10 | Session | fresh context per run; the same benchmark account; login excluded from scenario timing |

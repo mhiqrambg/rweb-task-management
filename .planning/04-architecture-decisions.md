@@ -714,7 +714,7 @@ which point ADR-01, ADR-06 and ADR-07 are reopened together.
 
 | ADR | Subject | Status | Blocks / blocked by |
 |---|---|---|---|
-| ADR-01 | Modular monolith Worker, three deployables, one database | Proposed | Blocks ADR-15 (single-origin assumption), ADR-07 (single-writer storage); blocked by nothing |
+| ADR-01 | Modular monolith API (Node + Worker), four deployables, one database | Proposed | Blocks ADR-15 (single-origin assumption), ADR-07 (single-writer storage); blocked by nothing |
 | ADR-02 | D1 (SQLite), single database | Proposed | Blocks ADR-03; blocked by the locked Cloudflare stack |
 | ADR-03 | D1 prepared statements + hand-written parameterized SQL + `wrangler d1 migrations` | Proposed | Blocked by ADR-02; blocks the API module layout in `05`/`06` |
 | ADR-04 | Next static export + single shell + query-param router | Proposed | Blocks `14` §4 Next routes, T-701/T-702 and `08` S3–S6 method notes |

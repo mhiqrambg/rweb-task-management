@@ -2,7 +2,7 @@
 document: 09-admin-console.md
 phase: 2
 stage: design extension
-status: extension, requires owner approval (BCR-01)
+status: extension approved (BCR-01); implemented as apps/admin
 prepared_by: design integrator
 sources: [".planning/00-project-discovery.md §4-§8", ".planning/01-requirements.md §3.2 (FR-AUTH)", ".planning/05-database-design.md §1.1", ".planning/06-api-contracts.md §1-§2", "design/01-design-system.md", "design/06-copy-deck.md"]
 ---
@@ -43,11 +43,14 @@ ALTER TABLE users
   (`.planning/05` §1.2), through the same storage cleanup path.
 - An admin cannot delete or demote their own account (self-lockout guard).
 
-## 3. Endpoints (proposal, Astro-only)
+## 3. Endpoints (proposal, `apps/admin` page routes + API routes)
+
+Page routes are served by `apps/admin` (SSR). API routes below live under `/api/v1/admin/*` in `apps/api`
+and both member frontends never call them.
 
 | Method | Path | Returns |
 |---|---|---|
-| `GET` | `/admin` | Console shell, server-rendered page 1 of members |
+| `GET` | `/admin` | Console shell, server-rendered page 1 of members (page route) |
 | `GET` | `/admin/members?q&role&status&cursor` | Cursor page of `{id, displayName, email, role, status, createdAt}` plus `nextCursor` and `total` |
 | `POST` | `/admin/members` | Creates a member with a temporary password; `201` with the record |
 | `PATCH` | `/admin/members/:id` | Updates `displayName`, `role`, `status` |

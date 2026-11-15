@@ -127,6 +127,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | T-510 | Per-request timing logs for the harness | Iqram | T-501 | log fields documented |
 | T-511 | Maintenance Cron Trigger: session purge, orphan R2 object sweep, orphan row reconciliation (M1–M3) | Iqram | T-502, T-507 | Cron Trigger configured in `wrangler.jsonc` |
 | T-512 | Backup + restore drill: `wrangler d1 export` + R2 object copy (or D1 Time Travel), one rehearsed restore, dataset checksum compared (NFR-REL-008, M5) | Iqram | T-407 | recorded rehearsal with checksum |
+| T-513 | Admin module: `users.role`/`users.status` migration, #23-#26 member CRUD, role gate with 404-not-403, self-lockout `409`, session invalidation on disable (BCR-01) | Iqram | T-504 | `api/integration/admin-members.int.test.ts` green |
 
 ### P6 — Astro frontend (W4–W8)
 
@@ -172,6 +173,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | T-803 | Cross-app parity run (same dataset, same assertions) | Erika | T-802 | parity report |
 | T-804 | Fix integration defects, triage list | all | T-803 | defects closed or accepted |
 | T-805 | Documentation of run commands (README) | Iqram | T-801 | onboarding doc |
+| T-806 | Deploy `apps/admin` at `/admin` on the same origin; run the admin-free build gate over both member outputs (FR-ADMIN-006) | Hamzah + Azra | T-513, T-801 | admin console reachable, member builds contain zero admin routes |
 
 ### P9 — Functional testing (W9–W10)
 

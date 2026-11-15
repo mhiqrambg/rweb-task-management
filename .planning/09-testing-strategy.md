@@ -107,6 +107,8 @@ generated report fails when a cited test does not exist.
 | UI — confirmation dialogs | `FR-UI-007(1)` | e2e, a11y | `e2e/confirm-dialogs.spec.ts`; `e2e/keyboard-dialogs.spec.ts` | pre-merge |
 | UI — responsive | `FR-UI-008(1)` | e2e | `e2e/responsive.spec.ts` (375/768/1024/1440 loops) | pre-merge |
 | UI — parity, keyboard, live regions | `FR-UI-009(1)`, `010(1)`, `011(1)` | parity, e2e, a11y | `parity/report`; `e2e/keyboard-journey.spec.ts`; `e2e/live-regions.spec.ts` | pre-merge, pre-campaign |
+| Admin — list, create, edit, disable, delete (extension) | `FR-ADMIN-001(1)`, `002(1)`, `003(1)`, `004(1)`, `005(1)`, `007(1)`, `008(1)` | integration, security, e2e | `api/integration/admin-members.int.test.ts`; `e2e/admin/admin-members.spec.ts`; `e2e/admin/admin-disable-session.spec.ts`; `e2e/admin/admin-self-lockout.spec.ts` | PR, pre-merge |
+| Admin — member apps carry no admin surface | `FR-ADMIN-006(1)` | security, build gate | `security/admin-route-nondisclosure.int.test.ts`; `gate/admin-free-member-builds` | PR, pre-merge |
 
 ### 3.2 Non-functional requirements
 
@@ -435,6 +437,7 @@ and is never cited as a result.
 
 | Not tested | Reason | Trigger that would add it |
 |---|---|---|
+| Admin console performance or parity | `apps/admin` is outside the benchmark and has no counterpart app, so FR-UI-009 parity and NFR-PERF-* do not cover it (`design/09-admin-console.md` §1) | An admin screen added to the measured surface, or a parity requirement that names it |
 | Load, stress and soak testing | The comparison has zero concurrency by design (`08` §10); no throughput or availability requirement exists in `01` | Any stated concurrency, uptime or capacity target; a public deployment with real traffic |
 | Multi-instance behaviour, horizontal scaling, shared rate-limit store | ADR-01 and the one-origin topology fix a single Worker; D1-backed limits are the documented design | A second Worker, or a requirement for shared session/limit state |
 | Browser matrix beyond a smoke pass | NFR-COMPAT-002 is a manual smoke requirement; the benchmark is one pinned Chromium | An engine-specific defect, or a release demand for automated cross-browser coverage |

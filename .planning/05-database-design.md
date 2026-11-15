@@ -28,7 +28,7 @@ is binding; every deviation is listed in §11.2.
 
 | Entity | Table | Owned by | Owner axis | Lifecycle |
 |---|---|---|---|---|
-| User | `users` | auth module | itself | created at registration; never deleted by any endpoint |
+| User | `users` | auth module | itself | created at registration; deleted only through the admin extension (BCR-01), cascading to the member's rows |
 | Session | `sessions` | auth module | `user_id` → `users` | created at login/register, revoked at logout, expires absolutely (7 d) and idly (24 h) |
 | Task | `tasks` | tasks module | `user_id` → `users` | created at #9, updated at #11, hard-deleted at #12 |
 | Note | `notes` | notes module | `user_id` → `users` | created at #14, updated at #16, hard-deleted at #17 |
@@ -82,6 +82,8 @@ erDiagram
         TEXT email UK "lower-cased, UNIQUE COLLATE NOCASE"
         text password_hash "argon2id encoded, never exposed"
         text display_name
+        text role "member | admin, default member"
+        text status "active | disabled, default active"
         TEXT created_at "ISO-8601 UTC Z"
         TEXT updated_at "ISO-8601 UTC Z"
     }
@@ -157,12 +159,19 @@ of truth, no duplicate regex to drift.
 | `email` | `TEXT` | NO | — | **UNIQUE** `users_email_key` `COLLATE NOCASE`; stored lower-cased |
 | `password_hash` | `text` | NO | — | `CHECK (password_hash LIKE '$argon2id$%')` |
 | `display_name` | `TEXT` | NO | — | `CHECK (trim(display_name) <> '')` |
+| `role` | `TEXT` | NO | `'member'` | `CHECK (role IN ('member','admin'))`; admin extension BCR-01 |
+| `status` | `TEXT` | NO | `'active'` | `CHECK (status IN ('active','disabled'))`; `disabled` blocks login and invalidates live sessions |
 | `created_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | — |
 | `updated_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | set explicitly by #6 |
 
 `password_hash` stores the full Argon2id encoded string (NFR-SEC-001 — parameters live inside the
 string, so tuning them needs no migration). The `CHECK` guards against a plaintext or wrong-algorithm
 value ever being written; it is not a parameter check.
+
+`role` and `status` exist only for the approved admin extension (BCR-01, `design/09-admin-console.md`).
+Ownership authorization never consults them: every task, note and attachment query stays
+`WHERE user_id = $sessionUserId`, and a member is never given cross-member read access. `status = 'disabled'`
+is checked at session resolution, so a disabled member's outstanding cookies stop working immediately.
 
 Registration needs no pre-flight "does this email exist" query: the unique index is the authority and a
 `SQLITE_CONSTRAINT_UNIQUE` violation maps to `CONFLICT` (409).

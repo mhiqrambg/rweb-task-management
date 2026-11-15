@@ -79,13 +79,15 @@ flowchart TB
   Edge["Cloudflare edge - zone routing"]
   Astro["web-astro - Astro 7.4.x, on-demand SSR"]
   Next["web-next - Next 16.4.x, static export"]
-  subgraph ApiBox["api - Cloudflare Worker (ElysiaJS)"]
+  Admin["admin - SSR, server-authorised, outside the benchmark"]
+  subgraph ApiBox["api - ElysiaJS on Node + Worker"]
     ApiEdge["HTTP entry - plugins, error envelope, logger, request id"]
     AuthM["auth module"]
     TasksM["tasks module"]
     NotesM["notes module"]
     AttM["attachments module"]
     DashM["dashboard module"]
+    AdminM["admin module"]
     HealthM["health module"]
     DbLayer["db - D1 binding env.DB, parameterized SQL"]
     ApiEdge --> AuthM
@@ -93,12 +95,14 @@ flowchart TB
     ApiEdge --> NotesM
     ApiEdge --> AttM
     ApiEdge --> DashM
+    ApiEdge --> AdminM
     ApiEdge --> HealthM
     AuthM --> DbLayer
     TasksM --> DbLayer
     NotesM --> DbLayer
     AttM --> DbLayer
     DashM --> DbLayer
+    AdminM --> DbLayer
     HealthM --> DbLayer
   end
   Contracts["packages/contracts"]
@@ -108,15 +112,19 @@ flowchart TB
   Browser --> Edge
   Edge --> Astro
   Edge --> Next
+  Edge --> Admin
   Edge --> ApiEdge
   Astro -->|"server-side fetch, Cookie header forwarded"| ApiEdge
+  Admin -->|"server-side fetch, Cookie header forwarded"| ApiEdge
   AttM --> Store
   DbLayer --> Db
   Contracts -.->|"build-time import"| Astro
   Contracts -.->|"build-time import"| Next
+  Contracts -.->|"build-time import"| Admin
   Contracts -.->|"build-time import"| ApiBox
   Tokens -.->|"build-time import"| Astro
   Tokens -.->|"build-time import"| Next
+  Tokens -.->|"build-time import"| Admin
 ```
 
 ### 2.1 Component responsibilities and boundaries
@@ -476,8 +484,10 @@ The server is the only place a rule is decided (G-2, NFR-SEC-004). Each row name
 The accepted Cloudflare Workers free-tier limits are 100,000 requests/day, 10 ms CPU/request, and 50
 subrequests/request. Argon2id password hashing and `@jsquash` image decoding/thumbnail generation are CPU-
 heavy operations that remain part of the design and may approach or exceed the CPU budget; this is a known
-platform constraint, not a reason to remove either operation. There is no Node process, no listening port,
-and no container/Docker/Compose deployment; Cloudflare zone routing / Workers routes provide the shared origin.
+platform constraint, not a reason to remove either operation. The API is one ElysiaJS application with two
+runtimes: a Node process on `:8787` for local development, and a Cloudflare Worker for production, where the
+D1 and R2 bindings are provided by the platform. There is no container/Docker/Compose deployment; Cloudflare
+zone routing / Workers routes provide the shared origin.
 
 ```mermaid
 flowchart LR
@@ -486,7 +496,8 @@ flowchart LR
   subgraph Edge["Cloudflare zone - one origin"]
     CFRoute["Cloudflare edge - zone routing, Workers routes, TLS"]
     AstroC["web-astro - Astro on @astrojs/cloudflare (Worker)"]
-    ApiC["api - Cloudflare Worker (ElysiaJS), no port"]
+    AdminC["admin - SSR admin app, role-gated server side"]
+    ApiC["api - ElysiaJS on Cloudflare Worker (Node :8787 when run locally)"]
     DbC[("D1 database - internal only")]
     StaticB["next export artifact served by the zone at /b/*"]
     Vol[("R2 bucket - binaries and thumbnails")]
@@ -497,15 +508,18 @@ flowchart LR
   Harness -->|"readiness gate"| CFRoute
   CFRoute -->|"/ and app paths"| AstroC
   CFRoute -->|"/b/* static export"| StaticB
+  CFRoute -->|"/admin*"| AdminC
   CFRoute -->|"/api/*"| ApiC
   ApiC --> DbC
   ApiC --> Vol
   AstroC -->|"server-side fetch to public origin /api"| ApiC
+  AdminC -->|"server-side fetch to public origin /api"| ApiC
   ApiC --> Logs
 ```
 
 There is no `web-next` process in production: its static export is served by Cloudflare at `/b/*`
-(see §12, O-1). Cloudflare zone routing and Workers routes provide one origin; horizontal scaling is out of scope (A-03).
+(see §12, O-1). `apps/admin` is a third SSR deployable on the same origin; it shares the API and the
+session cookie but never appears in the member apps and is excluded from the benchmark scenarios. Cloudflare zone routing and Workers routes provide one origin; horizontal scaling is out of scope (A-03).
 
 ### 6.2 Path table
 
@@ -515,6 +529,7 @@ There is no `web-next` process in production: its static export is served by Clo
 | `/login`, `/register`, `/app`, `/tasks*`, `/notes*`, `/account`, `/404` | Astro `@astrojs/cloudflare` Worker | all on-demand |
 | `/b/`, `/b/login`, `/b/register`, `/b/app/`, `/b/404.html` | Cloudflare static assets | Next static export, served at `/b/*` |
 | `/b/_next/*` | Cloudflare static assets | immutable hashed assets, long `Cache-Control` |
+| `/admin`, `/admin/members*` | SSR admin app (`apps/admin`) | server-side role gate; not present in either member app |
 | `/api/*` | API Worker | prefix preserved; Elysia routes `/api/v1/*` |
 | `/uploads/*` | Cloudflare zone route returns `404` | never routed to a Worker |
 | `/healthz` | Cloudflare static asset | zone liveness only, no application data |
@@ -541,9 +556,9 @@ Worker owns app routes; it is not a catch-all routing layer.
 
 | App | Dev mechanism | Consequence |
 |---|---|---|
-| `web-astro` | `astro dev` serves the page shell; Vite dev proxy routes `/api` → `http://localhost:8787` | Astro page shell plus API Worker dev server; no CORS needed |
+| `web-astro` | `astro dev` serves the page shell; Vite dev proxy routes `/api` → `http://localhost:8787` | Astro page shell plus API dev server; no CORS needed |
 | `web-next` | `next dev` cannot use `rewrites` under `output: 'export'`; it uses an absolute `NEXT_PUBLIC_API_BASE_URL=http://localhost:8787/api/v1` plus a dev-only CORS allowlist `['http://localhost:3000']` with `credentials: true` | ports differ but the site is the same, so the `Lax` cookie still travels (cookie scope ignores ports); CORS is still required because the origin differs. `origin: '*'` must never be used — with `credentials: true` browsers reject it. `Secure` is off because dev is `http` |
-| `api` | `wrangler dev` on `:8787`, with local D1/R2 under `.wrangler/state` | no `tsx watch`: the Worker runs under `wrangler dev` |
+| `api` | `wrangler dev` on `:8787` with local D1/R2 under `.wrangler/state`; the same ElysiaJS app also runs on Node via `tsx watch` when Worker bindings are not needed | Runtime is chosen per task; measured builds always use the Worker path |
 
 Local dev servers are excluded from measurement (C-09, NFR-PERF-006). Production preview uses `wrangler dev`
 on the built Astro Worker; the dev CORS allowlist is registered only outside production and is absent
@@ -554,16 +569,18 @@ from the measured stack.
 ```
 rweb-task-management/
 ├── apps/
-│   ├── api/                      # Cloudflare Worker (ElysiaJS) + TypeScript, the only component that binds D1 and the R2 bucket
-│   │   ├── src/{server.ts,app.ts,config/,plugins/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/,scripts/}
+│   ├── api/                      # ElysiaJS (Node + Worker) + TypeScript, the only component that binds D1 and the R2 bucket
+│   │   ├── src/{server.ts,app.ts,config/,plugins/,modules/{auth,tasks,notes,attachments,dashboard,admin,health}/,db/,lib/,scripts/}
 │   │   ├── migrations/           # numbered forward-only SQL, applied by `wrangler d1 migrations`
 │   │   ├── test/{unit,integration}/
 │   │   ├── wrangler.jsonc        # Worker config: D1 + R2 bindings, compat date, routes, Cron Triggers
 │   │   └── .wrangler/state/      # local dev D1/R2 state (gitignored) — replaces the dev upload root
 │   ├── web-astro/                # Astro 7.4.x, output 'server', @astrojs/cloudflare Worker
 │   │   └── src/{pages,layouts,components,lib,styles,assets}/
-│   └── web-next/                 # Next.js 16.4.x App Router, output 'export', basePath '/b'
-│       └── src/{app,components,lib,styles}/
+│   ├── web-next/                 # Next.js 16.4.x App Router, output 'export', basePath '/b'
+│   │   └── src/{app,components,lib,styles}/
+│   └── admin/                    # SSR admin app at /admin, server-authorised, outside the benchmark
+│       └── src/{pages,components,lib,styles}/
 ├── packages/
 │   ├── contracts/                # types + Zod schemas + error codes + copy + route constants
 │   ├── design-tokens/            # tokens.css + tokens.json, single source for both frontends
@@ -647,6 +664,8 @@ maps each screen to the API operations it needs.
 | Note detail | `/notes/[id]` | `/b/app/?view=notes&id=<uuid>` | #15, #4, #16, #17, #18, #21, #20 | loading, `NOT_FOUND`, error + retry, lightbox, confirm delete, upload states |
 | Account | `/account` | `/b/app/?view=account` | #5, #3, #4 | loading, error, logout immediate (no confirmation), profile read-only (permission matrix row 24) |
 | Not found | `/404` | `/b/404.html` + `?view=` fallback | none | static message, link back to a safe route |
+| Admin console (extension) | — | — | #23, #24, #25, #26 | `apps/admin` `/admin`: loading skeletons, empty result + clear filters, error + retry, create/edit validation, delete confirmation; not in either member app |
+| Admin member edit (extension) | — | — | #23, #25, #24 (create) | `apps/admin` `/admin/members/[id]`: prefilled form, role/status segments, read-only email, `409` self-lockout message, save toast |
 | Health (not a screen) | — | — | #22 | used by the harness and the zone's readiness only |
 
 Cross-cutting: every data-dependent screen implements loading, empty, error-with-retry and non-blocking
@@ -683,8 +702,9 @@ screen-local string (NFR-MAINT-006).
 | pnpm | 9 | ADR-11; strict resolution catches undeclared deps and contract drift | npm workspaces fallback: same layout, weaker strictness | Baseline (fallback documented) |
 | TypeScript | 5.x strict | NFR-MAINT-004 | Type drift between contracts and both apps | Baseline |
 | Cloudflare Workers runtime | current, recorded compat date | C-03, A-08 | No shared API; the comparison loses its instrument | Baseline |
-| ElysiaJS | current | C-03; small router surface for `/api/v1/*` | Hand-rolled routing and error envelope | Baseline |
-| Workers cookie handling (`elysia` cookie) | current | FR-AUTH-004 | Manual cookie parsing and signing errors | Baseline |
+| Node.js runtime (API) | 24.11.1, same `.nvmrc` | local development of the same ElysiaJS app; `tsx watch` on `:8787` | Divergence between dev and Worker behaviour | Baseline |
+| ElysiaJS | current | C-03; routing, validation hooks and error envelope for `/api/v1/*` on both Node and Worker | Hand-rolled routing and error envelope | Baseline |
+| Elysia cookie handling (built-in `cookie` plugin) | current | FR-AUTH-004 | Manual cookie parsing and signing errors | Baseline |
 | Workers form-data parsing (Web `FormData`) | current | FR-ATT-001, FR-ATT-002 | Hand-rolled multipart parser | Baseline |
 | D1 `rate_limits` table | — | NFR-SEC-007 | Brute-forceable login; threshold test impossible | Baseline (D1-backed counters) |
 | Workers security headers middleware | current | NFR-SEC-014 | Security headers hand-written per route | Baseline |
