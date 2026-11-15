@@ -338,11 +338,17 @@ on the production environment, and a smoke test asserts no response on the measu
 
 ### 6.4 The dev allowlist and its footgun
 
-Only `next dev` needs cross-origin (3000 → 8787): `{ origin: ['http://localhost:3000'], credentials: true }`,
-registered only when the Worker runs under `wrangler dev`. `origin: '*'` (plugin default) with `credentials: true`
-is rejected by browsers, so it "works" only by silently breaking cookies — and if a future version
-accepted it, every site would get a credentialed read. `origin: true` (reflect any) is equally forbidden.
-Both are review-blocking.
+Only `next dev` needs cross-origin (3000 → 8787). The allowlist is two exact origins, not one:
+`APP_ORIGIN` (the measured frontend origin, `http://localhost:4321` under Astro dev) and
+`DEV_ORIGIN` (`http://localhost:3000`) — both accepted only when `ENVIRONMENT !== 'production'`.
+The `Origin` header is compared by exact string equality (`origin === config.appOrigin ||
+origin === DEV_ORIGIN`); nothing is reflected and no wildcard exists. Preflight is answered in the
+Worker entry before Elysia routing, because Elysia registers no `OPTIONS` route and a hook would
+never run. Dev responses carry `Access-Control-Allow-Origin` (the exact allowed origin),
+`Access-Control-Allow-Credentials: true` and `Vary: Origin`; `origin: '*'` (plugin default) with
+`credentials: true` is rejected by browsers, so it "works" only by silently breaking cookies — and
+if a future version accepted it, every site would get a credentialed read. `origin: true` (reflect
+any) is equally forbidden. Both are review-blocking.
 
 ### 6.5 Response header policy (NFR-SEC-014)
 

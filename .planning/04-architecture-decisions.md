@@ -247,8 +247,9 @@ separate origins with CORS?
 **Decision.** Option 1. Cloudflare zone routing / Workers routes send `/api/*` to the API Worker, `/b/*`
 to the Next static assets, `/` and Astro app paths to the Astro `@astrojs/cloudflare` Worker, and return a
 hard 404 for `/uploads/*`. The zone's route configuration is the routing mechanism. Workers CORS middleware
-is **not registered in production** and appears only in the dev configuration with a single concrete origin
-(`http://localhost:3000`, `credentials: true`).
+is **not registered in production** and appears only in the dev configuration with two exact origins
+(`APP_ORIGIN`, the Astro dev origin `http://localhost:4321`, and `http://localhost:3000`,
+`credentials: true`).
 
 **Rationale.** One origin makes the cookie first-party with `SameSite=Lax`, `HttpOnly`, `Path=/` and no
 `Domain` (NFR-SEC-003), exactly what FR-AUTH-004 specifies, with no CORS surface to misconfigure. It

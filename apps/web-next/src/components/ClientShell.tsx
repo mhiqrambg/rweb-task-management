@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api, type SessionProbe, type ItemResponse, type User } from '@taskapp/contracts';
+import { api, copy, type SessionProbe, type ItemResponse, type User } from '@taskapp/contracts';
 import { ApiError, requestJson, SESSION_EXPIRED_EVENT } from '@/lib/api';
 import { ShellSkeleton } from '@/components/ShellSkeleton';
 import { DashboardPanel } from '@/components/DashboardPanel';
@@ -15,10 +15,10 @@ function isView(value: string | null): value is View {
   return value === 'dashboard' || value === 'tasks' || value === 'notes' || value === 'account';
 }
 const navItems: { view: View; title: string; icon: string }[] = [
-  { view: 'dashboard', title: 'Dashboard', icon: '▦' },
-  { view: 'tasks', title: 'Tugas', icon: '☑' },
-  { view: 'notes', title: 'Catatan', icon: '▤' },
-  { view: 'account', title: 'Akun', icon: '◯' },
+  { view: 'dashboard', title: copy.nav.dashboard, icon: '▦' },
+  { view: 'tasks', title: copy.nav.tasks, icon: '☑' },
+  { view: 'notes', title: copy.nav.notes, icon: '▤' },
+  { view: 'account', title: copy.nav.account, icon: '◯' },
 ];
 
 type SessionState =
@@ -66,7 +66,7 @@ export function ClientShell() {
         setSession({
           attempt,
           status: 'error',
-          message: cause instanceof Error ? cause.message : 'Gagal memeriksa sesi.',
+          message: cause instanceof Error ? cause.message : copy.state.error.body,
         });
       });
     return () => { active = false; };
@@ -84,7 +84,7 @@ export function ClientShell() {
         router.replace('/login');
         return;
       }
-      setLogoutError(cause instanceof Error ? cause.message : 'Gagal logout. Silakan coba kembali.');
+      setLogoutError(cause instanceof Error ? cause.message : copy.toast.errorSave);
     } finally {
       setLogoutBusy(false);
     }
@@ -98,10 +98,10 @@ export function ClientShell() {
     return (
       <main className="center-page">
         <section className="panel">
-          <h1>Koneksi API bermasalah</h1>
+          <h1>{copy.state.error.title}</h1>
           <p className="error" role="alert">{currentSession.message}</p>
           <button className="button secondary" onClick={() => setAttempt((previous) => previous + 1)}>
-            Coba lagi
+            {copy.action.retry}
           </button>
         </section>
       </main>
@@ -112,8 +112,8 @@ export function ClientShell() {
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="brand">◧ Task &amp; Notes</div>
-        <nav aria-label="Navigasi utama" className="nav-list">
+        <div className="brand">◧ {copy.brand.name}</div>
+        <nav aria-label={copy.brand.name} className="nav-list">
           {navItems.map((item) => (
             <button
               type="button"
@@ -134,7 +134,6 @@ export function ClientShell() {
       <div className="workspace">
         <header className="workspace-header">
           <strong>{navItems.find((item) => item.view === view)?.title}</strong>
-          <span className="muted">Next.js SSG</span>
         </header>
         <main className="content">
           {view === 'dashboard' && <DashboardPanel />}

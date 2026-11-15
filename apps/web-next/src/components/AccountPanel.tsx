@@ -1,8 +1,9 @@
-import styles from './AccountPanel.module.css';
+import { copy, formatDate } from '@taskapp/contracts';
 
 export type AccountProfile = {
   displayName?: string | null;
   email: string;
+  createdAt?: string | null;
 };
 
 type AccountPanelProps = {
@@ -12,61 +13,54 @@ type AccountPanelProps = {
   logoutError?: string;
 };
 
-/** Read-only profile: the source of truth is the authenticated /auth/me response. */
+/** Read-only profile, same markup and copy as apps/web-astro/src/pages/account.astro. */
 export function AccountPanel({
   profile,
   onLogout,
   logoutBusy = false,
   logoutError = '',
 }: AccountPanelProps) {
-  const displayName = profile.displayName?.trim() || 'Pengguna';
-  const initial = displayName.slice(0, 1).toLocaleUpperCase('id-ID');
-
   return (
-    <section className={styles.page} aria-labelledby="account-heading">
-      <header className={styles.heading}>
-        <p className="eyebrow">PENGATURAN AKUN</p>
-        <h1 id="account-heading">Akun saya</h1>
-        <p className="muted">Lihat identitas akun Anda dan kelola sesi masuk.</p>
-      </header>
+    <section className="section account-panel" aria-labelledby="account-heading">
+      <h1 id="account-heading" className="page-head__title">{copy.account.title}</h1>
 
-      <div className={`panel ${styles.profileCard}`}>
-        <div className={styles.identity}>
-          <span className={styles.avatar} aria-hidden="true">{initial}</span>
-          <div className={styles.identityText}>
-            <h2>{displayName}</h2>
-            <p className="muted">Informasi profil</p>
-          </div>
+      <div className="panel">
+        <div className="account-row">
+          <span className="account-row__label">{copy.account.email}</span>
+          <span>{profile.email}</span>
         </div>
-        <dl className={styles.details}>
-          <div className={styles.field}>
-            <dt>Nama tampilan</dt>
-            <dd>{displayName}</dd>
-          </div>
-          <div className={styles.field}>
-            <dt>Alamat email</dt>
-            <dd>{profile.email}</dd>
-          </div>
-        </dl>
-        <p className={styles.readOnly}>
-          Informasi akun hanya dapat dilihat pada versi ini.
-        </p>
-      </div>
+        <div className="account-row">
+          <span className="account-row__label">{copy.account.displayName}</span>
+          <span>{profile.displayName?.trim() || copy.account.displayName}</span>
+        </div>
+        <div className="account-row">
+          <span className="account-row__label">{copy.account.createdAt}</span>
+          <span>{profile.createdAt ? formatDate(profile.createdAt) : '—'}</span>
+        </div>
 
-      <section className={`panel ${styles.sessionCard}`} aria-labelledby="session-heading">
-        <h2 id="session-heading">Sesi akun</h2>
-        <p className="muted">Keluar untuk mengakhiri sesi pada perangkat ini.</p>
+        <hr className="divider" />
+
+        <p className="muted">{copy.account.readOnly}</p>
+
         {logoutError ? <p role="alert" className="error">{logoutError}</p> : null}
-        <button
-          type="button"
-          className="button danger"
-          disabled={logoutBusy}
-          aria-busy={logoutBusy}
-          onClick={() => void onLogout()}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!logoutBusy) void onLogout();
+          }}
         >
-          {logoutBusy ? 'Sedang keluar…' : 'Keluar dari akun'}
-        </button>
-      </section>
+          <button
+            type="submit"
+            className="btn"
+            data-variant="secondary"
+            disabled={logoutBusy}
+            aria-busy={logoutBusy || undefined}
+          >
+            {logoutBusy ? <span className="btn__spinner" aria-hidden="true" /> : null}
+            {copy.auth.logout}
+          </button>
+        </form>
+      </div>
     </section>
   );
 }

@@ -1,0 +1,334 @@
+/*
+ * Auth screen chrome and card, copied rule-for-rule from apps/web-astro/src/styles/app.css so
+ * /b/login and /b/register render the same box model as their Astro counterparts. Tokens only:
+ * every value below is a var(--...) from @taskapp/design-tokens (R-E1, design/05 §2).
+ */
+
+/* ---------------------------------------------------------------- marketing header/footer */
+
+.m-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: var(--header-h-marketing);
+  padding: 0 var(--gutter);
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.m-header__inner,
+.m-footer__inner {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+}
+
+.m-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-16);
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.m-footer {
+  border-top: 1px solid var(--color-line);
+  background: var(--color-paper);
+  padding: var(--sp-5) var(--gutter);
+}
+
+.m-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.m-footer__links {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  font-size: var(--fs-14);
+}
+
+.footer-blurb {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-14);
+}
+
+@media (min-width: 768px) {
+  .m-footer__inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* ---------------------------------------------------------------- utilities */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--sp-4);
+  top: var(--sp-2);
+  z-index: 20;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--r-sm);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+.muted {
+  color: var(--color-ink-muted);
+}
+
+/* ---------------------------------------------------------------- C-01 button */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--control-h);
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-size: var(--fs-16);
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration) ease,
+    border-color var(--duration) ease,
+    color var(--duration) ease;
+}
+
+.btn[data-variant='primary'] {
+  background: var(--color-accent);
+  color: var(--color-paper);
+}
+
+.btn[data-variant='primary']:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-paper);
+}
+
+.btn[data-variant='secondary'] {
+  background: var(--color-paper);
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+
+.btn[data-variant='secondary']:hover {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.btn[data-variant='ghost'] {
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.btn[data-variant='ghost']:hover {
+  background: var(--color-surface-2);
+}
+
+.btn[data-variant='danger'] {
+  background: var(--color-danger);
+  color: var(--color-paper);
+}
+
+.btn[data-variant='danger']:hover {
+  background: var(--color-danger);
+  color: var(--color-paper);
+  filter: brightness(0.94);
+}
+
+.btn:disabled,
+.btn[aria-busy='true'] {
+  background: var(--color-surface-2);
+  border-color: var(--color-line);
+  color: var(--color-ink-muted);
+  /* Next's globals.css dims every disabled button; Astro's .btn state is colour-only. */
+  opacity: 1;
+}
+
+.btn[data-variant='danger']:disabled {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--sm {
+  min-height: 32px;
+  font-size: var(--fs-14);
+  padding: 0 var(--sp-3);
+}
+
+.btn__spinner {
+  width: var(--sp-4);
+  height: var(--sp-4);
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------- C-03/C-04/C-05 fields */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.field__label {
+  font-size: var(--fs-14);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.field__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.field__input {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink-faint);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+}
+
+textarea.field__input {
+  min-height: 120px;
+  resize: vertical;
+}
+
+select.field__input {
+  appearance: none;
+  padding-right: var(--sp-6);
+  background-image: none;
+}
+
+.field__input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.field__input:disabled {
+  background: var(--color-surface-2);
+  color: var(--color-ink-muted);
+}
+
+.field__hint {
+  font-size: var(--fs-14);
+  line-height: 1.45;
+  color: var(--color-ink-muted);
+}
+
+.field__error {
+  font-size: var(--fs-14);
+  line-height: 1.45;
+  color: var(--color-danger);
+}
+
+.field__count {
+  align-self: flex-end;
+  font-size: var(--fs-12);
+  color: var(--color-ink-muted);
+}
+
+/* ---------------------------------------------------------------- C-19 inline error */
+
+.inline-error {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--color-danger-soft);
+  border-radius: var(--r-sm);
+  color: var(--color-danger);
+  font-size: var(--fs-14);
+}
+
+/* ---------------------------------------------------------------- auth */
+
+.auth-main {
+  display: grid;
+  place-items: center;
+  padding: var(--sp-6) var(--gutter) var(--sp-8);
+  min-height: calc(100vh - var(--header-h-marketing));
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 384px;
+  padding: var(--sp-6);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--r-md);
+}
+
+.auth-card__title {
+  font-size: var(--fs-32);
+  line-height: var(--lh-tight);
+  font-weight: 600;
+  margin-bottom: var(--sp-5);
+}
+
+.auth-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.auth-card__crosslink {
+  margin-top: var(--sp-4);
+  font-size: var(--fs-14);
+  text-align: center;
+}
+
+/* Astro resets element margins globally; Next's globals.css keeps a paragraph margin, so these
+   pages carry the reset themselves to keep the card and footer heights identical. */
+.auth-main p,
+.m-footer p {
+  margin: 0;
+}

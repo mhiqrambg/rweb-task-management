@@ -1,0 +1,103 @@
+/* Account panel: rules copied verbatim from apps/web-astro/src/styles/app.css. */
+
+.section {
+  padding: var(--sp-7) 0;
+}
+
+.page-head__title {
+  flex: 1 1 240px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--r-md);
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: var(--sp-5) 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--control-h);
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-size: var(--fs-16);
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration) ease,
+    border-color var(--duration) ease,
+    color var(--duration) ease;
+}
+
+.btn[data-variant='secondary'] {
+  background: var(--color-paper);
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+
+.btn[data-variant='secondary']:hover {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.btn:disabled,
+.btn[aria-busy='true'] {
+  background: var(--color-surface-2);
+  border-color: var(--color-line);
+  color: var(--color-ink-muted);
+}
+
+.btn__spinner {
+  width: var(--sp-4);
+  height: var(--sp-4);
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.account-panel {
+  max-width: 560px;
+}
+
+.account-panel h1 {
+  margin-bottom: var(--sp-4);
+}
+
+.account-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.account-row:last-of-type {
+  border-bottom: 0;
+}
+
+.account-row__label {
+  font-size: var(--fs-14);
+  color: var(--color-ink-muted);
+}
