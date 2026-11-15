@@ -13,6 +13,8 @@ if (data?.ok) return Astro.redirect(data.redirect, 303);
 
 const failure = data && data.ok === false ? data : null;
 const values = failure ? Astro.locals.formValues : {};
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
 ---
 
 <AuthLayout title={copy.auth.register.title}>

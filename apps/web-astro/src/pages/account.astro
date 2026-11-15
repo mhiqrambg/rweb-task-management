@@ -3,6 +3,8 @@ import { actions } from 'astro:actions';
 import { copy, formatDate, routes } from '@taskapp/contracts';
 import MarketingLayout from '../layouts/MarketingLayout.astro';
 import Button from '../components/Button.astro';
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
 
 const session = Astro.locals.session;
 const result = Astro.getActionResult(actions.logout);

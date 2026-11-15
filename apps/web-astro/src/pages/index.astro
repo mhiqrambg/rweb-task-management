@@ -37,6 +37,9 @@ const previewTasks = [
   },
 ];
 const previewOverflow = fill(copy.task.attachments.overflow, { n: 2 });
+// On-demand only: the landing reads the session cookie for its auth CTA and must never be
+// prerendered into a static export (ADR-13).
+export const prerender = false;
 ---
 
 <MarketingLayout title={copy.brand.name}>
