@@ -27,3 +27,19 @@ export async function sha256(value: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return new Uint8Array(digest);
 }
+
+/** UTF-8 text to unpadded base64url (cursor codec, §6.1); no `Buffer` on Workers. */
+export function base64UrlEncodeText(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+}
+
+export function base64UrlDecodeText(value: string): string {
+  const padded = value.replaceAll('-', '+').replaceAll('_', '/');
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}

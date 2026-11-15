@@ -895,6 +895,8 @@ approved admin extension BCR-01 adds four endpoints as #23-#26 (D-12); nothing i
 | D-10 | Status codes | closed set omits `503`/`405` | `503` used by #22 only; `405` never used (unknown method → `404`) | `03` §6.3 specifies `503` for readiness | Recorded |
 | D-11 | `GET /attachments/:id` | "metadata" | Full `Attachment` object, same shape as create | One schema per resource; lightbox needs dimensions and size | Additive |
 | D-12 | Admin surface | absent | Adds #23-#26 `/admin/members*`, the `users.role`/`users.status` columns and the 404-not-403 rule for non-admins | BCR-01 approved; `design/09-admin-console.md`; the only cross-member read in the system | **Approved** |
+| D-13 | Cursor `s` for multi-key/directed sorts | examples `t:updated`, `t:created`, `t:due`, `n:pinned` | `s` is the endpoint namespace plus the normalized requested sort (`t:-updated_at`, `t:due_date,-priority`), so every allowlisted 1-2-key combination in both directions has a distinct id and `s` still equals the requested sort | §6.1 binds `s` to the requested sort but names only four single-key cases; direction and second keys need an id too | Interpretation — confirm at G3 |
+| D-14 | `sort=priority` ordering | keys listed, no order semantics | Plain column order (lexical: `high,low,medium` ascending) | The contract fixes key order, not value order; lexical is the literal `ORDER BY priority` with no extra semantics | Interpretation — confirm at G3 |
 
 Two things the locked surface leaves implicit, restated rather than changed: #1 and #2 both return
 `SessionProbe` (Next's bootstrap and Astro's cookie round trip need the same shape), and #7 returns
