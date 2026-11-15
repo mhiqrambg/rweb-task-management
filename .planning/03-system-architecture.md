@@ -485,9 +485,10 @@ The accepted Cloudflare Workers free-tier limits are 100,000 requests/day, 10 ms
 subrequests/request. Argon2id password hashing and `@jsquash` image decoding/thumbnail generation are CPU-
 heavy operations that remain part of the design and may approach or exceed the CPU budget; this is a known
 platform constraint, not a reason to remove either operation. The API is one ElysiaJS application with two
-runtimes: a Node process on `:8787` for local development, and a Cloudflare Worker for production, where the
-D1 and R2 bindings are provided by the platform. There is no container/Docker/Compose deployment; Cloudflare
-zone routing / Workers routes provide the shared origin.
+runtimes: locally, `wrangler dev` runs the app as a Node process on `:8787` against emulated D1/R2 state;
+in production it is a Cloudflare Worker, where the D1 and R2 bindings are provided by the platform.
+`apps/api/src/index.ts` is the Worker entry and the only place a response leaves the app. There is no
+container/Docker/Compose deployment; Cloudflare zone routing / Workers routes provide the shared origin.
 
 ```mermaid
 flowchart LR
