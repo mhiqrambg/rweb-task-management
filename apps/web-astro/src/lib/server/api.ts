@@ -10,6 +10,31 @@ import type { ApiRaw, ApiRequestInput, Failure, Result } from './types';
 
 const TIMEOUT_MS = 8000;
 
+interface ApiService {
+  fetch: typeof fetch;
+}
+
+let apiService: ApiService | null | undefined;
+
+/**
+ * The `API` service binding declared in wrangler.jsonc. A Worker cannot fetch another Worker on
+ * `workers.dev` (Cloudflare error 1042), so production uses the binding; local dev and the test
+ * environment have none and fall back to a public `fetch`.
+ *
+ * Dynamic import on purpose: `cloudflare:workers` exists only in the Workers runtime, so a static
+ * import would break `astro dev` and Vitest.
+ */
+async function serviceBinding(): Promise<ApiService | null> {
+  if (apiService !== undefined) return apiService;
+  try {
+    const runtime = await import('cloudflare:workers');
+    apiService = (runtime.env.API as ApiService | undefined) ?? null;
+  } catch {
+    apiService = null;
+  }
+  return apiService;
+}
+
 export async function request(input: ApiRequestInput): Promise<ApiRaw> {
   if (apiMode() === 'mock') {
     const { mockRequest } = await import('./mock/handlers');
@@ -34,13 +59,18 @@ async function liveRequest(input: ApiRequestInput): Promise<ApiRaw> {
   }
 
   let response: Response;
+  // Contract routes already carry `/api/v1`; resolving the absolute path against the base keeps
+  // the prefix once even though PUBLIC_API_BASE_URL also ends in `/api/v1` (03 §7).
+  const url = new URL(input.path, `${apiBaseUrl()}/`).toString();
+  const init: RequestInit = {
+    method: input.method,
+    headers,
+    body: body ?? null,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  };
   try {
-    response = await fetch(`${apiBaseUrl()}${input.path}`, {
-      method: input.method,
-      headers,
-      body: body ?? null,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    const service = await serviceBinding();
+    response = service ? await service.fetch(url, init) : await fetch(url, init);
   } catch {
     return transportFailure();
   }

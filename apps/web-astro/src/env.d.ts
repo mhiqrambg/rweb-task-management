@@ -1,3 +1,8 @@
+declare module 'cloudflare:workers' {
+  /** Worker runtime bindings, including the `API` service binding declared in wrangler.jsonc. */
+  export const env: Record<string, unknown>;
+}
+
 declare namespace App {
   interface Locals {
     /** Result of GET /auth/me for this request, resolved once in middleware. */

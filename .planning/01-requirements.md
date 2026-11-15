@@ -229,6 +229,23 @@ requirement is met differently; it never relaxes the acceptance criteria.
 | FR-UI-011 | Dynamic state changes MUST be announced to assistive technology through a live region without moving focus unexpectedly. | MUST | confirmed (NFR-A11Y-006) | G: with a screen reader, trigger save, error and validation. T: each announced once; focus unchanged. | — |
 | FR-UI-012 | A client-knowable rule violation MUST be prevented before submission with the same message the server would return, while the server MUST still enforce the rule. | MUST | confirmed (defence in depth; NFR-SEC-009) | G: select an 11th file on a full target. T: client shows the server's message; no request; a crafted direct request is still rejected. | — |
 
+### 3.8 Admin member management (`FR-ADMIN`, approved extension BCR-01)
+
+These requirements apply to `apps/admin` and the `admin` module of `apps/api` only. They are **outside**
+the benchmark surface and outside the SSR-vs-SSG comparison: no admin screen has a counterpart app, so
+`FR-UI-006`/`FR-UI-009` parity rules do not cover them.
+
+| ID | Requirement | Pri | Status | Acceptance criteria | FE note |
+|---|---|---|---|---|---|
+| FR-ADMIN-001 | An authenticated `role='admin'` MUST be able to list members with search by name or email, role and status filters, and cursor pagination. | MUST | confirmed (BCR-01) | G: open `/admin` as an admin. T: page 1 of members, total shown, filters narrow the set, `Load more` appends without duplicates. | SSR page in `apps/admin`; the API returns `AdminMember` (#23). |
+| FR-ADMIN-002 | An admin MUST be able to create a member with a display name, email, temporary password, role and status; the temporary password MUST NOT be readable back from any endpoint. | MUST | confirmed (BCR-01) | G: create with a duplicate email. T: `409` and a field message. G: create valid. T: `201`, member appears in the list, no password in any response or log. | — |
+| FR-ADMIN-003 | An admin MUST be able to edit a member's display name, role and status; email stays immutable. | MUST | confirmed (BCR-01) | G: change role to Admin and status to Disabled. T: row reflects both; email field is read-only; invalid enum → `422`. | — |
+| FR-ADMIN-004 | Disabling a member MUST take effect immediately: outstanding sessions stop working and new logins are refused. Re-enabling MUST restore login without re-creating the account. | MUST | confirmed (BCR-01) | G: disable a member with an active session, reuse that cookie. T: `401` on the next request. G: attempt login. T: refusal. G: re-enable, log in. T: success, data intact. | Checked at session resolution, not only at login. |
+| FR-ADMIN-005 | Deleting a member MUST remove the member and their workspace (tasks → notes → attachments, including R2 objects) and MUST require a confirmation dialog naming the member. | MUST | confirmed (BCR-01) | G: delete a member with tasks and attachments. T: confirm names the member; `204`; no row, no binary, no orphan key remains. | Same cascade path as a self-delete (`05` §1.2). |
+| FR-ADMIN-006 | Neither member frontend MAY contain an admin route, admin bundle, or admin markup; a caller without `role='admin'` MUST receive the `404` envelope from every admin endpoint and page. | MUST | confirmed (BCR-01, 404-not-403) | G: grep both production builds for `/admin` and admin module names. T: zero hits. G: call #23 with a member session. T: `404`. | Static export purity and route non-disclosure in one rule. |
+| FR-ADMIN-007 | An admin MUST NOT be able to demote, disable or delete their own account; the attempt MUST be refused with `409`. | MUST | confirmed (BCR-01) | G: as the only admin, try to demote self. T: `409` and the row unchanged. G: try to delete self. T: `409`. | Self-lockout guard. |
+| FR-ADMIN-008 | The admin console MUST reuse the shared tokens, component states, copy deck and accessibility contract; it MUST NOT introduce a second visual language. | MUST | confirmed (BCR-01) | G: compare admin screens to member screens. T: same fonts, spacing, pills, focus rings; every string exists in `design/06-copy-deck.md`. | `design/09-admin-console.md` §4-§6. |
+
 ## 4. Non-functional requirements
 
 **Numeric targets.** Every number marked `assumed` is an *unvalidated objective*, not a measurement.
@@ -542,6 +559,7 @@ Brief §3 bullet → requirement IDs → the document that owns the design of th
 | Confirmation dialogs | FR-UI-007 | `14` §5 (C-14) |
 | Responsive layouts | FR-UI-008, NFR-A11Y-007 | `14` §3 |
 | Parity (both apps identical) | FR-UI-009/010/011 | `09` (parity suite), `14` §9 |
+| Admin member management (extension) | FR-ADMIN-001..008 | `design/09-admin-console.md`, `06` §5.23, `05` §3.1 (`role`, `status`) |
 
 ### NFR → owning document
 

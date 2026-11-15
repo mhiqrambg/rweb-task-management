@@ -1,0 +1,23 @@
+{
+	// Astro SSR Worker (ADR-13). `astro build` merges this into dist/server/wrangler.json;
+	// deploy with: wrangler deploy -c dist/server/wrangler.json
+	"name": "web-astro",
+	"compatibility_date": "2026-01-01",
+	// `process.env` is how src/lib/server/env.ts reads runtime config on the Worker.
+	"compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+	"observability": {
+		"enabled": true
+	},
+	"vars": {
+		"PUBLIC_API_BASE_URL": "https://rweb-api-production.wanaask.workers.dev/api/v1",
+		"APP_ORIGIN": "https://web-astro.wanaask.workers.dev"
+	},
+	// Worker-to-Worker fetch on workers.dev is blocked (Cloudflare error 1042); the service
+	// binding is the supported path. src/lib/server/api.ts prefers it over the public URL.
+	"services": [
+		{
+			"binding": "API",
+			"service": "rweb-api-production"
+		}
+	]
+}

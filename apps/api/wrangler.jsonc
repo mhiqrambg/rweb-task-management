@@ -33,7 +33,7 @@
 			],
 			"vars": {
 				"ENVIRONMENT": "production",
-				"APP_ORIGIN": "https://app.example.test",
+				"APP_ORIGIN": "https://web-astro.wanaask.workers.dev",
 				"SESSION_TTL_DAYS": "7",
 				"SESSION_IDLE_HOURS": "24",
 				"SESSION_REFRESH_MINUTES": "60"
