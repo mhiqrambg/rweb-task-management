@@ -57,7 +57,7 @@ existing tokens, vocabulary (`00` §6) and contracts.
 |---|---|---|---|
 | G-01 | `packages/contracts/src/copy.ts` does not exist. `14` §1 requires one copy deck; no string is authored anywhere. Empty-state, toast, error and validation wording are unspecified. | Copy parity (FR-UI-006/009) unbuildable; two apps invent two strings. | `[DESIGN DECISION]` Author a provisional English copy deck in `04-component-and-state-spec.md`, using only `00` §6 vocabulary. Status labels `Todo` / `In progress` / `Completed`; priorities `Low` / `Medium` / `High`. Marked **Proposed**; implementation promotes it verbatim into `packages/contracts/src/copy.ts`. No UI string may be typed inline in a screen spec. |
 | G-02 | Product name is never stated, yet FR-LAND-001/006 require it in hero, header and footer. | Landing, 404 and app shell have no wordmark. | `[DESIGN DECISION]` Working name **“Task & Notes”** (the brief's own product description, not a new brand). One `PRODUCT_NAME` constant. Flagged for owner confirmation in §9 open questions. |
-| G-03 | No icon set is named; `14` §10 forbids a different icon set per app. | Two apps ship two icon languages. | `[DESIGN DECISION]` One inline-SVG set, 24×24 box, 1.5 px stroke, `stroke-linecap="round"`, `fill="none"` except `check`. Path table in §6.4. No icon dependency (DEVELOPMENT-GUIDELINES §2.8). Decorative icons `aria-hidden`; icon-only controls carry `aria-label`. |
+| G-03 | No icon set is named; `14` §10 forbids a different icon set per app. | Two apps ship two icon languages. | `[DESIGN DECISION]` **Lucide Icons** are the single icon source in both apps: `@lucide/astro` in Astro, `lucide-react` in Next (`pnpm add @lucide/astro` / `pnpm add lucide-react`). Inline SVG on `currentColor`, 24×24 viewBox, stroke `1.6`, `stroke-linecap="round"`, `fill="none"`. Tree-shaken per import, so both apps ship the same icon bytes and no icon font or maintained sprite. The same Lucide name is used for the same slot in both apps; decorative icons `aria-hidden`, icon-only controls carry `aria-label`. |
 | G-04 | `assets/` is empty: logo, hero and “product preview” image do not exist (FR-LAND-005 requires static shared non-user imagery). | Landing preview block cannot be built or made payload-honest. | `[DESIGN DECISION]` Preview is a vector composition saved as `assets/landing-preview.svg` plus a 2× PNG, built from components C-08/C-23 with lorem-free, non-user sample rows labelled as a product illustration. No API request, no user data. |
 | G-05 | Dashboard composition is unspecified beyond “three counters + breakdowns + two lists + search”. | Layout invented per app. | `[DESIGN DECISION]` 12-column grid, 1120 px container: row 1 = search + primary CTA; row 2 = 3 × C-23 (span 4); row 3 = status breakdown, priority breakdown, overdue (span 4 each); row 4 = recent tasks (span 6) + recent notes (span 6); stacked at < 1024. |
 | G-06 | Task detail “list + detail can sit side by side” (`14` §3) is permissive, while the route inventory defines a distinct `/tasks/[id]` document. | Side-by-side implemented in one app only → parity defect. | `[DESIGN DECISION]` Detail is its own route in both apps; no master-detail split. “Can” is read as an option, not a requirement (FR-TASK-005 only requires a deep-linkable detail view). |
@@ -443,7 +443,7 @@ earlier stage-name numbering is withdrawn so that no two files claim the same nu
 | `design/07-parity-checklist.md` | parity gates | exists (peer-authored) |
 | `design/rweb-task-management.figcraft` | FigCraft waves | exists (pages 1-2) |
 | `design/diagrams/*.drawio`, `*.mmd` | diagram lane | in progress, separate writer |
-| `design/icons/icons.svg` | design-system wave | icon sprite (path table §6.4 of `14`-derived set) |
+| `design/icons/icons.svg` | design-system wave | **retired** — icons now come from Lucide (`@lucide/astro` / `lucide-react`); kept as a historical record only |
 | `design/exports/*.png` | integrator | nine 1× page renders (`00-tokens` … `08-states-responsive`) |
 
 The tool-capability report is not a separate numbered file: its per-operation evidence is §2 of this
@@ -531,7 +531,7 @@ remaining **72 raw `#FFFFFF` slots were bound** to `color/paper`. No raw hex fil
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| `design/icons/icons.svg` is authored (15 symbols, viewBox 24, stroke 1.6) but Wave 1 did not consume it | Wave 1 vectors and the shipped sprite could drift | Wave 2 draws from the sprite's paths; both apps inline the sprite (one file, no icon library) |
+| Icons moved off the hand-authored sprite to **Lucide Icons** (`@lucide/astro` / `lucide-react`); the sprite `design/icons/icons.svg` is retired | A stale sprite or a different icon set per app | Both apps import the same Lucide name per slot; tree-shaking ships identical icon bytes, so no sprite and no icon-font payload difference |
 | Composite previews not linked to primitive components | A late change to C-06 would not propagate into C-08 | Wave 2 builds screens from real instances; reviewer checks `instances > 0` |
 | FigCraft has no `file.new` in this build | New files must be created by saving the open tab | Documented in G-27; Wave 2 continues in the same file |
 | Peer-authored `03`/`05`/`06`/`07` documents arrived concurrently | Possible drift from `14` | §10: read-only for this lane; `04-design-review.md` resolves toward `14` |

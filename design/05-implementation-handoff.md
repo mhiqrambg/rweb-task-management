@@ -92,9 +92,14 @@ State is data-attribute driven so both apps express it identically while writing
 | C-22 AppShell | `header` + `nav` + `main` + live-region outlet | `[data-state="ready\|bootstrapping"]` (Next only) |
 | C-23 StatCard | value `--fs-32`, label `--fs-14`, hint `--fs-12` | `[data-state="loading"]` shows a 32px skeleton, never `0` |
 
-Icons: one hand-authored 20px stroke set (task check, note page, image, search, pin, plus, trash,
-chevron, close, calendar, logout). No icon library in either app — a library is a payload difference
-that would contaminate the benchmark and a visual default the blueprint does not ask for.
+Icons: **Lucide Icons** (`lucide.dev`) are the only icon source in both apps — `@lucide/astro` in
+`apps/web-astro`, `lucide-react` in `apps/web-next`. Install: `pnpm add @lucide/astro` /
+`pnpm add lucide-react`. They render inline SVG on `currentColor` at stroke 1.6 and are tree-shaken to
+the glyphs each page imports, so both apps ship the same icon bytes and no icon font or maintained
+sprite. Import one icon per use (`import ListChecks from '@lucide/astro/icons/list-checks';`), and
+keep the same Lucide name for the same slot in both apps so the two renders are byte-identical.
+Slot → Lucide name: task → `list-checks`, note → `sticky-note`, image → `image`, close → `x`,
+menu → `menu`, wordmark → `list-checks`.
 
 ## 5. Screen → route → data → states
 

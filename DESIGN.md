@@ -18,7 +18,7 @@ in which case this file is the defect.
 | Parity + state gate | `design/07-parity-checklist.md` |
 | Landing page sections | `design/10-landing-sections.md` |
 | Admin console (extension, approval pending) | `design/09-admin-console.md` |
-| Icon sprite | `design/icons/icons.svg` |
+| Icons | **Lucide Icons** (`@lucide/astro` / `lucide-react`) — see §9 |
 | Renders for review | `design/exports/*.png` |
 | Tokens shipped to code (Phase 3 target) | `packages/design-tokens/tokens.css`, `tokens.json` |
 
@@ -158,11 +158,17 @@ marks, no marketing superlatives.
 
 ## 9. Iconography and illustration
 
-- One hand-authored 20 px stroke set (`design/icons/icons.svg`, 24 viewBox, 1.6 stroke). No icon library:
-  a library is a payload difference between the apps and a borrowed look.
+- **Lucide Icons** are the only icon source in both apps (`pnpm add @lucide/astro` in
+  `apps/web-astro`, `pnpm add lucide-react` in `apps/web-next`). They render as inline SVG on
+  `currentColor`, stroke width 1.6, so they stay sharp at any size and inherit the theme — never
+  PNG, never a font, never a sprite we maintain. Tree-shaking keeps the payload to the glyphs a
+  page actually imports, so the two apps do not load different icon bytes.
+- Astro imports one icon per use: `import ListChecks from '@lucide/astro/icons/list-checks';`
+  then `<ListChecks size={40} />`. Next imports the matching `lucide-react` icon. The two must
+  use the same Lucide name for the same slot, so the icons are byte-identical in both apps.
 - Icons label or afford; they never decorate. No icons on every button.
-- The landing hero uses one illustration (`design/assets/landing-illustration.png`, exported from
-  `landing-illustration.svg`): a task card with an image strip and a note behind it. Same palette as the
+- The landing hero uses one illustration (`design/assets/landing-illustration.png`, 576×433 PNG — a
+  photographic composite, so PNG not SVG): a task card with an image strip and a note behind it. Same palette as the
   UI. No stock photos, no 3D blobs, no generic character art.
 - Thumbnails in mocks are `surface-2` placeholders with the image glyph; real screens show real images.
 

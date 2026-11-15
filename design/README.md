@@ -21,7 +21,7 @@ it is marked a design decision and never contradicts a MUST.
 | `assets/landing-illustration.svg`, `.png` | Landing hero illustration (task card with image strip) |
 | `rweb-task-management.figcraft` | The editable design file: tokens, components, 11 member screens, 3 admin screens, states, responsive samples |
 | `diagrams/*.mmd`, `diagrams/*.drawio` | Diagram sources and editable draw.io files |
-| `icons/icons.svg` | The one icon sprite both frontends use |
+| `icons/icons.svg` | Retired. Icons now come from **Lucide Icons** (`@lucide/astro` / `lucide-react`); this sprite is kept only as a historical record and is not shipped |
 | `exports/*.png` | Screen renders for review and PR screenshots |
 
 ## Non-negotiables carried from Phase 1
@@ -29,5 +29,5 @@ it is marked a design decision and never contradicts a MUST.
 - Two apps, one visual language; identical copy, badges, spacing scale, icon set (C-05, C-07).
 - No user data in static HTML; the Next.js shell renders skeletons first (NFR-SEC-012, FR-UI-001).
 - Skeletons equal final boxes, thumbnails declare dimensions, toasts are fixed (CLS zero-onset).
-- Light theme only; no dark mode, no i18n layer, no icon library (A-20, `.planning/14` §2, §10).
+- Light theme only; no dark mode, no i18n layer. Icons: **Lucide Icons** only (`@lucide/astro` / `lucide-react`), never a maintained sprite or icon font (A-20, `.planning/14` §2, §10).
 - Every screen ships loading, empty, no-results, error, validation and success states.
