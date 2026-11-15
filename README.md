@@ -9,7 +9,7 @@ exercise is the comparison, not the feature list.
 ```
 Astro SSR (MPA)        Next.js SSG (SPA-style)
         \                    /
-     Node.js + Fastify (REST API · auth · business logic)
+     Cloudflare Worker + Elysia (REST API · auth · business logic)
                     |
               Cloudflare D1 (SQLite · Serverless Database)
 ```

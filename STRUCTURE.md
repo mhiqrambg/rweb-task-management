@@ -27,14 +27,14 @@ rweb-task-management/
 │   ├── assets/                          design media: hero illustration, architecture diagram
 │   ├── diagrams/                        5 draw.io files + mermaid sources + validator
 │   ├── exports/                         PNG renders of every page for review and PRs
-│   └── icons/icons.svg                  the one 20 px icon sprite both frontends inline
+│   └── icons/                    (retired) icons now come from Lucide Icons in both frontends
 │
 ├── apps/                         [P3]
-│   ├── api/                      Fastify + TypeScript; the only component that talks to Cloudflare D1
+│   ├── api/                      Elysia on Cloudflare Workers + TypeScript; the only component that talks to Cloudflare D1
 │   │   ├── src/{index.ts,app.ts,config/,routes/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/}
 │   │   ├── migrations/           numbered forward-only SQL, applied by `wrangler d1 migrations apply`
 │   │   └── test/{unit,integration}/
-│   ├── web-astro/                Astro 7.x, output 'server', @astrojs/node standalone, route prefix '/'
+│   ├── web-astro/                Astro 7.x, output 'server', @astrojs/cloudflare Worker, route prefix '/'
 │   │   └── src/{pages,layouts,components,lib,styles,assets}/
 │   └── web-next/                 Next.js 16.x App Router, output 'export', basePath '/b'
 │       └── src/{app,components,lib,styles}/

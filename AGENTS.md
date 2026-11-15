@@ -11,7 +11,7 @@ A group assignment (4 people, part-time) that compares two rendering models behi
 ```
 Astro SSR (MPA)        Next.js SSG (SPA-style)
         \                    /
-     Node.js + Fastify (REST API · auth · business logic)
+     Cloudflare Worker + Elysia (REST API · auth · business logic)
                     |
               Cloudflare D1 (SQLite · Serverless Database)
 ```
@@ -57,7 +57,7 @@ goes. The short version:
 apps/
   web-astro/     Astro SSR, MPA. Server-rendered HTML per navigation.
   web-next/      Next.js static export, SPA-style data fetching.
-  api/           Fastify. REST, sessions, ownership checks, uploads.
+  api/           Elysia on Cloudflare Workers. REST, sessions, ownership checks, uploads.
 packages/
   contracts/     Zod schemas + types + copy constants. Dependency-free except zod.
   design-tokens/ tokens.css + tokens.json (single source for both frontends).
@@ -94,7 +94,7 @@ pnpm install                 # install the workspace
 pnpm -r typecheck            # tsc --noEmit across packages and apps
 pnpm -r lint                 # eslint
 pnpm -r test                 # unit + integration
-pnpm --filter api dev         # Fastify on :8787
+pnpm --filter api dev         # wrangler dev (API Worker) on :8787
 pnpm --filter api db:migrate:local  # apply D1 migrations locally
 pnpm --filter web-astro dev  # Astro dev server
 pnpm --filter web-next dev   # Next dev server
