@@ -2,7 +2,8 @@
 /** Public chrome for the landing and the account screen: wordmark, auth actions, footer. */
 import { copy, routes } from '@taskapp/contracts';
 import BaseLayout from './BaseLayout.astro';
-import Icon from '../components/Icon.astro';
+import ListChecks from '@lucide/astro/icons/list-checks';
+import Menu from '@lucide/astro/icons/menu';
 
 interface Props {
   title: string;
@@ -17,7 +18,7 @@ const session = Astro.locals.session;
   <header class="m-header">
     <div class="m-header__inner">
       <a class="wordmark" href={routes.landing}>
-        <Icon name="task" />
+        <ListChecks size={20} stroke-width={1.6} />
         {copy.brand.name}
       </a>
 
@@ -41,7 +42,7 @@ const session = Astro.locals.session;
 
       <details class="m-menu">
         <summary class="icon-btn">
-          <Icon name="menu" />
+          <Menu size={20} stroke-width={1.6} />
           <span class="visually-hidden m-menu__open">{copy.nav.openMenu}</span>
           <span class="visually-hidden m-menu__close">{copy.nav.closeMenu}</span>
         </summary>
@@ -69,7 +70,7 @@ const session = Astro.locals.session;
     <div class="m-footer__inner">
       <div>
         <a class="wordmark" href={routes.landing}>
-          <Icon name="task" />
+          <ListChecks size={20} stroke-width={1.6} />
           {copy.brand.name}
         </a>
         <p class="muted footer-blurb">{copy.landing.footerBlurb}</p>

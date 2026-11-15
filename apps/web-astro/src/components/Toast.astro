@@ -5,7 +5,7 @@
  * Fixed-position region: a toast never shifts layout (design/05 §1).
  */
 import { copy, toastMessages, type ToastKey } from '@taskapp/contracts';
-import Icon from './Icon.astro';
+import X from '@lucide/astro/icons/x';
 
 const requested = Astro.url.searchParams.get('toast');
 const key = requested && requested in toastMessages ? (requested as ToastKey) : null;
@@ -18,7 +18,7 @@ const message = key ? toastMessages[key] : null;
       <div class="toast" role={key === 'errorSave' ? 'alert' : 'status'} data-toast data-toast-key={key}>
         <span class="toast__message">{message}</span>
         <button class="icon-btn" type="button" data-dismiss aria-label={copy.action.close}>
-          <Icon name="close" size={16} />
+          <X size={16} stroke-width={1.6} />
         </button>
       </div>
     </div>
