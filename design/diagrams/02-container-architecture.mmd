@@ -8,7 +8,7 @@ flowchart TB
   subgraph Apps["apps/* - three deployables"]
     Astro["apps/web-astro<br>on-demand SSR - every page prerender false<br>form endpoints, flash cookie"]
     Next["apps/web-next<br>static export under /b<br>client router, auth probe"]
-    subgraph ApiBox["apps/api - Fastify 5.12.x, one process"]
+    subgraph ApiBox["apps/api - Elysia on Cloudflare Workers"]
       Edge["HTTP entry<br>plugins, error envelope, validation, request id"]
       Auth["auth module<br>users, sessions"]
       Tasks["tasks module<br>tasks"]
@@ -25,8 +25,8 @@ flowchart TB
     Tokens["design-tokens<br>tokens.css and tokens.json"]
   end
 
-  Pg[("PostgreSQL 16")]
-  Store[("Upload storage<br>UPLOAD_ROOT")]
+  Pg[("Cloudflare D1")]
+  Store[("Upload storage<br>R2 bucket")]
 
   Browser -->|"HTTPS, sid cookie"| Proxy
   Proxy -->|"pages and form posts"| Astro

@@ -9,9 +9,9 @@ flowchart LR
   subgraph Boundary["System boundary - one host (Docker Compose)"]
     Astro["apps/web-astro<br>Astro - on-demand SSR"]
     Next["apps/web-next<br>Next - static export under /b"]
-    Api["apps/api<br>Fastify - REST /api/v1"]
-    Pg[("PostgreSQL 16<br>one database")]
-    Storage[("Upload storage<br>UPLOAD_ROOT volume")]
+    Api["apps/api<br>Elysia - REST /api/v1"]
+    Pg[("Cloudflare D1<br>SQLite · Serverless Database")]
+    Storage[("Upload storage<br>R2 bucket")]
   end
 
   Proxy["Reverse proxy (nginx)<br>one origin, terminates TLS<br>refuses /uploads/*"]

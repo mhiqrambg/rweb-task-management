@@ -53,8 +53,8 @@ Key cell ids (for review or later edits):
 ## 3. What each diagram asserts (source traceability)
 
 **01 — System context.** Visitor and Member are the only actors (`00` §4). One origin, one host: proxy,
-`apps/web-astro` (on-demand SSR), `apps/web-next` (static export under `/b`), `apps/api` (Fastify),
-Cloudflare D1 (SQLite · Serverless Database) and the `UPLOAD_ROOT` volume. The harness (Playwright/Lighthouse) measures through the same
+`apps/web-astro` (on-demand SSR), `apps/web-next` (static export under `/b`), `apps/api` (Elysia on Cloudflare Workers),
+Cloudflare D1 (SQLite · Serverless Database) and the `R2 bucket`. The harness (Playwright/Lighthouse) measures through the same
 origin. No external system exists: no email (A-06), no object storage, no CDN, no analytics
 (NFR-OBS-004). The proxy is not an authorization point (`03` §1).
 
