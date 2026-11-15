@@ -7,12 +7,15 @@ exercise is the comparison, not the feature list.
 ![Architecture](design/assets/architecture-mpa-spa.png)
 
 ```
-Astro SSR (MPA)        Next.js SSG (SPA-style)
-        \                    /
-     Cloudflare Worker + Elysia (REST API · auth · business logic)
-                    |
+Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
+        \                   |                          /
+     Node.js + Fastify (REST API · auth · business logic)
+                         |
               Cloudflare D1 (SQLite · Serverless Database)
 ```
+
+The admin console is its own deployable (`apps/admin`), outside the benchmark. Neither member
+frontend ships an admin route, an admin bundle, or admin markup.
 
 Both frontends must look and behave identically. Only the rendering model differs — that parity is what
 makes the benchmark meaningful.
@@ -56,14 +59,15 @@ Dependency direction, once code exists: `apps/* → packages/*`. Never the rever
 
 ## Team
 
-| Area | Owner | Reviewer |
-|---|---|---|
-| `packages/contracts`, `apps/api`, `infra/` | Iqram | Hamzah |
-| `apps/web-astro` | Hamzah | Azra |
-| `apps/web-next` | Azra | Hamzah |
-| `design-tokens`, UI specification | Hamzah + Azra | Iqram |
-| Benchmark protocol, dataset, harness, results | Erika | Iqram |
-| Testing, performance analysis, final report | Erika (runs at the end of the roadmap) | Project owner |
+| Area | Owner |
+|---|---|
+| `packages/contracts`, `apps/api`, `infra/` | Iqram |
+| `apps/web-astro` | Hamzah |
+| `apps/web-next` | Azra |
+| `apps/admin` | Hamzah + Azra |
+| `design-tokens`, UI specification | Hamzah + Azra |
+| Benchmark protocol, dataset, harness, results | Erika |
+| Testing, performance analysis, final report | Erika |
 
 Full detail: `.planning/13-team-responsibility-matrix.md`.
 
@@ -80,4 +84,4 @@ Full detail: `.planning/13-team-responsibility-matrix.md`.
 - `git init` + first push (this commit), then protect `main`.
 - Owner sign-off on the blueprint (`.planning/04` ADRs are all `Proposed`).
 - Phase 3 scaffold: pnpm workspace, `apps/*`, `packages/*`.
-- Admin console is an extension awaiting approval (BCR-01, `design/09-admin-console.md`).
+- Admin console is the approved extension BCR-01 and ships as its own deployable, `apps/admin` (`design/09-admin-console.md`).

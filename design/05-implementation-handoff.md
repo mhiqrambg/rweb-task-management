@@ -116,8 +116,8 @@ menu → `menu`, wordmark → `list-checks`.
 | Note detail | `/notes/[id]` | `/b/app/?view=notes&id=` | `GET /notes/:id` | full body, pin toggle, attachments, lightbox |
 | Account | `/account` | `/b/app/?view=account` | `GET /auth/me` | email, name, member since, read-only note, logout |
 | Not found | `/404` | `/404.html` | none | `state.notFound.*` |
-| Admin members (extension) | `/admin` | none — not exported | `GET /admin/members?q&role&status&cursor` | `design/09-admin-console.md` §4: table, pills, row actions, cursor footer |
-| Admin member edit (extension) | `/admin/members/[id]` | none | `PATCH /admin/members/:id` | prefilled form, role/status segments, save, validation |
+| Admin members (extension) | `/admin` | served by `apps/admin`; member apps carry no admin route | `GET /admin/members?q&role&status&cursor` | `design/09-admin-console.md` §4: table, pills, row actions, cursor footer |
+| Admin member edit (extension) | `/admin/members/[id]` | owned by `apps/admin` | `PATCH /admin/members/:id` | prefilled form, role/status segments, save, validation |
 
 Every URL-encoded list state survives reload and Back/Forward in both apps (FR-TASK-014): the query key
 order is fixed as `q, status, priority, due, hasImages, sort, limit, cursor` so a copied URL is stable.

@@ -11,8 +11,9 @@ a written reason in the PR.
 
 ## A. Architecture (authority: `.planning/03`, `.planning/04`)
 
-- **R-A1 MUST** ship three deployables against one database: `apps/web-astro` (SSR, MPA),
-  `apps/web-next` (static export, SPA-style), `apps/api` (Elysia on Cloudflare Workers).
+- **R-A1 MUST** ship four deployables against one database: `apps/web-astro` (SSR, MPA),
+  `apps/web-next` (static export, SPA-style), `apps/admin` (SSR, server-authorised, outside the
+  benchmark), `apps/api` (Node.js + Fastify).
 - **R-A2 MUST** keep the dependency direction `apps/* → packages/*`. `apps/web-next` NEVER imports from
   `apps/web-astro`; `packages/*` NEVER imports from `apps/*`.
 - **R-A3 MUST** serve both frontends and the API from one origin so cookies and

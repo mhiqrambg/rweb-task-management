@@ -417,7 +417,7 @@ tooling (floors: Astro 7 ≥ 22.23.4, Next 16 ≥ 20.9), pnpm 9; A-09 desktop-fi
 | Item | Reason |
 |---|---|
 | Multi-tenant workspaces, sharing, collaboration, invitations | A-02 fixes single-tenant; sharing adds a second authorization axis and reopens data + API stages |
-| Admin role, user management, moderation | No admin role exists (00 §4); no brief feature requires one |
+| Admin role, moderation | No admin *role in the benchmarked product* (00 §4); account administration ships as the approved extension BCR-01 in its own deployable `apps/admin`, outside the measured surface |
 | Email verification | A-06; no email transport in scope |
 | Password reset / forgot-password | A-06, Q-04; requires mail transport and a second authentication path to test |
 | Email or password change UI | Not a §3 feature; a profile *read* endpoint exists at API level only |

@@ -25,7 +25,7 @@ or notes.
 |---|---|
 | Owner-only data access | Admin reads `users` rows only. Task and note endpoints keep their ownership rule; no admin route returns task or note content. |
 | 404-not-403 | A non-admin calling an admin route gets the same 404 envelope as an absent resource, so the route's existence is not disclosed. |
-| Static export purity | The console ships in the Astro app only (SSR, server-authorised). The Next.js export has no admin route, no admin bundle, no admin markup. |
+| Static export purity | The console ships as its own deployable, `apps/admin` (SSR, server-authorised). `apps/web-next` carries no admin route, no admin bundle, no admin markup; `apps/web-astro` carries none either, so the member SSR app stays exactly the benchmarked surface. |
 | Parity | Not benchmarked. The parity checklist (`07`) covers the member-facing screens; the admin console is deliberately out of the shared visual comparisons because it has no counterpart app. |
 | One design language | It uses the same tokens, type scale, component states, table rhythm and copy voice as the member screens. |
 

@@ -20,7 +20,7 @@ Note, Attachment, Session, Status, Priority. `todo` appears only as the `tasks.s
 
 | # | Diagram | Purpose | Source sections | Supports | Files |
 |---|---|---|---|---|---|
-| 01 | System context | Show actors, the one origin, the three deployables, the database, the storage volume and the harness; nothing external is invented | `03` §1, §2; `00` §7; `06` §1.1 | ADR-01, ADR-05, ADR-07, ADR-15; NFR-OBS-004; A-06 | `01-system-context.mmd`, `01-system-context.drawio` |
+| 01 | System context | Show actors, the one origin, the four deployables (two member frontends, the admin app, the API), the database, the storage volume and the harness; nothing external is invented | `03` §1, §2; `00` §7; `06` §1.1 | ADR-01, ADR-05, ADR-07, ADR-15; NFR-OBS-004; A-06 | `01-system-context.mmd`, `01-system-context.drawio` |
 | 02 | Container / component | Layering and dependency direction `apps/* -> packages/*`, the api's internal modules, one-query-per-list data layer, proxy routing to `/api/v1` | `03` §2, §2.1, §3.1, §3.2; `14` §1 §2 | ADR-01, ADR-03, ADR-05, ADR-09, ADR-11, ADR-12, ADR-15; NFR-REL-004 | `02-container-architecture.mmd`, `02-container-architecture.drawio` |
 | 03 | Navigation map | The 11 screens with both route schemes, the auth gate, and the redirect-to-login-then-return edge | `14` §4, §6; `03` §3.1, §3.2 | FR-LAND-003, FR-AUTH-004/006/010, FR-TASK-014, FR-UI; ADR-04, ADR-13 | `03-navigation-map.mmd`, `03-navigation-map.drawio` |
 | 04 | Task lifecycle | Task Status state machine, delete cascade to Attachments, Note pin/unpin as a second state group | `05` §1.1, §1.2, §2, §3.5; `06` §2.4, §5.9-5.21, §8.5 | FR-TASK (CRUD, status), FR-NOTE-006, FR-ATT-005/008; NFR-SEC-005 | `04-task-lifecycle.mmd`, `04-task-lifecycle.drawio` |
@@ -53,8 +53,9 @@ Key cell ids (for review or later edits):
 ## 3. What each diagram asserts (source traceability)
 
 **01 — System context.** Visitor and Member are the only actors (`00` §4). One origin, one host: proxy,
-`apps/web-astro` (on-demand SSR), `apps/web-next` (static export under `/b`), `apps/api` (Elysia on Cloudflare Workers),
-Cloudflare D1 (SQLite · Serverless Database) and the `R2 bucket`. The harness (Playwright/Lighthouse) measures through the same
+`apps/web-astro` (on-demand SSR), `apps/web-next` (static export under `/b`), `apps/admin` (admin SSR
+under `/admin`, outside the benchmark), `apps/api` (Node.js + Fastify), Cloudflare D1 (SQLite ·
+Serverless Database) and the `UPLOAD_ROOT` volume. The harness (Playwright/Lighthouse) measures through the same
 origin. No external system exists: no email (A-06), no object storage, no CDN, no analytics
 (NFR-OBS-004). The proxy is not an authorization point (`03` §1).
 

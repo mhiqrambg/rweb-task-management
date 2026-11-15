@@ -30,14 +30,16 @@ rweb-task-management/
 │   └── icons/                    (retired) icons now come from Lucide Icons in both frontends
 │
 ├── apps/                         [P3]
-│   ├── api/                      Elysia on Cloudflare Workers + TypeScript; the only component that talks to Cloudflare D1
-│   │   ├── src/{index.ts,app.ts,config/,routes/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/}
+│   ├── api/                      Node.js + Fastify + TypeScript; the only component that talks to Cloudflare D1
+│   │   ├── src/{index.ts,app.ts,config/,routes/,modules/{auth,tasks,notes,attachments,dashboard,admin,health}/,db/,lib/}
 │   │   ├── migrations/           numbered forward-only SQL, applied by `wrangler d1 migrations apply`
 │   │   └── test/{unit,integration}/
-│   ├── web-astro/                Astro 7.x, output 'server', @astrojs/cloudflare Worker, route prefix '/'
+│   ├── web-astro/                Astro, output 'server', @astrojs/node standalone, route prefix '/'
 │   │   └── src/{pages,layouts,components,lib,styles,assets}/
-│   └── web-next/                 Next.js 16.x App Router, output 'export', basePath '/b'
-│       └── src/{app,components,lib,styles}/
+│   ├── web-next/                 Next.js App Router, output 'export', basePath '/b'
+│   │   └── src/{app,components,lib,styles}/
+│   └── admin/                    Admin SSR (server-authorised), route prefix '/admin'
+│       └── src/{pages,layouts,components,lib,styles}/
 │
 ├── packages/                     [P3]
 │   ├── contracts/                types + Zod schemas + error codes + copy + route constants

@@ -27,7 +27,9 @@ framework behaviour come from the verified-facts table; items marked `A-xx` are 
 
 Two roles only (`00` §4). A **Visitor** reaches the landing, login and register pages. A **Member** —
 the owner of every row they can see — reaches the dashboard, tasks, notes, account and attachment
-binaries. No admin, no sharing, no public content, no second authorization axis.
+binaries. No admin *inside the benchmarked product*, no sharing, no public content, no second
+authorization axis. Account administration is the approved extension BCR-01 and lives in its own
+deployable, `apps/admin`, outside the measured surface.
 
 The system boundary is one Cloudflare zone and one Cloudflare-hosted origin. Everything needed runs inside
 it: two frontend deliverables, Workers, one D1 database and one R2 bucket. There is **no external system**
@@ -58,13 +60,15 @@ boundary but are never reachable from the browser.
 
 | # | Deliverable | Runtime form | Deployable? |
 |---|---|---|---|
-| 1 | `apps/api` | Cloudflare Worker script (Hono), no listen port | yes |
-| 2 | `apps/web-astro` | Astro on-demand SSR Worker (`@astrojs/cloudflare` adapter) | yes |
-| 3 | `apps/web-next` | Next static export artifact — **no runtime process**; files served by the Cloudflare edge | yes (build artifact) |
-| 4 | D1 | one database, one schema | datastore |
-| 5 | Cloudflare zone routing / Workers routes | provides the Cloudflare-hosted origin for all of the above | infrastructure, not a product application |
+| 1 | `apps/api` | Node.js + Fastify process, listens on :8787 | yes |
+| 2 | `apps/web-astro` | Astro on-demand SSR (`@astrojs/node` standalone) | yes |
+| 3 | `apps/web-next` | Next static export artifact — **no runtime process** | yes (build artifact) |
+| 4 | `apps/admin` | Admin SSR (`@astrojs/node` standalone), route prefix `/admin`, outside the benchmark | yes |
+| 5 | Cloudflare D1 | one database, one schema (SQLite) | datastore |
+| 6 | Cloudflare zone routing | provides the single origin for all of the above | infrastructure, not a product application |
 
-The style is a **modular monolith API inside a three-deployable system** (ADR-01, ADR-15). Modules share
+The style is a **modular monolith API inside a four-deployable system** (ADR-01, ADR-15): two measured
+frontends, one admin app outside the benchmark, and the API. Modules share
 one Worker, one D1 binding and one migration history; they are separated by directory, route
 prefix and repository ownership, not by network calls. The two frontends never share component source
 (ADR-12) and never talk to each other.
@@ -121,6 +125,7 @@ flowchart TB
 |---|---|---|---|
 | `web-astro` | Render every page per request; decide the page's auth state **before** emitting HTML; forward the incoming `Cookie` to the API; render forms that post to its own endpoints; reload the document after a write | Must not bind D1 or the R2 bucket, generate storage keys, decide ownership, cache another user's data across requests, re-fetch client-side data already rendered in HTML, serve binaries, or hold credentials | Per-request render context only; one short-lived `flash` cookie (success wording). No durable data |
 | `web-next` | Serve one static shell for all authenticated views; parse `?view=&id=&mode=`; bootstrap identity via `GET /api/v1/auth/me`; fetch data client-side; render loading/empty/error states | Must not read `sid` (it is `HttpOnly`), be treated as access control, contain user data in build output or source maps, bind D1 or the R2 bucket, or upload directly to storage | In-memory per-view response cache and route state; cleared on every auth transition |
+| `admin` | Render account administration per request (SSR, server-authorised): member list, create, edit role/status, disable/enable, delete; enforce the admin role gate in the server before emitting HTML | Must not read or render another member's tasks or notes, ship any admin route into `web-astro` or `web-next`, or be included in the benchmark scenarios | Render context only; no durable data |
 | `api` | Own session issuance and verification, authorization, validation, persistence, upload validation, binary streaming, readiness | Must not render HTML, hold UI state, trust a client-declared owner, MIME type, size or filename, serve R2 objects statically, or log secrets | `users`, `sessions`, `tasks`, `notes`, `attachments` rows; binaries and thumbnails; D1 `rate_limits` counters |
 | `api` → `auth` module | Register, login, logout, `/auth/me`, Argon2id hashing, session row lifecycle, cookie set/clear, auth rate limits | Must not read task/note tables except through its own repository calls; must not expose password material in any response or log | `users`, `sessions` |
 | `api` → `tasks` module | Task CRUD, list with `q`/filters/sort/cursor, ownership predicate in every statement | Must not compute dashboard aggregates (that is `dashboard`), write attachment rows, or build SQL from strings | `tasks` |

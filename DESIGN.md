@@ -143,7 +143,7 @@ Geometry that never changes: controls 40 high, badges 24, card padding 16, thumb
 | Note form | modal on `/notes` (create and edit) | `…&view=notes` + modal | validation, single-submit guard |
 | Account | `/account` | `/b/app/?view=account` | loading, error, logout |
 | Not found | `/404` | `/404.html` | public + in-app variant |
-| Admin (extension) | `/admin` | not exported | table, pills, row actions, form, confirm |
+| Admin (extension) | — | — | table, pills, row actions, form, confirm — own app `apps/admin` |
 
 Landing sections and the admin console are specified in `design/10-landing-sections.md` and
 `design/09-admin-console.md`.

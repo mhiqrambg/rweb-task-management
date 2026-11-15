@@ -20,7 +20,7 @@ blocked by whom**. Technical detail lives in the other documents; phases (P1..P1
 are defined in `10-implementation-roadmap.md`.
 
 > **Ownership revision (2026-11-15, project owner).** Frontend and QA ownership swapped:
-> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, backend (**Workers + D1 + R2**, contracts, infra) is
+> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, the admin app is shared by both, backend (**Node.js + Fastify + Cloudflare D1**, contracts, infra) is
 > **Iqram**, QA performance testing and analysis is **Erika**, executed at the end of the roadmap after
 > both apps are integrated. Superseded text in other documents was corrected in the same change.
 
@@ -32,6 +32,7 @@ are defined in `10-implementation-roadmap.md`.
 | `apps/api` (Workers, auth, upload, D1 migrations, DB access) | Iqram | Hamzah |
 | `apps/web-astro` (SSR pages, Astro endpoints, `@astrojs/cloudflare` Worker config) | Hamzah | Azra (review of UI parity) |
 | `apps/web-next` (static export, client router, client data layer) | Azra | Hamzah (review of UI parity) |
+| `apps/admin` (admin SSR: member list, forms, role gate) | Hamzah + Azra | Iqram |
 | `packages/design-tokens` + `14-ui-ux-specification.md` | Hamzah + Azra (joint, Hamzah records) | Iqram |
 | Benchmark protocol, dataset, harness, results | Erika | Iqram (API-side instrumentation) |
 | `infra/` (`wrangler.jsonc`, Workers routes, Pages project config) | Iqram | Hamzah (parity of the measured environment) |

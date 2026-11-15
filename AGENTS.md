@@ -9,12 +9,16 @@ where this file and the blueprint disagree, **the blueprint wins** and this file
 A group assignment (4 people, part-time) that compares two rendering models behind one backend:
 
 ```
-Astro SSR (MPA)        Next.js SSG (SPA-style)
-        \                    /
-     Cloudflare Worker + Elysia (REST API · auth · business logic)
-                    |
+Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
+        \                   |                          /
+     Node.js + Fastify (REST API · auth · business logic)
+                         |
               Cloudflare D1 (SQLite · Serverless Database)
 ```
+
+The admin console is a separate deployable (`apps/admin`) held outside the benchmark. It is not a
+third rendering model under comparison; it exists so account administration never ships in the static
+export or in the SSR member app.
 
 Diagram: `design/assets/architecture-mpa-spa.png`.
 
@@ -57,7 +61,8 @@ goes. The short version:
 apps/
   web-astro/     Astro SSR, MPA. Server-rendered HTML per navigation.
   web-next/      Next.js static export, SPA-style data fetching.
-  api/           Elysia on Cloudflare Workers. REST, sessions, ownership checks, uploads.
+  admin/         Admin SSR. Account administration only; not part of the benchmark.
+  api/           Node.js + Fastify. REST, sessions, ownership checks, uploads.
 packages/
   contracts/     Zod schemas + types + copy constants. Dependency-free except zod.
   design-tokens/ tokens.css + tokens.json (single source for both frontends).
