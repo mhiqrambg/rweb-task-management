@@ -14,6 +14,10 @@ Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
      Cloudflare D1 (SQLite · Serverless Database) · R2 (attachment binaries)
 ```
 
+Node.js 24 is the toolchain: it hosts `pnpm`, Astro, `wrangler` and Vitest. Request handling runs on
+Cloudflare Workers (workerd) in production and under `wrangler dev` locally; no Node server serves the API
+(ADR-16).
+
 The admin console is its own deployable (`apps/admin`), outside the benchmark. Neither member
 frontend ships an admin route, an admin bundle, or admin markup.
 
@@ -26,7 +30,7 @@ makes the benchmark meaningful.
 |---|---|
 | 1 — Blueprint (`.planning/00`…`14`) | Complete, awaiting owner sign-off |
 | 2 — Design (`design/`) | Design system, 43 frames covering the 11 member screens, admin console extension, landing sections, 5 diagrams |
-| 3 — Implementation | Not started. No `package.json`, no app source yet |
+| 3 — Implementation | In progress. pnpm workspace, `packages/contracts`, `packages/design-tokens`, `apps/api` (Elysia Worker) and `apps/web-astro` exist; `apps/web-next` and `apps/admin` not scaffolded yet |
 
 ## Start here
 
@@ -55,7 +59,7 @@ STRUCTURE.md      the full tree: what exists now, what Phase 3 creates, where ea
 DEVELOPMENT-GUIDELINES.md  branching, PRs, reviews, testing obligations
 ```
 
-Dependency direction, once code exists: `apps/* → packages/*`. Never the reverse.
+Dependency direction: `apps/* → packages/*`. Never the reverse.
 
 ## Team
 

@@ -16,6 +16,9 @@ Astro SSR (MPA)     Next.js SSG (SPA-style)     Admin SSR (apps/admin)
      Cloudflare D1 (SQLite · Serverless Database) · R2 (attachment binaries)
 ```
 
+Node.js 24 hosts the toolchain (`pnpm`, Astro, `wrangler`, Vitest); the API itself runs on Cloudflare
+Workers, locally through `wrangler dev` on `:8787` (ADR-16). There is no Node server entry.
+
 The admin console is a separate deployable (`apps/admin`) held outside the benchmark. It is not a
 third rendering model under comparison; it exists so account administration never ships in the static
 export or in the SSR member app.
