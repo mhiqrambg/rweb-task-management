@@ -44,7 +44,7 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
   } catch {
     throw new ApiError(
       0,
-      'API belum dapat dihubungi. Pastikan backend Fastify aktif, alamat API benar, dan CORS mengizinkan frontend.',
+      'API belum dapat dihubungi. Pastikan API ElysiaJS aktif, alamat API benar, dan CORS mengizinkan frontend.',
     );
   }
 

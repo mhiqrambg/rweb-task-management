@@ -40,7 +40,7 @@ export default function FeedbackPreview() {
       </fieldset>
       <FeedbackState
         kind={kind}
-        description={kind === 'error' ? 'Simulasi: koneksi ke Fastify terputus.' : undefined}
+        description={kind === 'error' ? 'Simulasi: koneksi ke API ElysiaJS terputus.' : undefined}
         actionLabel={kind === 'unauthorized' ? 'Simulasikan login' : kind === 'empty' ? 'Buat data contoh' : 'Coba lagi'}
         onAction={kind === 'loading' ? undefined : () => {
           setActions((n) => n + 1);

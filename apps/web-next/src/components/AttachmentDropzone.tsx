@@ -16,7 +16,7 @@ type PendingImage = {
 };
 
 /**
- * Reusable UI only; does not choose/assume a Fastify endpoint.
+ * Reusable UI only; does not choose/assume an API endpoint.
  * Provide onUpload(file) from the authenticated app once Iqram confirms API contract.
  */
 export function AttachmentDropzone({

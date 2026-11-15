@@ -6,7 +6,7 @@ import styles from '@/components/NotePanel.module.css';
 
 type PreviewNote = NoteDraft & { id: string; pinned: boolean };
 const INITIAL: PreviewNote[] = [
-  { id: 'demo-1', title: 'Rangkuman rapat kelompok', body: 'Samakan kontrak API antara Astro, Next.js, dan Fastify sebelum pengujian integrasi.', pinned: true },
+  { id: 'demo-1', title: 'Rangkuman rapat kelompok', body: 'Samakan kontrak API antara Astro, Next.js, dan API ElysiaJS sebelum pengujian integrasi.', pinned: true },
   { id: 'demo-2', title: 'Ide peningkatan UI', body: 'Tambahkan empty state, loading skeleton, modal keyboard-friendly, dan notifikasi yang jelas.', pinned: false },
   { id: 'demo-3', title: 'Checklist presentasi', body: 'Periksa static export, aksesibilitas, dan hasil benchmark bersama Erika.', pinned: false },
 ];
@@ -45,7 +45,7 @@ export default function NotePreviewPage() {
     <main style={{ maxWidth: 1060, margin: '0 auto', padding: '36px 18px' }}>
       <p className="eyebrow">PENGUJIAN UI • TANPA BACKEND</p>
       <h1>Pratinjau Modul Catatan</h1>
-      <p className="muted">Data di sini hanya simulasi lokal di browser. Tidak ada data yang dikirim ke Fastify/PostgreSQL.</p>
+      <p className="muted">Data di sini hanya simulasi lokal di browser. Tidak ada data yang dikirim ke API atau D1.</p>
       <div className="actions">
         <button type="button" className="button secondary" onClick={() => { setSelected(null); setShowEmpty(false); setShowError(false); }}>Daftar</button>
         <button type="button" className="button secondary" onClick={() => { setSelected(null); setShowEmpty(true); setShowError(false); }}>Simulasi kosong</button>

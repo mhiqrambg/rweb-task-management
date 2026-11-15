@@ -35,7 +35,7 @@ export default function DashboardPreview() {
       <div className="panel" style={{ marginBottom: 24, borderLeft: '4px solid var(--color-accent)' }}>
         <strong>PRATINJAU FRONTEND — DATA CONTOH</strong>
         <p className="muted" style={{ marginTop: 8, marginBottom: 8 }}>
-          Halaman ini hanya untuk memeriksa desain ketika Fastify belum tersedia.
+          Halaman ini hanya untuk memeriksa desain ketika API ElysiaJS belum tersedia.
           Tidak ada login, database, atau akses ke data pengguna.
         </p>
         <div className="actions">

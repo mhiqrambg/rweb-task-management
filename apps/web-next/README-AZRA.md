@@ -10,10 +10,10 @@ Lokasi yang benar di repository induk: `apps/web-next/`.
 2. `cd rweb-task-management`
 3. `git checkout -b feat/next-static-shell`
 4. Ekstrak isi starter ke `apps/web-next/` (jangan timpa file yang telah dikerjakan orang lain).
-5. `cp apps/web-next/.env.example apps/web-next/.env.local` atau salin manual di Windows. Sesuaikan origin Fastify.
+5. `cp apps/web-next/.env.example apps/web-next/.env.local` atau salin manual di Windows. Sesuaikan origin API.
 6. Instal Node sesuai `.nvmrc` repo (root butuh >=22.23.4), aktifkan Corepack dan PNPM versi repo; `pnpm install` di root.
 7. `pnpm --filter web-next dev` lalu buka `http://localhost:3000/b/`.
-8. Jika Iqram sudah menyediakan API di port 3001, uji login dan `http://localhost:3000/b/app/?view=tasks`.
+8. Jika Iqram sudah menyediakan API di port 8787 (`wrangler dev`), uji login dan `http://localhost:3000/b/app/?view=tasks`.
 9. `pnpm --filter web-next typecheck`, `pnpm --filter web-next lint`, `pnpm --filter web-next test`, `pnpm --filter web-next build`.
 10. Pastikan `apps/web-next/out/` berisi halaman statis. Periksa bahwa HTML tidak berisi email, data catatan, atau informasi pribadi.
 
@@ -45,7 +45,7 @@ Kontrak memakai `@taskapp/contracts` (rute sudah diawali `/api/v1`, jangan digan
 
 Response `ItemResponse<T> = {data:T}`, daftar `{data:T[],page:{limit,nextCursor}}`. API helper mendukung response 204 tanpa body.
 
-**PENTING:** Produk final harus dijalankan melalui satu origin/reverse proxy sesuai rencana benchmarking; saat lokal origin Next 3000 dan Fastify 3001 memerlukan CORS credentials, cookies yang sesuai dan validasi Origin di Fastify. `NEXT_PUBLIC_API_ORIGIN` adalah origin saja, bukan path `/api/v1`. Nilai `NEXT_PUBLIC_*` dibekukan saat build.
+**PENTING:** Produk final harus dijalankan melalui satu origin/reverse proxy sesuai rencana benchmarking; saat lokal origin Next 3000 dan API 8787 memerlukan CORS credentials, cookies yang sesuai, dan validasi Origin di API. `NEXT_PUBLIC_API_ORIGIN` adalah origin saja, bukan path `/api/v1`. Nilai `NEXT_PUBLIC_*` dibekukan saat build.
 
 ## Catatan perbaikan sebelum integrasi
 
@@ -53,7 +53,7 @@ Response `ItemResponse<T> = {data:T}`, daftar `{data:T[],page:{limit,nextCursor}
 - Tambahkan safety redirect global setiap permintaan yang menerima 401.
 - Jangan gunakan Pages API Routes, middleware/proxy SSR, `cookies()` server atau `getServerSideProps` dalam static export.
 - Perbaiki data mock atau placeholder hanya untuk development, bukan untuk benchmark.
-- Jangan ubah struktur repo tanpa persetujuan tim; dokumen lama masih mengacu Hono/D1, sedangkan keputusan baru Fastify/PostgreSQL.
+- Jangan ubah struktur repo tanpa persetujuan tim; dokumen repo sudah mengacu ElysiaJS + Cloudflare Workers + D1 + R2. Jangan kembali ke Hono, Fastify, atau PostgreSQL.
 
 ## Rujukan
 

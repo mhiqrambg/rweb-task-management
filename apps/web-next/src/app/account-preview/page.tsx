@@ -16,7 +16,7 @@ export default function AccountPreviewPage() {
       <p className="eyebrow">PRATINJAU UI • DATA CONTOH • TANPA BACKEND</p>
       <p className="muted">
         Halaman ini hanya memeriksa tampilan Akun. Logout di sini adalah simulasi lokal;
-        pada aplikasi sebenarnya logout menggunakan API Fastify.
+        pada aplikasi sebenarnya logout menggunakan API ElysiaJS.
       </p>
       <div className="actions" style={{ marginBottom: 20 }}>
         <button type="button" className="button secondary" onClick={() => { setLoggedOut(false); setShowError(false); }}>Reset preview</button>

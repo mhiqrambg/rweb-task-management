@@ -16,7 +16,7 @@ const taskStatusLabels: Record<string, string> = {
   completed: 'Selesai',
 };
 
-/** Guard ringan: hindari crash UI jika endpoint Fastify mengirim bentuk data yang salah. */
+/** Guard ringan: hindari crash UI jika endpoint API mengirim bentuk data yang salah. */
 function isDashboard(value: unknown): value is Dashboard {
   if (typeof value !== 'object' || value === null) return false;
   const data = value as Record<string, unknown>;

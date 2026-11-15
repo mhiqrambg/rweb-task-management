@@ -38,7 +38,7 @@ import {
 /**
  * The 22 endpoints of .planning/06 §5, implemented against the in-memory store.
  * Same envelopes, same status codes, same owner predicate (`id AND user_id`), same 404 for a
- * foreign row. Anything that would need PostgreSQL, sharp or storage is simplified and marked.
+ * foreign row. Anything that would need D1, sharp or R2 is simplified and marked.
  */
 
 const PREFIX = '/api/v1';
