@@ -27,7 +27,7 @@ only in §11. The wire contract is what both frontends and the API implement fro
 | Item | Rule |
 |---|---|
 | Base path | `/api/v1`; every path is written in full |
-| Transport | HTTPS only. In production the API shares one origin with both frontends (ADR-05); no CORS headers are emitted, and `@fastify/cors` is registered only when `NODE_ENV !== 'production'` with the single dev origin |
+| Transport | HTTPS only. In production the Worker shares one origin with both frontends (ADR-05), so no CORS headers are emitted at all; the Workers CORS middleware is registered only in dev, with the single allowlist origin `http://localhost:3000` and `credentials: true` |
 | JSON media type | `application/json; charset=utf-8`, both directions, including errors |
 | Multipart | `multipart/form-data`, endpoint #18 only |
 | Success envelope | `{ "data": <payload> }`; lists are `{ "data": [...], "page": { "limit": <int>, "nextCursor": "<opaque>" \| null } }` |
@@ -36,7 +36,7 @@ only in §11. The wire contract is what both frontends and the API implement fro
 | Methods | Only the methods in §2.4 exist on a path. A known path with an unsupported method and an unknown path both answer `404 NOT_FOUND`; `405` is not in the closed status set |
 | Field naming | `camelCase` on the wire, `snake_case` in SQL; the mapper is the only place they meet (ADR-03) |
 | Identifiers | UUID v4, canonical lowercase hyphenated. Path ids are validated as UUIDs before a statement is prepared; a non-UUID id is treated as absent |
-| No internals | No stack traces, SQL, file paths, storage keys, driver names or framework versions (`NFR-SEC-011`) |
+| No internals | No stack traces, SQL, file paths, storage keys, driver names (D1/Wrangler internals) or framework versions (`NFR-SEC-011`) |
 | Unknown fields | Every request schema is **strict**. An unknown key in a body or query string is `422 VALIDATION_FAILED` with `details[0].code = "unknown_field"`. This is the mass-assignment guard: `userId`, `ownerId`, `id`, `createdAt`, `updatedAt`, `passwordHash`, `tokenHash` are rejected, not ignored (FR-TASK-001, NFR-SEC-004) |
 
 ### 1.2 Status-code matrix
@@ -143,7 +143,7 @@ cookie presented sets nothing (Q-13).
 | Issuance | only #1 and #2 | FR-AUTH-004 |
 | Absolute expiry | `created_at + 7 d`, stored in `expires_at`, never extended | FR-AUTH-006 |
 | Idle expiry | `last_used_at + 24 h`, evaluated on every read | FR-AUTH-010 |
-| Refresh | at most hourly: conditional `UPDATE ... WHERE last_used_at < now() - interval '1 hour'`, then re-issue the cookie with the remaining lifetime | O-7 |
+| Refresh | at most hourly: conditional `UPDATE ... WHERE last_used_at < ?`, with the one-hour cutoff computed in the Worker and bound as a parameter (no SQL `now()`/`interval`), then re-issue the cookie with the remaining lifetime | O-7 |
 | Revocation | `DELETE FROM sessions WHERE token_hash = $1` at #3; every other tab/device is refused at its next request | FR-AUTH-007, FR-AUTH-013 |
 | Login while authenticated | `409 CONFLICT`; no second session, no session reuse path (Q-15) | permission matrix row 4 |
 
@@ -183,16 +183,17 @@ This is the only bootstrap the Next.js shell has, and the redirect decision for 
 | 18 | POST | `/api/v1/attachments` | session | target must satisfy `id = $targetId AND user_id = $sessionUserId`; foreign target → `404` | 20/min (user) | no |
 | 19 | GET | `/api/v1/attachments/:id` | session | `WHERE id = $id AND user_id = $sessionUserId` | 300/min (user) | yes (safe) |
 | 20 | GET | `/api/v1/attachments/:id/content` | session | `SELECT … WHERE id AND user_id` **before** any file is opened | 300/min (user) | yes (safe) |
-| 21 | DELETE | `/api/v1/attachments/:id` | session | same predicate; row delete first, unlink after | 300/min (user) | yes by effect |
+| 21 | DELETE | `/api/v1/attachments/:id` | session | same predicate; row delete first, R2 object delete after | 300/min (user) | yes by effect |
 | 22 | GET | `/api/v1/health` | none | no data beyond dependency state; no counts, no versions | exempt | yes (safe) |
 
 Authorization authority is always the API. Astro's `302 /login` and Next's post-`401` route replacement
 are UX only (`03` §5.3). No frontend performs a per-row permission check, because there is nothing for it
 to check.
 
-Rate limits are per API instance, in process memory (ADR-01; no Redis). Every `429` carries
-`Retry-After` seconds and, when available, `X-RateLimit-Limit` / `X-RateLimit-Remaining` /
-`X-RateLimit-Reset` (Unix seconds).
+Rate-limit counters live in the D1 `rate_limits` table (`bucket`, `key`, `window_start`, `count`) —
+ADR-01, no Redis and no in-process memory (brief §1): auth mutations `10/min` per IP, failed login
+`5/15min` per `(IP, email)`, reads `300/min` per user. Every `429` carries `Retry-After` seconds and,
+when available, `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` (Unix seconds).
 
 ### 2.5 CSRF and origin integrity
 
@@ -368,7 +369,7 @@ message key and text (FR-UI-005/006/012). `details[].message` is the resolved En
 
 | Field | Type | Required | Constraints | On violation |
 |---|---|---|---|---|
-| `email` | string | yes (1) | trimmed, ≤ 254, RFC-ish syntax, lowercased for storage (`citext` makes it case-insensitive) | `422 VALIDATION_FAILED`, `details[0].field="email"` |
+| `email` | string | yes (1) | trimmed, ≤ 254, RFC-ish syntax, lowercased for storage; case-insensitive uniqueness enforced by a `COLLATE NOCASE` unique index | `422 VALIDATION_FAILED`, `details[0].field="email"` |
 | `password` | string | yes (1, 2) | 12-128 chars, no composition rules (A-11); never logged, never echoed | `422` with `code="password_policy"` |
 | `displayName` | string | optional (1), optional (6) | trimmed, 1-100, no control characters | `422` |
 | `title` (task, note) | string | yes | trimmed 1-200 | `422`, `code="required"` or `"too_long"` |
@@ -546,11 +547,11 @@ foreign, or binary missing — indistinguishable), `429`. `Range` is not support
 ### 5.21 #21 — `DELETE /api/v1/attachments/:id`
 
 Removes the attachment; afterwards neither metadata nor bytes are retrievable (FR-ATT-007). `204`.
-Row delete commits first, then the binary is unlinked (`05` §6.1). Errors: `401`, `404`, `429`.
+Row delete commits first, then the R2 object is deleted (`05` §6.1). Errors: `401`, `404`, `429`.
 
 ### 5.22 #22 — `GET /api/v1/health`
 
-Liveness and readiness for the proxy and the harness (NFR-REL-007). Auth: none; rate-limit exempt.
+Liveness and readiness for the Cloudflare route and the harness (NFR-REL-007). Auth: none; rate-limit exempt.
 
 ```jsonc
 { "data": { "status": "ok", "db": "ok", "storage": "ok" } }        // 200
@@ -578,13 +579,14 @@ approval (O-3).
 Depth cost is invisible and unbounded; a row updated or deleted between requests makes `LIMIT/OFFSET`
 repeat one row and skip another, violating FR-TASK-003's "without duplicates or omissions"; a boundary
 inside a tie group splits arbitrarily; and the locked contract has no `offset`. A cursor is also
-stateless, so either frontend and any instance can serve page n+1.
+stateless, so either frontend and any Worker can serve page n+1.
 
 ### 6.3 NULL handling for `due_date`
 
-`NULL` is not a date and must not sort as one: **`NULL` sorts last in both directions**
-(`DESC NULLS LAST` / `ASC NULLS LAST`), matching the stored index order (`05` §4.2 #15). `dueState=none`
-selects the NULL region explicitly, so a client never has to infer it from ordering.
+`NULL` is not a date and must not sort as one: **`NULL` sorts last in both directions**. The due-date sort
+uses an explicit leading `(due_date IS NULL)` column — `ORDER BY (due_date IS NULL) ASC, due_date DESC, id DESC`
+— and the stored index carries the same expression (`05` §4.2 #15), so NULLs land after every dated row.
+`dueState=none` selects the NULL region explicitly, so a client never has to infer it from ordering.
 
 ### 6.4 Sort grammar
 
@@ -666,7 +668,7 @@ by one user action.
 | Gate | Checks | Rejection |
 |---|---|---|
 | 1. Content sniff | magic bytes via `file-type` ∈ `image/jpeg`/`image/png`/`image/webp`; SVG and everything else refused | `415 UNSUPPORTED_MEDIA_TYPE` |
-| 2. Decode | `sharp` metadata read succeeds (catches polyglots and truncated files), yields `width`/`height` | `422 VALIDATION_FAILED`, `code="undecodable_image"` |
+| 2. Decode | `@jsquash` (Wasm WebP/JPEG codec) metadata read succeeds (catches polyglots and truncated files), yields `width`/`height` | `422 VALIDATION_FAILED`, `code="undecodable_image"` |
 
 ### 8.4 Per-file error reporting
 
@@ -687,14 +689,15 @@ One file per request, so a rejection is a normal error envelope whose `details[0
 | Step | Failure handling |
 |---|---|
 | 1. Validate target ownership (`SELECT … WHERE id AND user_id`) | absent/foreign → `404`, nothing written |
-| 2. Validate file (size, sniff, decode) | reject before touching the filesystem |
-| 3. Write full file via temp + rename | failure → `500`, no row, temp removed |
-| 4. Write thumb (`≤320 px`, WebP) | failure → unlink full file, `500`, no row |
-| 5. `BEGIN`; parent row `FOR UPDATE`; count check; `INSERT attachments`; `COMMIT` | failure → rollback + unlink both files, `422`/`500` |
+| 2. Validate file (size, sniff, decode) | reject before writing any R2 object |
+| 3. Write the full binary to the R2 bucket | failure → `500`, no row |
+| 4. Write the thumb (`≤320 px`, WebP) to the R2 bucket | failure → delete the just-written full object, `500`, no row |
+| 5. One `env.DB.batch([...])`: count check, `INSERT attachments` (D1 single-writer atomicity) | failure → delete the just-written R2 objects, `422`/`500` |
 | 6. Return `201` with the row | — |
 
-The row is the commit point (`05` §6.1): a crash before commit leaves an unreachable file, swept later;
-a crash after commit leaves a consistent pair.
+The row is the commit point (`05` §6.1): binaries are written to the R2 bucket before the row is committed,
+and deleted after the commit fails or the row is later removed — a crash before commit leaves an unreachable
+object, swept later; a crash after commit leaves a consistent pair.
 
 ### 8.6 Stable order
 
@@ -708,10 +711,10 @@ every load in both apps (FR-ATT-012). List payloads carry the first three of tha
 |---|---|
 | Variant | `?variant=thumb` (≤320 px, `image/webp`) or `full` (default, original bytes) |
 | Auth | owner only, checked before any file is opened; absent/foreign/missing-binary all `404` |
-| Headers | `Content-Type`, `Content-Length`, strong `ETag` (from file stat), `Cache-Control: private, max-age=86400`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff` |
+| Headers | `Content-Type`, `Content-Length`, strong `ETag` (from the R2 object metadata), `Cache-Control: private, max-age=86400`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff` |
 | Conditional | `If-None-Match` matching ⇒ `304`, no body |
 | Range | not supported (Q-12); images are small and the lightbox needs the whole file |
-| Never | the `storage_key`, the volume path, or any `/uploads/*` URL |
+| Never | the `storage_key` (the R2 object key), or any `/uploads/*` URL |
 
 ### 8.8 Thumbnail rendition
 
@@ -775,7 +778,7 @@ flagged for removal before G3 if no FR is added (D-1, Q-01).
 | `PAYLOAD_TOO_LARGE` | 413 | #18 with a 6 MiB file | `details[0].file` names it |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | #18 with a renamed `.txt` | `code="mime_not_allowed"` |
 | `RATE_LIMITED` | 429 | #2 on the 11th attempt/minute | `Retry-After` present |
-| `INTERNAL` | 500 | #20 with the volume unmounted | no internals in `message` |
+| `INTERNAL` | 500 | #20 when the R2 object read fails | no internals in `message` |
 
 ### 9.4 No endpoint can return another user's data
 

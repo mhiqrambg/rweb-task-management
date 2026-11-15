@@ -10,7 +10,7 @@ skills:
   selected: [backend-development, security-review]
   used: [backend-development, security-review]
   changed:
-    - "backend-development: forced explicit statement of the parameterized-query rule, Argon2id password handling, connection pooling, and the 70-20-10 test split that Stages 7-10 must honour."
+    - "backend-development: forced explicit statement of the parameterized-query rule, Argon2id password handling, D1 batch atomicity, and the 70-20-10 test split that Stages 7-10 must honour."
     - "security-review: forced the authoritative-vs-advisory enforcement framing and the ban on flagging framework-mitigated patterns as risks in Stage 8."
 ---
 
@@ -59,7 +59,7 @@ Two risks make the research problem hard, and both are architectural, not cosmet
 |---|---|---|
 | G-01 | Two functionally equivalent apps | Every feature in `01-requirements.md` works identically in both; no exclusive feature on either side |
 | G-02 | One contract | Both frontends import types and validators from `packages/contracts`; no redefined entity shape in either app |
-| G-03 | One backend, one database | Fastify + PostgreSQL serve both apps; no per-frontend tables, columns, or endpoints |
+| G-03 | One backend, one database | Workers + D1 serve both apps; no per-frontend tables, columns, or endpoints |
 | G-04 | Reproducible benchmark | A protocol that any team member can re-run and get comparable results |
 | G-05 | Measured comparison | LCP, CLS, INP, network payload per scenario, with median and spread across repetitions |
 | G-06 | Documentation | This planning set plus a final comparative report |
@@ -88,7 +88,7 @@ Real, named people from the brief. No other stakeholder is invented; the evaluat
 |---|---|---|---|
 | Hamzah | Team — Astro SSR frontend | Correct SSR architecture, MPA navigation, deployment config | Owns `apps/web-astro` |
 | Azra | Team — Next.js SSG frontend | Static export correctness, client routing, auth-state handling | Owns `apps/web-next` |
-| Iqram | Team — backend | Fastify + PostgreSQL, API contract fidelity, session and upload security | Owns `apps/api`, `packages/contracts`, migrations, `infra/` |
+| Iqram | Team — backend | Workers + D1 + R2, API contract fidelity, session and upload security | Owns `apps/api`, `packages/contracts`, migrations, `wrangler.jsonc` |
 | Erika | Team — QA, performance testing, analysis | Reproducible measurement, fair protocol, defensible report | Owns benchmark protocol and results; runs testing and analysis at the end of the roadmap |
 | Project owner / academic evaluator | Decision authority | Coherent plan, working software, defensible comparison | Approval gate on this blueprint; not named in the brief (see Q-01) |
 
@@ -115,15 +115,15 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 
 **Inside the system**
 
-- `apps/api` — Fastify REST API, authentication, authorization, validation, upload handling, file
-  serving, DB access, migrations.
+- `apps/api` — Workers REST API (Hono), authentication, authorization, validation, upload handling, binary
+  serving, D1 access, migrations.
 - `apps/web-astro` — Astro SSR app (Node adapter), server-rendered pages, form posts / server-side
   fetch to the API.
 - `apps/web-next` — Next.js static export, client-side data fetching and routing.
 - `packages/contracts` — types, Zod schemas, error codes, route constants.
 - `packages/design-tokens`, `assets/` — shared visual tokens and static media.
-- PostgreSQL database; upload storage directory (local volume).
-- Reverse proxy that presents **one origin** to browsers.
+- D1 database (binding `env.DB`); R2 bucket for attachment binaries (binding `env.BUCKET`).
+- Cloudflare zone routing that presents **one origin** to browsers.
 
 **Outside the system**
 
@@ -138,7 +138,7 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 |---|---|---|
 | C-01 | Astro frontend MUST be SSR + MPA | brief §1 |
 | C-02 | Next.js frontend MUST be SSG + client-side navigation/data | brief §1 |
-| C-03 | One shared backend: Node.js + Fastify + PostgreSQL, REST, cookie auth, multipart upload | brief §1 |
+| C-03 | One shared backend: Cloudflare Workers + Hono + D1 + R2, REST, cookie auth, multipart upload | brief §1 |
 | C-04 | Both frontends consume the same API and DB | brief §2.3 |
 | C-05 | Identical UI/UX, features, data structures, API contracts | brief §2.2 |
 | C-06 | Image binaries outside the database, metadata inside | brief §7 |
@@ -147,7 +147,7 @@ Canonical terms used identically in every document. Frontends MUST NOT introduce
 | C-09 | Benchmark runs MUST use production builds, never dev servers | brief §10 |
 | C-10 | Team of four, each with a named primary area | brief §4 |
 | C-11 | No fabricated measurements | architect rule; any number in a plan is an objective or an assumption |
-| C-12 | Workstation toolchain is partially broken: pnpm resolves only to a broken corepack shim, no local PostgreSQL, Docker daemon not running, no `.git` | Stage 3 environment assessment; these are Phase-0 prerequisites, not design decisions |
+| C-12 | Workstation toolchain is partially broken: pnpm resolves only to a broken corepack shim, no Cloudflare account credentials configured, no `.git` | Stage 3 environment assessment; these are Phase-0 prerequisites, not design decisions |
 
 ## 9. Existing artifacts
 
@@ -165,7 +165,7 @@ existing practice.
 | Next.js docs — `output: 'export'` unsupported features | Stage 4 rendering model |
 | web.dev — Core Web Vitals (LCP/CLS/INP) definitions and thresholds | Stage 9 |
 | OWASP ASVS 4.0.3, OWASP Cheat Sheet Series (sessions, file upload, CSRF) | Stage 8 |
-| PostgreSQL 16 docs — indexes, `pg_trgm`, `ON DELETE` semantics | Stage 6 |
+| D1 (SQLite) docs — indexes, `LIKE`/`ESCAPE` semantics, `ON DELETE` semantics | Stage 6 |
 
 ## 11. Assumptions
 
@@ -176,12 +176,12 @@ themselves (see `12-architecture-review.md` §5).
 |---|---|---|
 | A-01 | Academic project with a fixed deadline; absolute dates unknown, so the roadmap is expressed in **weeks** (W1..W12) | Re-scale phase durations; phase order and dependencies hold |
 | A-02 | Single-tenant product: a user sees only their own rows; no sharing | Adds a membership table and a second authorization axis (out of scope, would reopen 05/06/07) |
-| A-03 | Deployment target is one Linux host via Docker Compose; all apps behind one reverse proxy origin | Different origins → cookie `SameSite`/CORS changes (ADR-05 alternatives cover it) |
+| A-03 | Deployment target is one custom origin behind Cloudflare zone routing; all apps behind one origin | Different origins → cookie `SameSite`/CORS changes (ADR-05 alternatives cover it) |
 | A-04 | Benchmark dataset generated synthetically (per user: 50 tasks, 50 notes, 3 images ≤ 1 MB) | Dataset spec changes; protocol and metric definitions do not |
 | A-05 | Four part-time contributors; ~10–12 effective hours/week each | Timeline stretches; critical path unchanged |
 | A-06 | No email verification, no password reset, no email change flow | Adds mail transport + token tables + two endpoints |
 | A-07 | Attachments: `image/jpeg`, `image/png`, `image/webp`; ≤ 5 MB each; ≤ 10 per task/note | Limits are constants in `packages/contracts`; one-line change plus migration-free |
-| A-08 | Runtime: Node 24 LTS on this machine (Node 26 LTS is current; 22 and 24 also LTS), Node floor ≥ 22.23.4 as required by Astro 7; PostgreSQL 16; pnpm 9 | Version drift only; Astro 7 documents ≥ 22.23.4 and Next 16 documents ≥ 20.9, both satisfied |
+| A-08 | Runtime: Cloudflare Workers with D1 and R2 bindings on this machine; Node 24 LTS locally for tooling (Node 26 LTS is current; 22 and 24 also LTS), Node floor ≥ 22.23.4 as required by Astro 7; pnpm 9 | Version drift only; Astro 7 documents ≥ 22.23.4 and Next 16 documents ≥ 20.9, both satisfied |
 | A-09 | Responsive target desktop-first, breakpoints 640/768/1024/1280 | Token changes only |
 | A-10 | Benchmark browser is Playwright-pinned Chromium on one machine, one viewport (1440×900) | Protocol rerun with a different pinned browser |
 
@@ -212,4 +212,4 @@ In scope: requirements, architecture, ADRs, data model, API contracts, security,
 test plan, roadmap, risk register, review, team matrix, UI/UX spec, `DEVELOPMENT-GUIDELINES.md`.
 
 Out of scope: any application source, migration files, dependency installation, `package.json`,
-lockfiles, Dockerfiles, CI config, dev servers, builds, and any global or agent configuration.
+lockfiles, `wrangler.jsonc`, CI config, dev servers, builds, and any global or agent configuration.

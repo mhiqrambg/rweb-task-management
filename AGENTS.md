@@ -11,9 +11,9 @@ A group assignment (4 people, part-time) that compares two rendering models behi
 ```
 Astro SSR (MPA)        Next.js SSG (SPA-style)
         \                    /
-         Node.js + Fastify (REST API · auth · business logic)
+         Cloudflare Workers + Hono (REST API · auth · business logic)
                     |
-              PostgreSQL (shared database)
+              D1 (shared database) · R2 (attachment binaries)
 ```
 
 Diagram: `design/assets/architecture-mpa-spa.png`.
@@ -57,7 +57,7 @@ goes. The short version:
 apps/
   web-astro/     Astro SSR, MPA. Server-rendered HTML per navigation.
   web-next/      Next.js static export, SPA-style data fetching.
-  api/           Fastify. REST, sessions, ownership checks, uploads.
+  api/           Workers (Hono). REST, sessions, ownership checks, uploads.
 packages/
   contracts/     Zod schemas + types + copy constants. Dependency-free except zod.
   design-tokens/ tokens.css + tokens.json (single source for both frontends).
@@ -94,14 +94,14 @@ pnpm install                 # install the workspace
 pnpm -r typecheck            # tsc --noEmit across packages and apps
 pnpm -r lint                 # eslint
 pnpm -r test                 # unit + integration
-pnpm --filter api dev        # Fastify on the API port
+wrangler dev                 # Worker on :8787 (local D1/R2)
 pnpm --filter web-astro dev  # Astro dev server
 pnpm --filter web-next dev   # Next dev server
 pnpm build                   # production build (the only build used for benchmarking)
 ```
 
 Never measure against `dev`. Never commit `node_modules`, `.env`, `.next/out`, `dist/`, or
-`apps/api/storage/`.
+`.wrangler/state/`.
 
 ## 7. How to work on a task
 

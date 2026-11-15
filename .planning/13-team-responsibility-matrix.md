@@ -20,7 +20,7 @@ blocked by whom**. Technical detail lives in the other documents; phases (P1..P1
 are defined in `10-implementation-roadmap.md`.
 
 > **Ownership revision (2026-11-15, project owner).** Frontend and QA ownership swapped:
-> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, backend (Fastify + PostgreSQL, contracts, infra) is
+> Astro SSR is **Hamzah**, Next.js SSG is **Azra**, backend (**Workers + D1 + R2**, contracts, infra) is
 > **Iqram**, QA performance testing and analysis is **Erika**, executed at the end of the roadmap after
 > both apps are integrated. Superseded text in other documents was corrected in the same change.
 
@@ -29,12 +29,12 @@ are defined in `10-implementation-roadmap.md`.
 | Area | Owner | Backup / reviewer |
 |---|---|---|
 | `packages/contracts` (types, Zod, error codes, route constants) | Iqram | Hamzah |
-| `apps/api` (Fastify, auth, upload, migrations, DB access) | Iqram | Hamzah |
+| `apps/api` (Workers, auth, upload, D1 migrations, DB access) | Iqram | Hamzah |
 | `apps/web-astro` (SSR pages, Astro endpoints, Node adapter config) | Hamzah | Azra (review of UI parity) |
 | `apps/web-next` (static export, client router, client data layer) | Azra | Hamzah (review of UI parity) |
 | `packages/design-tokens` + `14-ui-ux-specification.md` | Hamzah + Azra (joint, Hamzah records) | Iqram |
 | Benchmark protocol, dataset, harness, results | Erika | Iqram (API-side instrumentation) |
-| `infra/` (compose, reverse proxy, Dockerfiles) | Iqram | Hamzah (parity of the measured environment) |
+| `infra/` (`wrangler.jsonc`, Workers routes, Pages project config) | Iqram | Hamzah (parity of the measured environment) |
 | Final comparative report | Erika (lead), all contribute sections | Project owner |
 
 Single-writer rule: a file's owner merges changes to it. Anyone may open a PR against it; nobody
@@ -68,14 +68,14 @@ merges another owner's area without their approval.
 | **Acceptance** | Static `out/` build contains no user data (grep for a seeded email returns nothing); deep link `/app/?view=tasks&id=<uuid>` restores the view after reload; unauthenticated visit redirects to login after the session probe; no layout shift from the auth skeleton; Playwright next suite green |
 | **Overload risk** | **Medium.** The SSG constraint is the least familiar area and every workaround tempts a redesign into SSR (which would invalidate the comparison). Mitigation: ADR-04 is binding; any deviation is escalated, not improvised |
 
-### Iqram — Node.js + Fastify + PostgreSQL backend
+### Iqram — Workers + D1 + R2 backend
 
 | Field | Content |
 |---|---|
 | **Primary** | `apps/api`, `packages/contracts`, migrations, session auth, ownership enforcement, multipart upload + storage, error envelope, rate limiting, security headers, seeded dataset endpoint/script |
-| **Secondary** | `infra/` compose and reverse proxy, API-side timing/log instrumentation for the benchmark, review of all contract changes |
+| **Secondary** | `infra/` `wrangler.jsonc` and the Cloudflare zone routing that gives one origin, API-side timing/log instrumentation for the benchmark, review of all contract changes |
 | **Deliverables** | Running API with every endpoint in `06`; migrations that build the schema from empty; seed + dataset generator; integration test suite; OpenAPI-free but contract-accurate handler set; `.env.example` |
-| **Technical dependencies** | Requirements `01`, data model `05`, API spec `06` (P3); Docker/PG availability (P-02/P-03); node runtime present |
+| **Technical dependencies** | Requirements `01`, data model `05`, API spec `06` (P3); Wrangler auth + D1/R2 binding available (P-02/P-03); `compatibility_date` pinned |
 | **Independent** | Schema + migrations once `05` is approved, auth module, CRUD modules, upload module, error handling, tests — all before either frontend is finished |
 | **Collaboration needed** | Contract shape changes (both frontend owners), cookie/proxy behaviour (Hamzah, Erika), dataset size for benchmarking (Erika) |
 | **Acceptance** | All integration tests green including the 404-on-foreign-owner cases for every owned resource; upload rejects oversize and wrong MIME; session expiry enforced; API serves list endpoints in bounded time at dataset scale |
@@ -121,7 +121,7 @@ The brief forbids QA starting only at the end. These are Erika's tasks before P9
 |---|---|---|
 | P2 | Acceptance-criteria checklist per FR; parity checklist (ast parity) | Blocks P6/P7 start |
 | P3 | API contract cases drafted from `06` (happy, validation, auth, ownership) | Blocks P5 merge of each module |
-| P4 | Environment parity checklist (Node, PG, browser, dataset) | Blocks P8 |
+| P4 | Environment parity checklist (Workers compat date, D1, browser, dataset) | Blocks P8 |
 | P5 | Contract tests executed against the API as it lands | Each module's PR |
 | P6/P7 | Playwright smoke per page, both apps; state coverage (empty/loading/error/success) | Each page's PR |
 | P8 | Cross-app parity run: same dataset, same assertions, both apps | Blocks P9 |
@@ -133,7 +133,7 @@ The brief forbids QA starting only at the end. These are Erika's tasks before P9
 | Iqram is the single point of failure | Owns contracts + API + infra; both frontends block on him | Freeze contracts by end of P3; mock API from contract; infra timeboxed; Hamzah reviews contract PRs to share knowledge |
 | Frontend owners idle in P5 | Their work depends on a live API | Contract-first mocks mean P6/P7 can start in parallel with P5 (see `10` §4) |
 | Erika back-loaded | Benchmark and report are P10–P11 | §4 front-loads QA; harness scaffolding begins in P2 |
-| Hamzah heavier than Azra in setup | SSR adapter + proxy + runtime env are extra work | Landing page built once and mirrored; adapter debugging paired with Iqram; the proxy is Iqram's deliverable, not his |
+| Hamzah heavier than Azra in setup | SSR adapter + runtime API base are extra work | Landing page built once and mirrored; adapter debugging paired with Iqram; the zone routing config is Iqram's deliverable, not his |
 | Knowledge silos | Each area has one owner | Mandatory reviewer from another area on every P8 PR; report sections cross-reviewed |
 
 ## 6. Escalation and unblocking

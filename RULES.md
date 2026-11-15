@@ -12,10 +12,10 @@ a written reason in the PR.
 ## A. Architecture (authority: `.planning/03`, `.planning/04`)
 
 - **R-A1 MUST** ship three deployables against one database: `apps/web-astro` (SSR, MPA),
-  `apps/web-next` (static export, SPA-style), `apps/api` (Fastify).
+  `apps/web-next` (static export, SPA-style), `apps/api` (Workers + Hono).
 - **R-A2 MUST** keep the dependency direction `apps/* → packages/*`. `apps/web-next` NEVER imports from
   `apps/web-astro`; `packages/*` NEVER imports from `apps/*`.
-- **R-A3 MUST** serve both frontends and the API from one origin (reverse proxy) so cookies and
+- **R-A3 MUST** serve both frontends and the API from one origin (Cloudflare zone routing) so cookies and
   same-origin requests behave identically. Details in `.planning/03` §2.
 - **R-A4 NEVER** add server rendering, ISR, middleware, server actions, or edge functions to
   `apps/web-next`. It is a static export on purpose (ADR-04).
@@ -51,8 +51,8 @@ a written reason in the PR.
   or a log.
 - **R-C3 MUST** check ownership inside the query (`WHERE user_id = $1`), not after fetching the row.
 - **R-C4 MUST** treat `disabled`/expired sessions as unauthenticated and invalidate on logout.
-- **R-C5 NEVER** serve the upload directory directly; stream through an authenticated route with the
-  ownership check.
+- **R-C5 NEVER** serve attachment binaries directly from the R2 bucket; stream through an
+  authenticated route with the ownership check.
 - **R-C6 MUST** stop `.env` leaking: it is gitignored; `.env.example` documents names only.
 - **R-C7 NEVER** disable CSRF, same-origin, or CSP checks to make something work. Report it instead.
 
@@ -132,7 +132,7 @@ a written reason in the PR.
 - **R-J3 MUST** include in the PR: requirement IDs, contract impact, exact verification commands,
   screenshots from both apps for UI changes, and risk.
 - **R-J4 MUST** update `.planning/` in the same PR as any change to a shape, route, status, or env var.
-- **R-J5 NEVER** commit `node_modules`, `.env`, `.next/out`, `dist/`, `apps/api/storage/`, uploads, or
+- **R-J5 NEVER** commit `node_modules`, `.env`, `.next/out`, `dist/`, `.wrangler/state/`, uploads, or
   editor folders.
 - **R-J6 MUST** add a paragraph to the PR for any new dependency: what it does, why the platform or an
   existing dependency cannot, and its install size. `packages/contracts` stays dependency-free except

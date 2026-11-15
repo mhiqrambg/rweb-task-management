@@ -245,7 +245,7 @@ C-11). "TBD by measurement protocol" means the protocol defines the number and t
 | NFR-PERF-004 | Network payload MUST be reported per scenario and per app split into document HTML, CSS, JS (transferred/parsed), images, fonts and total, with cache-cold and cache-warm runs distinguished. | Transfer sizes per resource class from the capture | No target: this is the primary explanatory variable of the comparison | MUST | confirmed (brief §2.6, §10) |
 | NFR-PERF-005 | Browser payload MUST NOT be presented as total infrastructure traffic; server-side and database-facing traffic MUST be reported separately. | Report sections kept distinct; a conflated run is rejected | Structural requirement | MUST | confirmed (brief §10) |
 | NFR-PERF-006 | All benchmark runs MUST execute against production builds of both frontends and a production-mode API — never dev servers with hot reload or default source maps. | Run manifest records build mode per app | Zero dev-mode runs admitted | MUST | confirmed (C-09) |
-| NFR-PERF-007 | Both apps MUST be measured behind the same reverse proxy, host, API instance and database, in the same session, and never while the other app is under load. | Run manifest records proxy config, host, API instance id | Identical per scenario for both apps | MUST | confirmed (brief §10) |
+| NFR-PERF-007 | Both apps MUST be measured behind the same Cloudflare route, host, Worker deployment and database, in the same session, and never while the other app is under load. | Run manifest records route config, host, Worker version id | Identical per scenario for both apps | MUST | confirmed (brief §10) |
 | NFR-PERF-008 | Server-render cost MUST be attributable: each app emits server-timing for render and upstream calls, and the API emits per-request timing, so a scenario can be split into server render, network and client work. | Presence and plausibility of timing in responses | Timing on 100 % of rendered documents and API responses | SHOULD | assumed (feeds NFR-OBS-003) |
 | NFR-PERF-009 | Data volume MUST NOT silently dominate the comparison: dashboard, task list and notes list are measured with the fixed protocol dataset (A-04) and protocol page size, both recorded per run. | Dataset + page size recorded | One dataset, one page size for both apps | MUST | confirmed (A-04) |
 | NFR-PERF-010 | API latency MUST be measured per resource operation and reported with median and spread, so endpoint regressions are detectable before a comparison run. | p50/p95 per operation over a fixed request script | TBD by measurement protocol | MUST | assumed (needed by NFR-RESEARCH-009) |
@@ -273,14 +273,14 @@ C-11). "TBD by measurement protocol" means the protocol defines the number and t
 
 | ID | Requirement | Metric / verification | Target | Pri | Status |
 |---|---|---|---|---|---|
-| NFR-REL-001 | Data invariants MUST be enforced by the database as well as the API: enum values, owner required, attachment size/mime/count, referential integrity to the target. | Direct DB writes attempting invalid values are refused | 100 % of invariants | MUST | confirmed |
+| NFR-REL-001 | Data invariants MUST be enforced by the database as well as the API: enum values, owner required, attachment size/mime/count, referential integrity to the target. | Direct D1 writes attempting invalid values are refused | 100 % of invariants | MUST | confirmed |
 | NFR-REL-002 | Deleting a task/note and its attachments MUST be atomic from the user's perspective: after success nothing is retrievable; after failure nothing is partially removed. | Delete-with-attachments under induced failure, then retrieval attempts | No partial state observable | MUST | confirmed |
 | NFR-REL-003 | Attachment write MUST be all-or-nothing per file: a binary without metadata, or metadata without a readable binary, MUST never be served. | Induce storage failure mid-upload; inspect responses and storage | Zero inconsistent pairs surfaced | MUST | confirmed |
-| NFR-REL-004 | The API MUST degrade without crashing: with the database down, requests return the error envelope, the process stays alive, and it recovers when the database returns. | Stop the DB, issue requests, restart | No crash/restart; recovery without manual intervention | MUST | assumed |
+| NFR-REL-004 | The API MUST degrade without crashing: with D1 unavailable, requests return the error envelope, the Worker stays alive, and it recovers when the database returns. | Break the D1 binding, issue requests, restore | No crash/restart; recovery without manual intervention | MUST | assumed |
 | NFR-REL-005 | Repeated identical requests MUST be safe: repeated delete yields not-found, repeated status change is idempotent, no retry creates a duplicate row. | Replay a captured write and delete | No duplicates; no 5xx | MUST | assumed |
 | NFR-REL-006 | Pagination MUST be consistent: following `nextCursor` to exhaustion returns each owned row exactly once even if unrelated rows change between pages. | Traverse while mutating unrelated rows | No duplicates, no silent omissions among unmodified rows | MUST | assumed |
-| NFR-REL-007 | A readiness signal reflecting database and storage availability MUST gate the benchmark harness before measurement starts. | Harness gate; readiness false while the DB is down | Ready only when dependencies are usable | MUST | assumed (needed by NFR-PERF-007) |
-| NFR-REL-008 | A documented backup and restore of the database **and** the upload directory MUST be performed once and recorded, so the benchmark dataset can be restored between campaigns. | One rehearsed restore into a clean environment | Restored state matches the recorded dataset checksum | SHOULD | assumed |
+| NFR-REL-007 | A readiness signal reflecting database and storage availability MUST gate the benchmark harness before measurement starts. | Harness gate; readiness false while D1 is unavailable | Ready only when dependencies are usable | MUST | assumed (needed by NFR-PERF-007) |
+| NFR-REL-008 | A documented backup and restore of D1 **and** the R2 bucket MUST be performed once and recorded, so the benchmark dataset can be restored between campaigns. | One rehearsed restore into a clean environment | Restored state matches the recorded dataset checksum | SHOULD | assumed |
 
 ### 4.4 Accessibility (`NFR-A11Y`)
 
@@ -312,7 +312,7 @@ C-11). "TBD by measurement protocol" means the protocol defines the number and t
 |---|---|---|---|---|---|
 | NFR-COMPAT-001 | The benchmark browser MUST be one pinned Chromium build driven by Playwright on one machine, one OS, one viewport, recorded in every run. | Run manifest | Identical across a campaign | MUST | confirmed (A-10) |
 | NFR-COMPAT-002 | Both apps MUST function on the current and previous major versions of Chrome, Firefox and Safari at desktop widths, with pinned Chromium as reference. | Manual smoke pass per browser per app | All primary journeys pass | MUST | assumed |
-| NFR-COMPAT-003 | Runtime MUST be the pinned Node LTS (24 on this machine; floors: Astro 7 ≥ 22.23.4, Next 16 ≥ 20.9) with PostgreSQL 16; versions pinned in the repo and recorded with results. | Version check in CI and run manifest | Pinned and matching | MUST | confirmed (A-08) |
+| NFR-COMPAT-003 | Runtime MUST be Cloudflare Workers with the pinned compatibility date and D1 + R2 bindings; frontend toolchain floors (Astro 7 ≥ 22.23.4, Next 16 ≥ 20.9) pinned in the repo and recorded with results. | Version check in CI and run manifest | Pinned and matching | MUST | confirmed (A-08) |
 | NFR-COMPAT-004 | Both apps MUST be served from one origin in production (Astro at `/`, Next under `/b`, API under `/api`), so the session cookie is first-party for both. | Deployment inspection; cookie visible to both apps | One origin, one cookie, no CORS preflight in the normal flow | MUST | confirmed (A-03) |
 | NFR-COMPAT-005 | Both apps MUST be usable with JavaScript enabled; a no-JavaScript experience is explicitly out of scope and MUST NOT be presented as a difference between the approaches. | Documented exclusion; no no-JS cell in the parity checklist | Stated in both apps' documentation | MUST | assumed |
 
@@ -371,7 +371,7 @@ are new and are cited by FR/NFR rows above.
 |---|---|---|
 | C-01 | Astro frontend MUST be SSR + MPA | FR-AUTH-008/010, FR-TASK-014, FR-UI-001 are satisfied per request; server-side redirects are legitimate |
 | C-02 | Next.js frontend MUST be SSG + client-side navigation/data | The same FRs must be satisfied client-side; no FR may require per-user static HTML |
-| C-03 | One shared backend: Node.js + Fastify + PostgreSQL, REST, cookie auth, multipart upload | No FR may assume a per-frontend service, BFF, or server action |
+| C-03 | One shared backend: Cloudflare Workers + Hono + D1 + R2, REST, cookie auth, multipart upload | No FR may assume a per-frontend service, BFF, or server action |
 | C-04 | Both frontends consume the same API and DB | Any FR satisfied by framework-specific data access is invalid |
 | C-05 | Identical UI/UX, features, data structures, API contracts | G-1; FR-UI-006/009; NFR-MAINT-001/005/006 |
 | C-06 | Image binaries outside the database, metadata inside | FR-ATT-004/008/011 stay storage-agnostic; no FR may require Base64 embedding |
@@ -380,7 +380,7 @@ are new and are cited by FR/NFR rows above.
 | C-09 | Benchmark runs use production builds | NFR-PERF-006 |
 | C-10 | Team of four with named primary areas | Ownership lives in `10` and `13`, not here |
 | C-11 | No fabricated measurements | Every numeric target in §4 is labelled assumed and unvalidated |
-| C-12 | Toolchain prerequisites unresolved (pnpm, Docker/colima, PostgreSQL 16, git init, pinning) | No requirement depends on a tool being installed; NFR-MAINT-007 depends on a documented setup sequence existing |
+| C-12 | Toolchain prerequisites unresolved (pnpm, Cloudflare account credentials, git init, pinning) | No requirement depends on a tool being installed; NFR-MAINT-007 depends on a documented setup sequence existing |
 | C-13 | Every user-visible string MUST come from one shared copy deck; adding a string to one app only is a defect. | Makes C-05 checkable by diff instead of opinion (FR-UI-006, NFR-MAINT-006) |
 | C-14 | The requirement set is frozen at the parity freeze; any FR added or changed afterwards requires re-baselining both apps and re-running affected scenarios. | Protects comparison validity (NFR-RESEARCH-009) |
 | C-15 | No requirement may be satisfied by a framework-specific capability the other framework cannot reproduce (server actions, per-request personalization in the static app). | The comparison isolates the rendering model, not the feature set |
@@ -389,12 +389,12 @@ are new and are cited by FR/NFR rows above.
 ## 7. Assumptions
 
 **Inherited from 00 §11:** A-01 relative-week schedule; A-02 single-tenant owner-only rows; A-03 one
-Linux host, Compose, one reverse-proxy origin (makes the `sid` cookie first-party for both apps);
+custom origin behind Cloudflare zone routing (makes the `sid` cookie first-party for both apps);
 A-04 synthetic dataset per user (50 tasks, 50 notes, 3 images ≤ 1 MB); A-05 four part-time
 contributors; A-06 no email verification, reset or email change; A-07 attachments `jpeg|png|webp`,
-≤ 5 MB, ≤ 10 per target; A-08 pinned Node LTS 24 on this machine (floors: Astro 7 ≥ 22.23.4, Next 16
-≥ 20.9), PostgreSQL 16, pnpm 9; A-09 desktop-first, breakpoints 640/768/1024/1280; A-10
-Playwright-pinned Chromium, one viewport.
+≤ 5 MB, ≤ 10 per target; A-08 Cloudflare Workers with D1 + R2 bindings, Node 24 LTS locally for
+tooling (floors: Astro 7 ≥ 22.23.4, Next 16 ≥ 20.9), pnpm 9; A-09 desktop-first, breakpoints
+640/768/1024/1280; A-10 Playwright-pinned Chromium, one viewport.
 
 **Requirement-level assumptions** (each has a matching question in §9):
 
@@ -514,7 +514,7 @@ Brief §3 bullet → requirement IDs → the document that owns the design of th
 | Thumbnail previews in lists | FR-TASK-017, FR-ATT-004 | `06` (#20), `08` §6 (payload) |
 | Image preview modal/lightbox | FR-ATT-005/006 | `14` §5 (C-11) |
 | Remove image attachments | FR-ATT-007/011 | `06` (#21) |
-| Search and filtering | FR-TASK-011/012/013/014/015 | `06` (#8), `05` §4 (trgm indexes) |
+| Search and filtering | FR-TASK-011/012/013/014/015 | `06` (#8), `05` §4 (LIKE search) |
 
 ### E. Notes management
 

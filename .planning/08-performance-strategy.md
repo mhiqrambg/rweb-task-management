@@ -10,7 +10,7 @@ skills:
   selected: [backend-development, tdd]
   used: [backend-development]
   changed:
-    - "backend-development: shaped the measurement-split discipline (server-timing + API timing + pg_stat_statements deltas) and the pooling caveat for DB-facing latency."
+    - "backend-development: shaped the measurement-split discipline (server-timing + Worker timing + D1 query metrics) and the Worker cold-start caveat for DB-facing latency."
 edited_on_persistence: "Condensed from the specialist's 1175-line output. Claim discipline, the three traffic scopes, dataset/session model, objectives, all eleven scenarios, the three variables tables, measurement method, statistics rules, hypotheses, caching, scalability limits, results template and acceptance criteria are preserved; per-scenario prose was tightened into tables. Protocol assumptions renumbered A-30..A-46 exactly as the specialist defined them."
 ---
 
@@ -61,12 +61,12 @@ different parties, in different units.
 | Scope | Name | Contains | Observed via | Exists for |
 |---|---|---|---|---|
 | **B** | Browser payload | Every byte the browser requests and receives for one scenario: document, CSS, JS (transferred and parsed), images, fonts, XHR/fetch JSON | CDP `Network.*`, cross-checked with `PerformanceResourceTiming` | Both apps |
-| **S** | Server↔server | `web-astro` node process → `api` over the compose network (per document: session probe + page data) | `Server-Timing` (`upstream`, per call) + API request log by request id | Astro only — the static Next app has no server hop |
-| **D** | DB-facing | Statements, rows, shared blocks hit/read, statement duration | `pg_stat_statements` deltas around the repetition window + API `Server-Timing: db` | Both apps |
+| **S** | Server↔server | `web-astro` SSR → Worker over the Cloudflare internal route (per document: session probe + page data) | `Server-Timing` (`upstream`, per call) + Worker request log by request id | Astro only — the static Next app has no server hop |
+| **D** | DB-facing | Statements, rows read, statement duration | D1 query metrics / Cloudflare Analytics around the repetition window + Worker `Server-Timing: db` | Both apps |
 
 Rules: a JSON response counts in **B** when the browser fetched it (Next) and in **S** when the Astro
 server fetched it — the same nominal payload therefore appears in different scopes per app, and a report
-that puts both in one column is invalid. Scope **D** is never expressed in bytes (block counts are I/O, not
+that puts both in one column is invalid. Scope **D** is never expressed in bytes (rows read are query work, not
 wire). **No total-application-transfer figure is produced.**
 
 ### 1.5 Why a lab LCP is not a user-experience claim
@@ -141,7 +141,7 @@ result. `assumed, unvalidated` marks a ceiling inherited from `01`.
 | O-9 | `ttfb_doc_ms`, `ttfb_api_ms` | first byte of document / of the API response | Reported | NFR-PERF-008 |
 | O-10 | `render_ms` (Astro) | server render duration from `Server-Timing` | Reported; the attribution variable for scope S | NFR-PERF-008 |
 | O-11 | `upstream_ms` (Astro) | sum of Astro→API calls per document | Reported | NFR-PERF-008 |
-| O-12 | `db_ms`, statements/rows/blocks | scope D per operation | Reported | NFR-PERF-010 |
+| O-12 | `db_ms`, statements/rows read | scope D per operation | Reported | NFR-PERF-010 |
 | O-13 | `tbt_lab_ms` | total blocking time, lab only | Reported as lab, never as INP | NFR-PERF-003 |
 | O-14 | Zero-variance invariants | no third-party request; no dev overlay; no source map; no `429`; no `5xx`; dataset checksum stable | **MUST be zero** in every admitted repetition | NFR-OBS-004/005, NFR-RESEARCH-002 |
 
@@ -294,7 +294,7 @@ not. Same measurement set.
 
 `lcp_ms`, `lcp_lab_ms`, `cls`, `cls_lab`, `inp_ms`, `inp_availability`, `tbt_lab_ms`,
 `payload_bytes{class}` (transfer + decoded), `js_parsed_bytes`, `requests{class}`, `ttfb_doc_ms`,
-`ttfb_api_ms`, `render_ms`, `upstream_ms`, `db_ms`, `statements`, `rows`, `blocks`,
+`ttfb_api_ms`, `render_ms`, `upstream_ms`, `db_ms`, `statements`, `rows_read`, `worker_cold_start_ms`,
 `login_submit_ms`, `create_total_ms`, `update_total_ms`, `upload_ms`, `preview_ms`, `nav_ms`.
 
 ### 5.3 Controlled variables
@@ -308,7 +308,7 @@ Every row is recorded in the run manifest per repetition; any difference within 
 | CV-2 | OS / machine | one host, one OS build; host-load band fixed at campaign start from 20 idle samples (A-42) |
 | CV-3 | Viewport | 1440 × 900, DSF 1, `reducedMotion: reduce`, `colorScheme: light`, `en-US`, `UTC` (A-34, A-39) |
 | CV-4 | Throttle | `P0` for the main set; `P1` for the secondary set, applied identically to both apps |
-| CV-5 | Backend | same API instance, same PostgreSQL instance, same pool size, same session TTL config |
+| CV-5 | Backend | same Worker version, same D1 database, same R2 bucket, same session TTL config |
 | CV-6 | Dataset | same `dataset_id` + `checksums.total`, rebuilt from the manifest |
 | CV-7 | Builds | production builds of both frontends and the API; `NODE_ENV=production`; source maps off |
 | CV-8 | Build ids | `astro_build_id`, `next_build_id`, `api_build_id` recorded; a pair requires all three to match |
@@ -316,6 +316,7 @@ Every row is recorded in the run manifest per repetition; any difference within 
 | CV-10 | Session | fresh context per run; the same benchmark account; login excluded from scenario timing |
 | CV-11 | Idle peer | the other app is never under load during a run |
 | CV-12 | Harness flags | fixed launch-flag set, recorded by hash (A-38) |
+| CV-13 | Worker cold-start | every admitted repetition runs on an already-warm Worker isolate; a cold-start repetition is disclosed separately and never mixed into a warm cell |
 
 ## 6. Measurement method
 
@@ -328,7 +329,7 @@ Every row is recorded in the run manifest per repetition; any difference within 
 | INP | **not measurable** → `tbt_lab_ms` only | `onINP` for the single scripted interaction | `inp_ms`; lab is never a substitute |
 | Payload | total bytes | CDP per-class transfer + decoded | `payload_bytes{class}` |
 | Server render | — | `Server-Timing` on the document (Astro) | `render_ms`, `upstream_ms` |
-| DB | — | `pg_stat_statements` deltas + API `Server-Timing: db` | statements/rows/blocks/`db_ms` |
+| DB | — | D1 query metrics / Cloudflare Analytics + Worker `Server-Timing: db` | statements/rows read/`db_ms` |
 
 ### 6.2 The in-page vitals buffer
 
@@ -370,7 +371,7 @@ silently averaged.
 | Scope | Capture | Reported | Limit |
 |---|---|---|---|
 | S | Astro `Server-Timing` entries + API request-id-matched log lines | calls per document, `upstream_ms`, per-call ms | Astro only; Next has no server hop |
-| D | `pg_stat_statements` snapshot before/after the repetition window | statements, rows, shared blocks, `db_ms` per operation | Deltas include the harness's own login and setup; the manifest records the excluded statements |
+| D | D1 query metrics / Cloudflare Analytics window around the repetition | statements, rows read, `db_ms` per operation | Deltas include the harness's own login and setup; the manifest records the excluded operations |
 
 ### 6.8 Cache procedures
 
@@ -451,7 +452,7 @@ Falsifiable by a measurement in this protocol. Direction is a hypothesis, never 
 | H3 | Next's S11 navigation is much cheaper than Astro's per transition | fewer bytes and no document request in the transition; `nav_ms` gap | comparable bytes and document requests on both sides |
 | H4 | JS parse/execute is a larger share of Next's load cost | `js_parsed_bytes` and `tbt_lab_ms` move with the `lcp_ms` gap; diagnostic with ×4 CPU (A-32) widens it | gap unchanged when JS is the only variable that moves |
 | H5 | Thumbnail renditions, not full images, determine list payload in both apps | per-class image bytes ≪ full-image size × count | full-resolution bytes appear in a list scenario (contract violation) |
-| H6 | The DB is not the bottleneck for any read scenario at dataset scale | scope D statement time small relative to `ttfb_api_ms` | `db_ms` accounts for most of the API time |
+| H6 | The DB is not the bottleneck for any read scenario at dataset scale | scope D D1 query time small relative to `ttfb_api_ms` | `db_ms` accounts for most of the Worker time |
 | H7 | Astro's server hop adds S-scope cost that Next does not have, which is visible in scope S but not in scope B | `upstream_ms` > 0 on Astro only | Astro documents with no upstream calls |
 | H8 | CLS is zero-contribution from skeletons and thumbnails in both apps | `cls` ≈ 0 in S3-S6; no shift entries attributable to images or skeleton boxes | any shift entry with an image/skeleton source |
 | H9 | Cold vs warm differs far more for Next (shared bundle) than for Astro (per-document assets) | cold−warm gap large on JS class for Next, small for Astro | warm ≈ cold on both, or the reverse |
@@ -501,7 +502,7 @@ These are the boundary of every claim, not caveats to soften.
 
 | Limit | Consequence |
 |---|---|
-| One host, one API instance, one DB | Nothing about horizontal scaling, pooling limits, or contention |
+| One host, one Worker script, one D1 database (single-writer), one R2 bucket | Nothing about horizontal scaling, D1 single-writer contention, or R2 read-latency tails |
 | One browser, one version, one OS | Nothing about other engines or device classes |
 | Zero concurrency | Nothing about throughput, capacity or tail latency under load |
 | Synthetic dataset (50/50/3) | Nothing about large datasets; list cost is bounded by page size 20, not by table size |
@@ -556,7 +557,7 @@ estimate.
 
 ### 11.5 Scope D — DB-facing (both apps, same API)
 
-| Operation | Scenario | Statements/req | Rows/req | Shared blocks (hit/read) | `db_ms` median (IQR) | API p50 / p95 |
+| Operation | Scenario | Statements/req | Rows read/req | Worker `db_ms` median (IQR) | API p50 / p95 |
 |---|---|---|---|---|---|---|
 
 ### 11.6 Cache-cold vs cache-warm
@@ -638,7 +639,7 @@ Parity-safe additions, identical in both apps, no user-visible change, no featur
 | `Server-Timing` on Astro documents (`render`, `upstream`, per call) | NFR-PERF-008, NFR-OBS-003 | Hamzah |
 | Per-request timing + request id in the API log, and `Server-Timing: db` | NFR-OBS-001/003 | Iqram |
 | Readiness gate before measuring (`/health`) | NFR-REL-007 | Iqram |
-| `pg_stat_statements` enabled on the campaign database | NFR-PERF-010 | Iqram |
+| D1 query metrics / Cloudflare Analytics enabled for the campaign Worker | NFR-PERF-010 | Iqram |
 | Deterministic dataset + manifest/checksum | A-04, `05` §9 | Iqram + Erika |
 | `run_id` correlation between harness, proxy and API logs | NFR-OBS-002 | Erika + Iqram |
 

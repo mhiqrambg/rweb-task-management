@@ -103,30 +103,30 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 |---|---|---|---|---|
 | T-401 | `git init`, `main`, remote, branch protection, PR template, commit convention | Iqram | — | repo with rules from `DEVELOPMENT-GUIDELINES.md` |
 | T-402 | **Repair pnpm** (`corepack prepare pnpm@9 --activate` or `npm i -g pnpm`) | Iqram | — | `pnpm -v` works (P-01) |
-| T-403 | **Start container runtime + PostgreSQL 16 Compose service** | Iqram | — | `psql` reachable on `localhost:5432` (P-02, P-03) |
+| T-403 | **Create the D1 database and bind it** (`wrangler d1 create`) | Iqram | — | `wrangler d1 execute --command='SELECT 1'` succeeds (P-02, P-03) |
 | T-404 | Workspace skeleton: `pnpm-workspace.yaml`, root `package.json`, tsconfig bases, eslint/prettier | Iqram | T-402 | `pnpm install` succeeds |
-| T-405 | `infra/`: compose (api, pg), reverse proxy config (one origin, `/`, `/b`, `/api`) | Iqram | T-403 | `docker compose up` serves the proxy |
+| T-405 | `infra/`: `wrangler.jsonc` (Workers routes / Pages project, bindings, custom domain; one origin, `/`, `/b`, `/api`) | Iqram | T-403 | `wrangler deploy` serves the origin |
 | T-406 | `.env.example` + config loader with schema validation | Iqram | T-404 | documented env contract |
 | T-407 | Seed + dataset generator (deterministic, ID-tagged) | Iqram + Erika | T-301 | `scripts/seed --dataset=m1` |
-| T-408 | CI: typecheck, lint, unit, integration (pg service), e2e skeleton | Iqram | T-404 | green pipeline on `main` |
+| T-408 | CI: typecheck, lint, unit, integration (local D1 via `vitest-pool-workers`), e2e skeleton | Iqram | T-404 | green pipeline on `main` |
 | T-409 | Environment parity checklist | Erika | T-403 | checked list in `09` appendix |
 
 ### P5 — Backend development (W3–W6)
 
 | ID | Task | Owner | Depends on | Deliverable |
 |---|---|---|---|---|
-| T-501 | App skeleton: Fastify instance, plugins (cookie, helmet, rate-limit, multipart), error envelope, logger | Iqram | T-404 | `GET /health` green |
-| T-502 | Migrations `0001_init` (5 tables, indexes, extensions) | Iqram | T-301 | `db:migrate` from empty works |
+| T-501 | Worker skeleton: Hono router, middleware (cookie, security headers, D1-backed rate limit, multipart `request.formData()`), error envelope, structured JSON logger | Iqram | T-404 | `GET /health` green |
+| T-502 | Migration `0001_init` (5 tables, indexes) | Iqram | T-301 | `wrangler d1 migrations apply` from empty works |
 | T-503 | Auth module: register, login, logout, me, Argon2id, session table, cookie | Iqram | T-502 | auth integration tests |
 | T-504 | Authorization helper + `WHERE user_id` rule + 404 semantics | Iqram | T-503 | ownership tests |
 | T-505 | Tasks module (list w/ cursor+filters+search, CRUD) | Iqram | T-504 | module + tests |
 | T-506 | Notes module (list, CRUD, pinned ordering) | Iqram | T-504 | module + tests |
-| T-507 | Attachments: multipart, sniffing, size limit, storage write, thumbnail, stream endpoint, delete | Iqram | T-505, T-506 | module + tests |
+| T-507 | Attachments: multipart, sniffing, size limit, R2 `put`, `@jsquash` thumbnail, stream endpoint, delete | Iqram | T-505, T-506 | module + tests |
 | T-508 | Dashboard aggregate endpoint | Iqram | T-505, T-506 | module + test |
 | T-509 | Contract tests run against the live API | Erika | T-505, T-506, T-507, T-508 | contract suite green |
 | T-510 | Per-request timing logs for the harness | Iqram | T-501 | log fields documented |
-| T-511 | Maintenance script: session purge, orphan binary sweep, orphan row reconciliation + nightly host cron entry (M1–M3) | Iqram | T-502, T-507 | `db-maintenance` script + crontab line in `infra/` |
-| T-512 | Backup + restore drill: `pg_dump` + uploads archive, one rehearsed restore into a clean stack, dataset checksum compared (NFR-REL-008, M5) | Iqram | T-407 | recorded rehearsal with checksum |
+| T-511 | Maintenance Cron Trigger: session purge, orphan R2 object sweep, orphan row reconciliation (M1–M3) | Iqram | T-502, T-507 | Cron Trigger configured in `wrangler.jsonc` |
+| T-512 | Backup + restore drill: `wrangler d1 export` + R2 object copy (or D1 Time Travel), one rehearsed restore, dataset checksum compared (NFR-REL-008, M5) | Iqram | T-407 | recorded rehearsal with checksum |
 
 ### P6 — Astro frontend (W4–W8)
 
@@ -167,7 +167,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 
 | ID | Task | Owner | Depends on | Deliverable |
 |---|---|---|---|---|
-| T-801 | Compose: api + pg + astro + next + proxy, production builds only | Iqram | T-405, G6a, G6b | one-origin stack |
+| T-801 | Deploy Worker + D1 + R2 + Pages (Astro) + Next static assets on one origin; production environment only | Iqram | T-405, G6a, G6b | one-origin stack |
 | T-802 | Cookie/redirect smoke across both apps under the proxy | Iqram + Erika | T-801 | signed-in flow works on `/` and `/b` |
 | T-803 | Cross-app parity run (same dataset, same assertions) | Erika | T-802 | parity report |
 | T-804 | Fix integration defects, triage list | all | T-803 | defects closed or accepted |
@@ -205,8 +205,8 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 | ID | Prerequisite | Blocks | Owner | Fallback |
 |---|---|---|---|---|
 | P-01 | Repair/install pnpm (corepack shim currently broken) | T-404, every workspace command | Iqram | npm workspaces (same layout) |
-| P-02 | Start container runtime (Docker/colima daemon) | T-403, T-405, T-801 | Iqram | native PostgreSQL 16, documented drift |
-| P-03 | PostgreSQL 16 instance + client | T-502, integration tests | Iqram | same as P-02 |
+| P-02 | Authenticate Wrangler (`wrangler login`) | T-403, T-405, T-801 | Iqram | none — hard requirement |
+| P-03 | Create D1 database + R2 bucket | T-502, integration tests | Iqram | none — hard requirement |
 | P-04 | `git init` + remote + branch protection | T-401, review workflow | Iqram | none — hard requirement |
 | P-05 | Version pinning (`.nvmrc`, `packageManager`, `engines`, lockfile) | R-18, benchmark reproducibility | Iqram | none — hard requirement |
 

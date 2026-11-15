@@ -30,11 +30,11 @@ rweb-task-management/
 │   └── icons/icons.svg                  the one 20 px icon sprite both frontends inline
 │
 ├── apps/                         [P3]
-│   ├── api/                      Fastify 5.x + TypeScript; the only component that talks to PostgreSQL
-│   │   ├── src/{server.ts,app.ts,config/,plugins/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/,scripts/}
-│   │   ├── migrations/           numbered forward-only SQL
+│   ├── api/                      Workers (Hono) + TypeScript; the only component that talks to D1
+│   │   ├── src/{index.ts,app.ts,config/,routes/,modules/{auth,tasks,notes,attachments,dashboard,health}/,db/,lib/}
+│   │   ├── migrations/           numbered forward-only SQL, applied by `wrangler d1 migrations apply`
 │   │   ├── test/{unit,integration}/
-│   │   └── storage/              dev-only upload root (gitignored)
+│   │   └── wrangler.jsonc        D1 + R2 bindings (`env.DB`, `env.BUCKET`)
 │   ├── web-astro/                Astro 7.x, output 'server', @astrojs/node standalone, route prefix '/'
 │   │   └── src/{pages,layouts,components,lib,styles,assets}/
 │   └── web-next/                 Next.js 16.x App Router, output 'export', basePath '/b'
@@ -49,7 +49,7 @@ rweb-task-management/
 │
 ├── assets/                       [P3]  runtime seed media only (seed images for the benchmark dataset).
 │                                       Design media lives in design/assets/ — do not mix the two.
-├── infra/                        [P4]  docker-compose.yml, reverse-proxy.conf, Dockerfiles, TLS (gitignored)
+├── infra/                        [P4]  Cloudflare config and zone-routing notes, secrets (gitignored)
 ├── scripts/                      [P3]  seed, dataset generator, benchmark runner, storage sweep
 ├── docs/                         [P3]  the final comparative report and its diagrams (not planning)
 │
@@ -86,8 +86,8 @@ rweb-task-management/
 
 ## Never committed
 
-`node_modules/`, `.env*`, `apps/api/storage/`, `dist/`, `.next/`, `out/`, `coverage/`,
-`playwright-report/`, `test-results/`, `infra/` TLS material, editor and OS files. Full list in
+`node_modules/`, `.env*`, `.wrangler/state/`, `dist/`, `.next/`, `out/`, `coverage/`,
+`playwright-report/`, `test-results/`, `infra/` secrets material, editor and OS files. Full list in
 `.gitignore`; binary assets are marked in `.gitattributes`.
 
 ## Current state

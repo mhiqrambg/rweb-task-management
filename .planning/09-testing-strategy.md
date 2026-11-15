@@ -11,7 +11,7 @@ skills:
   used: [tdd, backend-development]
   changed:
     - "tdd: produced the 'one owner per behaviour' rule — a rule is asserted at the lowest level that can detect its failure — and the ban on re-asserting the same predicate at e2e level."
-    - "backend-development: produced the 70/20/10 split accounting, contract tests, migration-from-empty in CI, and the real-PostgreSQL integration requirement."
+    - "backend-development: produced the 70/20/10 split accounting, contract tests, migration-from-empty in CI, and the real-D1 integration requirement."
 ---
 
 # 09 — Testing Strategy
@@ -42,20 +42,20 @@ Durations are planning budgets, not measurements.
 
 | Level | Runner | Scope | What it MUST NOT do | Budget | Gate |
 |---|---|---|---|---|---|
-| **Contract** | Vitest, Node env, `packages/contracts` | Schema round-trip for `User`, `Task`, `Note`, `Attachment`, `SessionProbe`, `Dashboard`, page and error envelopes; enum closure for 3 statuses, 3 priorities, 3 MIMEs and 8 error codes; strict-body rejection of unknown keys; envelope conformance; type derivation from schemas | Touch a database, boot the API, render a component, or assert handler behaviour. A contract test that needs PostgreSQL is an integration test in the wrong place. | ≤ 60 s | PR |
-| **Unit** | Vitest, Node env, `apps/api` + `packages/contracts` | Pure API modules: mappers (`snake_case`↔`camelCase`), formatters, validation rules, cursor encode/decode with a fixed clock, `isOverdue` derivation, sort/filter query builders. Framework-free frontend logic lives in `packages/contracts` and is tested here, not twice. | Open a socket, connect to PostgreSQL, mount a DOM, import a framework component, or snapshot rendered HTML. Mock only clock, UUID generator and storage adapter. | ≤ 90 s | pre-commit, PR |
-| **Integration** | Vitest, Node env, real PostgreSQL 16 migrated from empty | API routes through the Fastify instance (`inject` for functional cases), real SQL, real constraints, migrations, transactions, cascades, pagination under mutation, error envelope, request id, log redaction. Every owned-resource operation runs against a second owner. | Mock `pg`, fake a transaction, assert UI selectors or copy in rendered markup, or use the browser. Database constraints are never replaced by validator assertions. | 3-6 min | PR |
-| **E2E per app** | Playwright, two projects (`astro`, `next`), pinned Chromium, composed stack | The 13 journeys, state matrix, deep links, URL-backed list state, dialogs, lightbox, keyboard operation, loading/empty/error/success states, responsive viewports. Both projects execute the same spec files. | Read/write the database with SQL, import API internals, mock the API, assert request counts as a performance claim, or fail on a timing value. Fixtures come from the typed API client. | 8-12 min per project | pre-merge |
-| **Security (API-level)** | Vitest + typed API client over real HTTP; Playwright only for the cases `07` §10 assigns to e2e; build scripts for `S-47/48/51/52` | The security suite in `07` §10 (56 tests in the `S-01..S-63` numbering; non-contiguous, with some rows co-labelled): authentication/session, cross-owner matrix, upload battery, CSRF/origin/redirect, rate limits, headers/CSP/static output/encoding | Go through the UI for an ownership assertion, mock authentication, mock PostgreSQL, or treat a hidden button as a control. | 4-6 min | PR, pre-merge, pre-campaign |
+| **Contract** | Vitest, Node env, `packages/contracts` | Schema round-trip for `User`, `Task`, `Note`, `Attachment`, `SessionProbe`, `Dashboard`, page and error envelopes; enum closure for 3 statuses, 3 priorities, 3 MIMEs and 8 error codes; strict-body rejection of unknown keys; envelope conformance; type derivation from schemas | Touch a database, boot the Worker, render a component, or assert handler behaviour. A contract test that needs D1 is an integration test in the wrong place. | ≤ 60 s | PR |
+| **Unit** | Vitest, Node env, `apps/api` + `packages/contracts` | Pure API modules: mappers (`snake_case`↔`camelCase`), formatters, validation rules, cursor encode/decode with a fixed clock, `isOverdue` derivation, sort/filter query builders. Framework-free frontend logic lives in `packages/contracts` and is tested here, not twice. | Open a socket, connect to D1, mount a DOM, import a framework component, or snapshot rendered HTML. Mock only clock, UUID generator and storage adapter. | ≤ 90 s | pre-commit, PR |
+| **Integration** | Vitest + `@cloudflare/vitest-pool-workers`, real local D1 migrated from empty | API routes through the Worker app invoked via `self.fetch`, real SQL, real constraints, migrations, `batch()` atomicity, cascades, pagination under mutation, error envelope, request id, log redaction. Every owned-resource operation runs against a second owner. | Mock the D1 binding, fake a `batch()`, assert UI selectors or copy in rendered markup, or use the browser. Database constraints are never replaced by validator assertions. | 3-6 min | PR |
+| **E2E per app** | Playwright, two projects (`astro`, `next`), pinned Chromium, composed stack (Pages + Worker + D1 + R2 on a preview environment) | The 13 journeys, state matrix, deep links, URL-backed list state, dialogs, lightbox, keyboard operation, loading/empty/error/success states, responsive viewports. Both projects execute the same spec files. | Read/write the database with SQL, import Worker internals, mock the API, assert request counts as a performance claim, or fail on a timing value. Fixtures come from the typed API client. | 8-12 min per project | pre-merge |
+| **Security (API-level)** | Vitest + typed API client over real HTTP; Playwright only for the cases `07` §10 assigns to e2e; build scripts for `S-47/48/51/52` | The security suite in `07` §10 (56 tests in the `S-01..S-63` numbering; non-contiguous, with some rows co-labelled): authentication/session, cross-owner matrix, upload battery, CSRF/origin/redirect, rate limits, headers/CSP/static output/encoding | Go through the UI for an ownership assertion, mock authentication, mock D1, or treat a hidden button as a control. | 4-6 min | PR, pre-merge, pre-campaign |
 | **Performance / benchmark** | Playwright + Lighthouse, production builds, composed stack; executed by Erika | `08` S1-S11, cold/warm, 11 executed → 10 admitted, three traffic scopes, `INV-01..INV-14`, `AC-B01..AC-B10` | Use dev builds or dev servers, run a campaign in CI, publish CI timings as results, compute a median in CI, or fail a gate on an LCP/INP value. | smoke ≤ 15 min; campaign is a manual block | pre-campaign, release |
-| **Build gates** | Node scripts + Playwright CSP console check | Static-output privacy grep, source-map absence, `NEXT_PUBLIC_*` allowlist, CSP hash-list staleness, Astro `is:inline` absence, migration-from-empty and schema-snapshot diff, lint/typecheck, copy-deck and banned-synonym greps, secret scan | Exercise runtime behaviour, start the app for grep gates, or use a browser except for the CSP console assertion. | 3-5 min | PR |
+| **Build gates** | Node scripts + Playwright CSP console check | Static-output privacy grep, source-map absence, `NEXT_PUBLIC_*` allowlist, CSP hash-list staleness, Astro `is:inline` absence, migration-from-empty and `.schema` snapshot diff (`wrangler d1 migrations list`), lint/typecheck, copy-deck and banned-synonym greps, secret scan | Exercise runtime behaviour, start the Worker for grep gates, or use a browser except for the CSP console assertion. | 3-5 min | PR |
 
 **70/20/10 split.** Counted by test case, not wall time; each logical scenario counts once even though
 Playwright executes it in two projects.
 
 - **70 % unit** — unit plus contract tests (in-process, deterministic, no I/O, so they belong in the unit
   bucket; a stated decision, not an accident of classification).
-- **20 % integration** — API-against-PostgreSQL, security integration, migration tests, constraint tests.
+- **20 % integration** — API-against-D1, security integration, migration tests, constraint tests.
 - **10 % e2e** — Playwright journeys, parity execution, state-matrix checks. Security e2e cases (`S-37`,
   `S-45`, `S-57`, `S-58`) count here.
 - Build gates sit outside the ratio: they assert artefacts, not behaviour, and a ratio that counted greps
@@ -206,13 +206,15 @@ Committed under `packages/test-utils/fixtures/uploads/`, hashes pinned in the fi
 | Context | Database | Creation | Reset / cleanup |
 |---|---|---|---|
 | Unit and contract | none | — | — |
-| Integration, per CI job | `taskapp_gate` | `createdb`, `pnpm db:migrate`, assert `pgmigrations` count equals migration-file count, diff `schema.snapshot.sql`, then `CREATE DATABASE taskapp_template TEMPLATE taskapp_gate` | Drop both at job end |
-| Integration, per Vitest worker | `taskapp_w<workerId>` | `CREATE DATABASE … TEMPLATE taskapp_template` before the worker's first file | Drop at worker teardown; no database reused across runs |
-| E2E | `taskapp_e2e` | migrate from empty, `seedDataset(m1)` once | `resetDataset(m1)` before and after; journey specs create and delete their own accounts/rows |
-| Performance smoke | `taskapp_smoke` | migrate from empty, `seedDataset(m1)` | Reset before each mutating scenario; checksum compared to `checksums.total`; dropped at job end |
-| Measured campaign | `taskapp_bench` | migrate from empty, `seedDataset(m1)` only after the pre-campaign gate | Reset per `05` §7.5 M4 before every mutating repetition; never touched by CI or e2e |
+| Integration, per CI job | local D1 (ephemeral) | `wrangler d1 migrations apply --local`, assert the `d1_migrations` count equals the migration-file count, diff `schema.snapshot.sql` | Discard the local D1 state at job end |
+| Integration, per Vitest worker | isolated per-worker local D1 storage | each `vitest-pool-workers` worker gets its own isolated storage dir before its first file | Drop at worker teardown; no D1 state reused across runs |
+| E2E | deployed preview D1 | migrate from empty, `seedDataset(m1)` once | `resetDataset(m1)` before and after; journey specs create and delete their own accounts/rows |
+| Performance smoke | deployed preview D1 | migrate from empty, `seedDataset(m1)` | Reset before each mutating scenario; checksum compared to `checksums.total`; state discarded at job end |
+| Measured campaign | deployed preview D1 | migrate from empty, `seedDataset(m1)` only after the pre-campaign gate | Reset per `05` §7.5 M4 before every mutating repetition; never touched by CI or e2e |
 
-`scripts/seed` refuses to run when the target database name is not in the allowed test/benchmark set.
+`scripts/seed` refuses to run when the target D1 database is not in the allowed test/benchmark set.
+Cleanup also removes the per-run local R2 state, Playwright traces/videos for passing tests and temporary
+fixture files; failed-test traces are retained as CI artefacts.
 Cleanup also removes the per-run upload root, Playwright traces/videos for passing tests and temporary
 fixture files; failed-test traces are retained as CI artefacts.
 
@@ -220,9 +222,9 @@ fixture files; failed-test traces are retained as CI artefacts.
 
 | Environment | What runs | Database | Builds | Browser | Gate |
 |---|---|---|---|---|---|
-| **Local dev** | Astro dev server, `next dev`, API with `tsx watch`; unit, contract, integration, framework-free logic | `taskapp_dev` migrated from empty; integration uses per-worker databases from the local compose PostgreSQL | Development builds only | Not measured | pre-commit, PR |
-| **CI** | Lint/typecheck, contract, unit, integration, security, build gates, Playwright e2e and parity, migration-from-empty, protocol smoke | Ephemeral `postgres:16`; `taskapp_gate` → template → per-worker databases; `taskapp_e2e`; `taskapp_smoke` | Production builds for e2e and smoke; dev builds for unit only | Pinned Chromium, same version as the campaign | PR, pre-merge, pre-campaign |
-| **Composed measured stack** | Astro standalone, static Next export at `/b`, API, PostgreSQL, nginx on one origin over TLS; campaign run by Erika | `taskapp_bench`, seeded `m1`, checksum per repetition | Production only; `NODE_ENV=production`; source maps off; no dev overlay | Pinned Chromium, one host, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
+| **Local dev** | Astro dev server, `next dev`, Worker under `wrangler dev`; unit, contract, integration, framework-free logic | local D1 (`.wrangler/state`) migrated from empty; integration uses per-worker isolated local D1 storage | Development builds only | Not measured | pre-commit, PR |
+| **CI** | Lint/typecheck, contract, unit, integration, security, build gates, Playwright e2e and parity, migration-from-empty, protocol smoke | Ephemeral local D1 under Miniflare; per-worker isolated D1 storage; preview D1 for e2e and smoke | Production builds for e2e and smoke; dev builds for unit only | Pinned Chromium, same version as the campaign | PR, pre-merge, pre-campaign |
+| **Composed measured stack** | Astro (Pages), static Next export at `/b`, Worker at `/api/*`, D1, R2 bucket on one origin over TLS; campaign run by Erika | preview D1, seeded `m1`, checksum per repetition | Production only; `NODE_ENV=production`; source maps off; no dev overlay | Pinned Chromium, one host, one viewport, `--disable-gpu`, headed on a virtual display | pre-campaign, release |
 
 The composed stack is the only place where e2e, parity and benchmark results are produced. `next dev` and
 the Astro dev server are never measured (`03` §6.4, NFR-PERF-006). The dev CORS allowlist is absent from
@@ -268,9 +270,10 @@ because `03` §7 deliberately keeps session semantics out of environment configu
 observe the not-found screen afterwards; that observation is not the proof. Each case compares the foreign
 response to `randomAbsentId` byte-for-byte, then re-reads A's row and binary hash.
 
-**Rate limits.** Each rate-limit file boots an isolated API instance so the in-memory limiter starts empty.
-Tests use distinct keys per case and do not rely on elapsed windows longer than the documented limit. A
-`429` assertion checks `Retry-After` and the `RATE_LIMITED` envelope, not an internal counter.
+**Rate limits.** Counters live in the D1 `rate_limits` table, so each rate-limit test must use a distinct
+`(bucket, key, window_start)` or reset the `rate_limits` table before the case; counters otherwise leak across
+tests because there is no in-process limiter to reset. A `429` assertion checks `Retry-After` and the
+`RATE_LIMITED` envelope, not an internal counter.
 
 **What the security suite is not.** It is not a penetration test and does not claim coverage of `07` §11
 residual gaps. `S-63` is a manual check that seeded credentials are gitignored; it is not automated because
@@ -363,7 +366,7 @@ missing vitals buffer, or a protocol structural predicate. It never fails becaus
 |---|---|---|---|---|
 | **G0 — pre-commit** | Before every commit | `pnpm lint`; `pnpm typecheck`; `pnpm test:unit` | Exit 0, zero warnings, zero changed-file unit failures | The author, locally |
 | **G1 — contract and unit** | Every PR | `pnpm test:contract && pnpm test:unit` | Exit 0; schema and enum closure pass; every `MUST` FR in the generated map resolves to an existing test | Merge |
-| **G2 — integration and migration** | Every PR | `pnpm db:gate:fresh && pnpm test:integration` | Exit 0; `pgmigrations` count equals migration-file count; schema-snapshot diff empty; suite green on real PostgreSQL | Merge |
+| **G2 — integration and migration** | Every PR | `pnpm db:gate:fresh && pnpm test:integration` | Exit 0; `d1_migrations` count equals migration-file count; schema-snapshot diff empty; suite green on real local D1 | Merge |
 | **G3 — build and artefact gates** | Every PR, after build | `pnpm build && pnpm gate:static && pnpm gate:csp && pnpm gate:secrets && pnpm gate:copy && pnpm gate:versions` | Zero hits for seeded emails/`DATABASE_URL`/password strings in `out/`, bundles and maps; zero `.map` files served; Astro `is:inline` count zero; Next CSP hash list matches rendered inline scripts; copy deck single source; banned synonyms zero; pinned versions match | Merge |
 | **G4 — e2e and accessibility** | Pre-merge, after G1-G3 | `pnpm test:e2e && pnpm test:a11y` | Both projects green; zero AA violations in the audited rule set; keyboard journey passes; no console error | Merge |
 | **G5 — security** | Pre-merge; on every PR touching auth, ownership, upload, headers or session code; always before release | `pnpm test:security` | Every applicable case defined in `07` §10 passes (56 tests; the ID range is non-contiguous); cross-owner responses byte-identical to `randomAbsentId`; zero bytes on foreign binaries | Merge |
@@ -424,21 +427,22 @@ One unmeasured pass per app in CI. Asserts protocol mechanics and structural fac
 | S10 Upload/preview | One fixture upload produces a thumbnail and a full-image lightbox read; attachment count changes by one; reset restores count and checksum |
 | S11 Navigation | Two transitions reach their destinations; URL state survives; the manifest records whether a document was requested per transition (Astro expected, Next not expected) without judging it |
 
-The smoke run uses `taskapp_smoke`, never `taskapp_bench`. A smoke pass says nothing about performance and is
-never cited as a result.
+The smoke run uses the preview D1, never the measured campaign D1. A smoke pass says nothing about performance
+and is never cited as a result.
+
 
 ## 11. What is not tested and why
 
 | Not tested | Reason | Trigger that would add it |
 |---|---|---|
 | Load, stress and soak testing | The comparison has zero concurrency by design (`08` §10); no throughput or availability requirement exists in `01` | Any stated concurrency, uptime or capacity target; a public deployment with real traffic |
-| Multi-instance behaviour, horizontal scaling, shared rate-limit store | ADR-01 and the one-host topology fix a single API instance; in-process limits are the documented design | A second API instance, or a requirement for shared session/limit state |
+| Multi-instance behaviour, horizontal scaling, shared rate-limit store | ADR-01 and the one-origin topology fix a single Worker; D1-backed limits are the documented design | A second Worker, or a requirement for shared session/limit state |
 | Browser matrix beyond a smoke pass | NFR-COMPAT-002 is a manual smoke requirement; the benchmark is one pinned Chromium | An engine-specific defect, or a release demand for automated cross-browser coverage |
 | No-JavaScript operation | NFR-COMPAT-005 excludes it; the static Next app cannot function without JS, so a no-JS requirement would create an exclusive feature (C-07) | A requirement change that makes no-JS part of the product |
 | Email verification, password reset, email change | A-06 and `01` §8 place them out of scope; no mail transport exists | A requirement that adds an email flow |
 | Real screen-reader behaviour and 200 % zoom judgement | NFR-A11Y-006 is a manual pass; automation can assert DOM/live-region shape but cannot judge announcement quality | An accessibility complaint, or a release gate requiring a recorded assistive-technology pass |
 | Penetration testing and WAF/bot defence | Security work is bounded by NFR-SEC-* and `07` §11 | A public launch, or an external security review |
-| Non-local binary storage (object storage, CDN) | C-16 keeps storage behind an abstraction; only the local volume is built | A storage-provider change; then NFR-REL-003 fault injection is repeated against the adapter |
+| Non-R2 binary storage (CDN in front of the bucket, a different object store) | C-16 keeps storage behind the `BinaryStore` seam; only the R2 binding is built | A storage-provider change; then NFR-REL-003 fault injection is repeated against the adapter |
 | Database restore drill as an automated test | NFR-REL-008 is `SHOULD` and needs a clean environment and a human-run restore | A release that must demonstrate recoverability; the drill becomes a recorded manual gate |
 | Visual regression across GPUs and platforms | Only pinned Chromium on one host is measured; cross-GPU pixel equality is not a product requirement | A platform-tied visual defect, or a design-system release across platforms |
 | Dark mode, i18n/RTL, native mobile, offline/PWA | Out of scope in `01` §8; adding them doubles the state matrix and invalidates cache-cold/warm definitions | A scope change adding one of these |
