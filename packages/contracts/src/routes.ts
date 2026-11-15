@@ -5,6 +5,9 @@
 
 export const API_PREFIX = '/api/v1';
 
+/** FR-AUTH-004, 06 §2.1: one host-only HttpOnly cookie, the only session state a client holds. */
+export const sessionCookieName = 'sid';
+
 export const api = {
   auth: {
     register: `${API_PREFIX}/auth/register`,

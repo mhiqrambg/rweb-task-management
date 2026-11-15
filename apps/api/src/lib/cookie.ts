@@ -1,4 +1,4 @@
-import { SESSION_COOKIE_NAME } from '@rweb/contracts';
+import { sessionCookieName } from '@taskapp/contracts';
 
 /** Reads the `sid` value from a `Cookie` header without trusting the rest of it. */
 export function readSessionCookie(header: string | null): string | undefined {
@@ -6,7 +6,7 @@ export function readSessionCookie(header: string | null): string | undefined {
   for (const part of header.split(';')) {
     const separator = part.indexOf('=');
     if (separator === -1) continue;
-    if (part.slice(0, separator).trim() !== SESSION_COOKIE_NAME) continue;
+    if (part.slice(0, separator).trim() !== sessionCookieName) continue;
     const raw = part.slice(separator + 1).trim();
     if (raw === '') return undefined;
     try {
@@ -24,7 +24,7 @@ export function readSessionCookie(header: string | null): string | undefined {
  */
 export function sessionCookie(token: string, maxAgeSeconds: number, secure: boolean): string {
   const attributes = [
-    `${SESSION_COOKIE_NAME}=${token}`,
+    `${sessionCookieName}=${token}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
@@ -36,7 +36,7 @@ export function sessionCookie(token: string, maxAgeSeconds: number, secure: bool
 
 export function clearedSessionCookie(secure: boolean): string {
   const attributes = [
-    `${SESSION_COOKIE_NAME}=`,
+    `${sessionCookieName}=`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',

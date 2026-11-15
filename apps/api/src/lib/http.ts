@@ -1,10 +1,10 @@
 import {
-  COPY,
-  ERROR_STATUS,
+  copy,
+  errorStatus,
   type ErrorCode,
   type ErrorEnvelope,
   type ValidationDetail,
-} from '@rweb/contracts';
+} from '@taskapp/contracts';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { AppEnv } from '../context';
@@ -45,7 +45,7 @@ export function errorResponse(
       details,
     },
   };
-  return c.json(body, ERROR_STATUS[code] as ContentfulStatusCode, headers);
+  return c.json(body, errorStatus[code] as ContentfulStatusCode, headers);
 }
 
 /**
@@ -55,29 +55,29 @@ export function errorResponse(
 export async function readJson(request: Request): Promise<unknown> {
   const [mediaType] = (request.headers.get('content-type') ?? '').split(';');
   if (mediaType?.trim().toLowerCase() !== JSON_MEDIA_TYPE) {
-    throw new ApiError('UNSUPPORTED_MEDIA_TYPE', COPY.apiOnly.unsupportedMediaType);
+    throw new ApiError('UNSUPPORTED_MEDIA_TYPE', copy.error.form);
   }
 
   const declaredLength = Number(request.headers.get('content-length') ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BYTES) {
-    throw new ApiError('PAYLOAD_TOO_LARGE', COPY.apiOnly.payloadTooLarge);
+    throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
   }
 
   const text = await request.text();
   if (new TextEncoder().encode(text).byteLength > MAX_JSON_BYTES) {
-    throw new ApiError('PAYLOAD_TOO_LARGE', COPY.apiOnly.payloadTooLarge);
+    throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
   }
   if (text.trim() === '') {
-    throw new ApiError('VALIDATION_FAILED', COPY.form.checkFields, {
-      details: [{ field: 'body', code: 'required', message: COPY.apiOnly.invalidJson }],
+    throw new ApiError('VALIDATION_FAILED', copy.error.form, {
+      details: [{ field: 'body', code: 'required', message: copy.error.form }],
     });
   }
 
   try {
     return JSON.parse(text);
   } catch {
-    throw new ApiError('VALIDATION_FAILED', COPY.apiOnly.invalidJson, {
-      details: [{ field: 'body', code: 'invalid_json', message: COPY.apiOnly.invalidJson }],
+    throw new ApiError('VALIDATION_FAILED', copy.error.form, {
+      details: [{ field: 'body', code: 'invalid_json', message: copy.error.form }],
     });
   }
 }

@@ -1,4 +1,4 @@
-import { ERROR_STATUS, type ErrorCode, type ValidationDetail } from '@rweb/contracts';
+import { errorStatus, type ErrorCode, type ValidationDetail } from '@taskapp/contracts';
 
 /** The only error type handlers throw; `onError` turns it into the wire envelope. */
 export class ApiError extends Error {
@@ -19,6 +19,6 @@ export class ApiError extends Error {
   }
 
   get status(): number {
-    return ERROR_STATUS[this.code];
+    return errorStatus[this.code];
   }
 }

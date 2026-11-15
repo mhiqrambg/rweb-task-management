@@ -1,12 +1,12 @@
 import {
-  COPY,
-  ROUTES,
+  api,
+  copy,
   defaultDisplayName,
-  loginRequestSchema,
-  registerRequestSchema,
+  loginSchema,
+  registerSchema,
   validationDetails,
   type SessionProbe,
-} from '@rweb/contracts';
+} from '@taskapp/contracts';
 import { Hono } from 'hono';
 import type { ZodError } from 'zod';
 import type { AppEnv } from '../../context';
@@ -42,7 +42,7 @@ async function enforceAuthIpLimit(db: D1Database, request: Request): Promise<voi
 }
 
 function validationFailure(error: ZodError): ApiError {
-  return new ApiError('VALIDATION_FAILED', COPY.form.checkFields, {
+  return new ApiError('VALIDATION_FAILED', copy.error.form, {
     details: validationDetails(error),
   });
 }
@@ -52,11 +52,11 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /** #1 — register, then auto-login in the same transaction (A-17). */
-authRoutes.post(ROUTES.auth.register, async (c) => {
+authRoutes.post(api.auth.register, async (c) => {
   const cfg = c.get('config');
   await enforceAuthIpLimit(cfg.db, c.req.raw);
 
-  const parsed = registerRequestSchema.safeParse(await readJson(c.req.raw));
+  const parsed = registerSchema.safeParse(await readJson(c.req.raw));
   if (!parsed.success) throw validationFailure(parsed.error);
 
   const now = Date.now();
@@ -73,7 +73,7 @@ authRoutes.post(ROUTES.auth.register, async (c) => {
   try {
     await createUserWithSession(cfg.db, user, session.insert);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new ApiError('CONFLICT', COPY.auth.emailTaken);
+    if (isUniqueViolation(error)) throw new ApiError('CONFLICT', copy.auth.error.emailTaken);
     throw error;
   }
 
@@ -81,19 +81,19 @@ authRoutes.post(ROUTES.auth.register, async (c) => {
   return c.json(
     { data: { user: userFromRow(user), expiresAt: session.expiresAt } },
     201,
-    { Location: ROUTES.users.me },
+    { Location: api.users.me },
   );
 });
 
 /** #2 — login. One generic failure for unknown email and wrong password (FR-AUTH-005). */
-authRoutes.post(ROUTES.auth.login, async (c) => {
+authRoutes.post(api.auth.login, async (c) => {
   const cfg = c.get('config');
   await enforceAuthIpLimit(cfg.db, c.req.raw);
 
   const existing = await resolveSession(cfg, c.req.raw, 'peek');
-  if (existing.active) throw new ApiError('CONFLICT', COPY.apiOnly.alreadyAuthenticated);
+  if (existing.active) throw new ApiError('CONFLICT', copy.error.form);
 
-  const parsed = loginRequestSchema.safeParse(await readJson(c.req.raw));
+  const parsed = loginSchema.safeParse(await readJson(c.req.raw));
   if (!parsed.success) throw validationFailure(parsed.error);
 
   const { email, password } = parsed.data;
@@ -117,7 +117,7 @@ authRoutes.post(ROUTES.auth.login, async (c) => {
       LOGIN_FAIL_LIMIT,
       LOGIN_FAIL_WINDOW_SECONDS,
     );
-    throw new ApiError('UNAUTHENTICATED', COPY.auth.invalidCredentials);
+    throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
 
   if (!(await verifyPassword(password, user.password_hash))) {
@@ -128,7 +128,7 @@ authRoutes.post(ROUTES.auth.login, async (c) => {
       LOGIN_FAIL_LIMIT,
       LOGIN_FAIL_WINDOW_SECONDS,
     );
-    throw new ApiError('UNAUTHENTICATED', COPY.auth.invalidCredentials);
+    throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
 
   const session = await issueSession(cfg, c.req.raw, user.id);
@@ -139,14 +139,14 @@ authRoutes.post(ROUTES.auth.login, async (c) => {
 });
 
 /** #3 — logout: revoke the presented row, clear the cookie; a repeat is still logged out. */
-authRoutes.post(ROUTES.auth.logout, async (c) => {
+authRoutes.post(api.auth.logout, async (c) => {
   const cfg = c.get('config');
   await enforceAuthIpLimit(cfg.db, c.req.raw);
 
   const cleared = clearedSessionCookie(cfg.cookieSecure);
   const resolved = await resolveSession(cfg, c.req.raw, 'peek');
   if (!resolved.active) {
-    throw new ApiError('UNAUTHENTICATED', COPY.auth.sessionExpired, {
+    throw new ApiError('UNAUTHENTICATED', copy.auth.error.sessionExpired, {
       headers: { 'Set-Cookie': cleared },
     });
   }
@@ -157,14 +157,14 @@ authRoutes.post(ROUTES.auth.logout, async (c) => {
 });
 
 /** #4 — the session probe both frontends bootstrap from; never 403 (O-6). */
-authRoutes.get(ROUTES.auth.me, async (c) => {
+authRoutes.get(api.auth.me, async (c) => {
   const cfg = c.get('config');
   const resolved = await resolveSession(cfg, c.req.raw, 'refresh');
 
   if (!resolved.active) {
     throw new ApiError(
       'UNAUTHENTICATED',
-      COPY.auth.sessionExpired,
+      copy.auth.error.sessionExpired,
       resolved.cookie ? { headers: { 'Set-Cookie': resolved.cookie } } : {},
     );
   }

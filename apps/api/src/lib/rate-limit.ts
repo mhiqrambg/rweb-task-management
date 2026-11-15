@@ -1,4 +1,4 @@
-import { COPY } from '@rweb/contracts';
+import { copy } from '@taskapp/contracts';
 import { ApiError } from './errors';
 
 /**
@@ -93,7 +93,7 @@ export async function peekRateLimit(
 
 export function rateLimitError(window: RateLimitWindow): ApiError {
   const retryAfter = Math.max(1, window.resetAt - Math.floor(Date.now() / 1000));
-  return new ApiError('RATE_LIMITED', COPY.auth.rateLimited, {
+  return new ApiError('RATE_LIMITED', copy.auth.error.rateLimited, {
     headers: {
       'Retry-After': String(retryAfter),
       'X-RateLimit-Limit': String(window.limit),

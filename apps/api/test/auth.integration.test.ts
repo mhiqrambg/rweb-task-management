@@ -199,7 +199,7 @@ describe('POST /auth/login', () => {
     });
     expect(login.status).toBe(200);
     const loginToken = sidFrom(login);
-    expect(loginToken).toBeTruthy();
+    if (!loginToken) throw new Error('login issued no sid');
     expect(loginToken).not.toBe(token);
 
     const second = await call(LOGIN, {

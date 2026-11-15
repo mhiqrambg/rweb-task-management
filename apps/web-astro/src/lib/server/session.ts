@@ -1,5 +1,5 @@
 import type { AstroCookies } from 'astro';
-import { api, type SessionProbe } from '@taskapp/contracts';
+import { api, sessionCookieName, type SessionProbe } from '@taskapp/contracts';
 import { request as apiRequest, toResult } from './api';
 import { isProduction } from './env';
 
@@ -10,7 +10,7 @@ import { isProduction } from './env';
  * cookie between the browser and the API request, and mirrors a `Set-Cookie` the API issued.
  */
 
-export const SESSION_COOKIE = 'sid';
+export const SESSION_COOKIE = sessionCookieName;
 const MAX_AGE_SECONDS = 604800;
 
 /** The raw Cookie header to forward to the API, or null when the browser sent nothing. */

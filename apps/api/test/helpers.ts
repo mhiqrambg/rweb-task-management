@@ -39,7 +39,7 @@ export async function call(path: string, options: CallOptions = {}): Promise<Res
   return exports.default.fetch(`${TEST_ORIGIN}${path}`, {
     method: options.method ?? (body === undefined ? 'GET' : 'POST'),
     headers,
-    body,
+    body: body ?? null,
   });
 }
 
@@ -61,7 +61,7 @@ export async function registerUser(
 ): Promise<RegisteredUser> {
   const response = await call('/api/v1/auth/register', {
     body: { email, password: options.password ?? VALID_PASSWORD },
-    ip: options.ip,
+    ...(options.ip === undefined ? {} : { ip: options.ip }),
   });
   const token = sidFrom(response);
   if (!token) throw new Error(`registration failed: ${response.status} ${await response.text()}`);

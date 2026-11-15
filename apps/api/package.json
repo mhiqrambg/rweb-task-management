@@ -1,5 +1,5 @@
 {
-  "name": "@rweb/api",
+  "name": "@taskapp/api",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,9 +13,9 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
-    "@rweb/contracts": "workspace:*",
+    "@taskapp/contracts": "workspace:*",
     "hono": "^4.13.18",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.8.2",

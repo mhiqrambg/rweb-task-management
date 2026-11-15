@@ -1,4 +1,4 @@
-import { COPY } from '@rweb/contracts';
+import { copy } from '@taskapp/contracts';
 import { Hono } from 'hono';
 import { loadConfig } from './config';
 import type { AppEnv } from './context';
@@ -55,7 +55,7 @@ app.use('*', async (c, next) => {
     const sameOrigin = origin
       ? origin === cfg.appOrigin
       : c.req.header('sec-fetch-site') === 'same-origin';
-    if (!sameOrigin) throw new ApiError('UNAUTHENTICATED', COPY.auth.sessionExpired);
+    if (!sameOrigin) throw new ApiError('UNAUTHENTICATED', copy.auth.error.sessionExpired);
   }
 
   await next();
@@ -64,7 +64,7 @@ app.use('*', async (c, next) => {
 app.route('/', authRoutes);
 app.route('/', healthRoutes);
 
-app.notFound((c) => errorResponse(c, 'NOT_FOUND', COPY.apiOnly.notFound));
+app.notFound((c) => errorResponse(c, 'NOT_FOUND', copy.state.notFound.body));
 
 app.onError((error, c) => {
   if (error instanceof ApiError) {
@@ -77,5 +77,5 @@ app.onError((error, c) => {
       message: error instanceof Error ? error.message : 'unknown',
     }),
   );
-  return errorResponse(c, 'INTERNAL', COPY.apiOnly.internal);
+  return errorResponse(c, 'INTERNAL', copy.state.error.body);
 });

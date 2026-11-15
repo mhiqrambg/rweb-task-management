@@ -1,4 +1,4 @@
-import type { User } from '@rweb/contracts';
+import type { User } from '@taskapp/contracts';
 import type { Config } from '../../config';
 import { clearedSessionCookie, readSessionCookie, sessionCookie } from '../../lib/cookie';
 import { clientIp } from '../../lib/http';

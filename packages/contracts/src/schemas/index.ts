@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { copy } from '../copy';
+import type { ValidationDetail } from '../types/index';
 
 /**
  * Shared validators: the API uses them at the HTTP boundary, both frontends use them as form
@@ -22,7 +23,9 @@ export const emailField = z
   .trim()
   .min(1, copy.valid.email.required)
   .max(254, copy.valid.email.format)
-  .refine((value) => EMAIL.test(value), copy.valid.email.format);
+  .refine((value) => EMAIL.test(value), copy.valid.email.format)
+  // 06 §4: lowercased for storage, so uniqueness is case-insensitive on both sides.
+  .transform((value) => value.toLowerCase());
 
 export const passwordField = z
   .string()
@@ -129,4 +132,55 @@ export function parseForm<Schema extends z.ZodType>(
     errors[key] ??= issue.message;
   }
   return { ok: false, errors };
+}
+
+/** Q-02: a missing display name defaults to the email local part, never over 100 characters. */
+export function defaultDisplayName(email: string): string {
+  const [localPart = ''] = email.split('@');
+  return localPart.slice(0, 100);
+}
+
+/**
+ * A failed parse as the wire `details[]` (06 §1.3, §4): a stable machine `code` plus deck copy.
+ * Zod's own English is never passed through, and a field without a specific mapping is generic.
+ */
+export function validationDetails(error: z.ZodError): ValidationDetail[] {
+  const details: ValidationDetail[] = [];
+  for (const issue of error.issues) {
+    if (issue.code === 'unrecognized_keys') {
+      for (const key of issue.keys) {
+        details.push({ field: key, code: 'unknown_field', message: copy.valid.unknownField });
+      }
+      continue;
+    }
+    const [first] = issue.path;
+    const field = typeof first === 'string' && first.length > 0 ? first : 'body';
+    details.push({ field, code: detailCode(field, issue), message: detailMessage(field, issue) });
+  }
+  return details;
+}
+
+type Issue = z.ZodError['issues'][number];
+
+function detailCode(field: string, issue: Issue): string {
+  if (field === 'email') {
+    if (issue.code === 'invalid_type' || issue.code === 'too_small') return 'required';
+    if (issue.code === 'too_big') return 'too_long';
+    return 'email_format';
+  }
+  if (field === 'password') {
+    if (issue.code === 'invalid_type') return 'required';
+    if (issue.code === 'too_small') return Number(issue.minimum) === 1 ? 'required' : 'password_policy';
+    return 'password_policy';
+  }
+  if (issue.code === 'invalid_type' || issue.code === 'too_small') return 'required';
+  if (issue.code === 'too_big') return 'too_long';
+  return 'invalid_value';
+}
+
+function detailMessage(field: string, issue: Issue): string {
+  if (issue.code !== 'invalid_type') return issue.message;
+  if (field === 'email') return copy.valid.email.required;
+  if (field === 'password') return copy.valid.password.required;
+  return copy.error.form;
 }
