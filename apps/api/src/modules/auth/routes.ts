@@ -7,12 +7,12 @@ import {
   validationDetails,
   type SessionProbe,
 } from '@taskapp/contracts';
-import { Hono } from 'hono';
-import type { ZodError } from 'zod';
-import type { AppEnv } from '../../context';
+import { Elysia } from 'elysia';
 import { clearedSessionCookie, sessionCookie } from '../../lib/cookie';
+import { getConfig } from '../../context';
+import type { ZodError } from 'zod';
 import { ApiError } from '../../lib/errors';
-import { clientIp, readJson } from '../../lib/http';
+import { clientIp, parseJsonBody } from '../../lib/http';
 import { base64Url, newUuid, sha256 } from '../../lib/ids';
 import { consumeRateLimit, peekRateLimit, rateLimitError } from '../../lib/rate-limit';
 import { isoFrom } from '../../lib/time';
@@ -20,7 +20,7 @@ import { burnPasswordCheck, hashPassword, verifyPassword } from './password';
 import { createUserWithSession, deleteSessionById, findUserByEmail, type UserRow } from './repo';
 import { issueSession, persistSession, resolveSession, userFromRow } from './session';
 
-export const authRoutes = new Hono<AppEnv>();
+export const authRoutes = new Elysia();
 
 const AUTH_IP_BUCKET = 'auth-ip';
 const AUTH_IP_LIMIT = 10;
@@ -29,6 +29,13 @@ const AUTH_IP_WINDOW_SECONDS = 60;
 const LOGIN_FAIL_BUCKET = 'login-fail';
 const LOGIN_FAIL_LIMIT = 5;
 const LOGIN_FAIL_WINDOW_SECONDS = 15 * 60;
+
+function json(data: unknown, status: number, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+}
 
 async function enforceAuthIpLimit(db: D1Database, request: Request): Promise<void> {
   const outcome = await consumeRateLimit(
@@ -52,11 +59,17 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /** #1 — register, then auto-login in the same transaction (A-17). */
-authRoutes.post(api.auth.register, async (c) => {
-  const cfg = c.get('config');
-  await enforceAuthIpLimit(cfg.db, c.req.raw);
+authRoutes.post(api.auth.register, async ({ request, body, set }) => {
+  const cfg = getConfig();
+  await enforceAuthIpLimit(cfg.db, request);
 
-  const parsed = registerSchema.safeParse(await readJson(c.req.raw));
+  const parsed = registerSchema.safeParse(
+    parseJsonBody(
+      typeof body === 'string' ? body : '',
+      request.headers.get('content-type'),
+      request.headers.get('content-length'),
+    ),
+  );
   if (!parsed.success) throw validationFailure(parsed.error);
 
   const now = Date.now();
@@ -68,7 +81,7 @@ authRoutes.post(api.auth.register, async (c) => {
     created_at: isoFrom(now),
     updated_at: isoFrom(now),
   };
-  const session = await issueSession(cfg, c.req.raw, user.id);
+  const session = await issueSession(cfg, request, user.id);
 
   try {
     await createUserWithSession(cfg.db, user, session.insert);
@@ -77,27 +90,31 @@ authRoutes.post(api.auth.register, async (c) => {
     throw error;
   }
 
-  c.header('Set-Cookie', sessionCookie(session.token, session.maxAgeSeconds, cfg.cookieSecure));
-  return c.json(
-    { data: { user: userFromRow(user), expiresAt: session.expiresAt } },
-    201,
-    { Location: api.users.me },
-  );
+  set.headers['Set-Cookie'] = sessionCookie(session.token, session.maxAgeSeconds, cfg.cookieSecure);
+  set.status = 201;
+  set.headers.Location = api.users.me;
+  return { data: { user: userFromRow(user), expiresAt: session.expiresAt } };
 });
 
 /** #2 — login. One generic failure for unknown email and wrong password (FR-AUTH-005). */
-authRoutes.post(api.auth.login, async (c) => {
-  const cfg = c.get('config');
-  await enforceAuthIpLimit(cfg.db, c.req.raw);
+authRoutes.post(api.auth.login, async ({ request, body, set }) => {
+  const cfg = getConfig();
+  await enforceAuthIpLimit(cfg.db, request);
 
-  const existing = await resolveSession(cfg, c.req.raw, 'peek');
+  const existing = await resolveSession(cfg, request, 'peek');
   if (existing.active) throw new ApiError('CONFLICT', copy.error.form);
 
-  const parsed = loginSchema.safeParse(await readJson(c.req.raw));
+  const parsed = loginSchema.safeParse(
+    parseJsonBody(
+      typeof body === 'string' ? body : '',
+      request.headers.get('content-type'),
+      request.headers.get('content-length'),
+    ),
+  );
   if (!parsed.success) throw validationFailure(parsed.error);
 
   const { email, password } = parsed.data;
-  const failureKey = `${clientIp(c.req.raw)}:${base64Url(await sha256(email))}`;
+  const failureKey = `${clientIp(request)}:${base64Url(await sha256(email))}`;
   const gate = await peekRateLimit(
     cfg.db,
     LOGIN_FAIL_BUCKET,
@@ -110,41 +127,29 @@ authRoutes.post(api.auth.login, async (c) => {
   const user = await findUserByEmail(cfg.db, email);
   if (!user) {
     await burnPasswordCheck(password);
-    await consumeRateLimit(
-      cfg.db,
-      LOGIN_FAIL_BUCKET,
-      failureKey,
-      LOGIN_FAIL_LIMIT,
-      LOGIN_FAIL_WINDOW_SECONDS,
-    );
+    await consumeRateLimit(cfg.db, LOGIN_FAIL_BUCKET, failureKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
 
   if (!(await verifyPassword(password, user.password_hash))) {
-    await consumeRateLimit(
-      cfg.db,
-      LOGIN_FAIL_BUCKET,
-      failureKey,
-      LOGIN_FAIL_LIMIT,
-      LOGIN_FAIL_WINDOW_SECONDS,
-    );
+    await consumeRateLimit(cfg.db, LOGIN_FAIL_BUCKET, failureKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
 
-  const session = await issueSession(cfg, c.req.raw, user.id);
+  const session = await issueSession(cfg, request, user.id);
   await persistSession(cfg, session);
 
-  c.header('Set-Cookie', sessionCookie(session.token, session.maxAgeSeconds, cfg.cookieSecure));
-  return c.json({ data: { user: userFromRow(user), expiresAt: session.expiresAt } }, 200);
+  set.headers['Set-Cookie'] = sessionCookie(session.token, session.maxAgeSeconds, cfg.cookieSecure);
+  return { data: { user: userFromRow(user), expiresAt: session.expiresAt } };
 });
 
 /** #3 — logout: revoke the presented row, clear the cookie; a repeat is still logged out. */
-authRoutes.post(api.auth.logout, async (c) => {
-  const cfg = c.get('config');
-  await enforceAuthIpLimit(cfg.db, c.req.raw);
+authRoutes.post(api.auth.logout, async ({ request, set }) => {
+  const cfg = getConfig();
+  await enforceAuthIpLimit(cfg.db, request);
 
   const cleared = clearedSessionCookie(cfg.cookieSecure);
-  const resolved = await resolveSession(cfg, c.req.raw, 'peek');
+  const resolved = await resolveSession(cfg, request, 'peek');
   if (!resolved.active) {
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.sessionExpired, {
       headers: { 'Set-Cookie': cleared },
@@ -152,14 +157,14 @@ authRoutes.post(api.auth.logout, async (c) => {
   }
 
   await deleteSessionById(cfg.db, resolved.active.sessionId);
-  c.header('Set-Cookie', cleared);
-  return c.body(null, 204);
+  set.headers['Set-Cookie'] = cleared;
+  set.status = 204;
 });
 
 /** #4 — the session probe both frontends bootstrap from; never 403 (O-6). */
-authRoutes.get(api.auth.me, async (c) => {
-  const cfg = c.get('config');
-  const resolved = await resolveSession(cfg, c.req.raw, 'refresh');
+authRoutes.get(api.auth.me, async ({ request, set }) => {
+  const cfg = getConfig();
+  const resolved = await resolveSession(cfg, request, 'refresh');
 
   if (!resolved.active) {
     throw new ApiError(
@@ -169,12 +174,11 @@ authRoutes.get(api.auth.me, async (c) => {
     );
   }
 
-  c.set('userId', resolved.active.user.id);
-  if (resolved.cookie) c.header('Set-Cookie', resolved.cookie);
+  if (resolved.cookie) set.headers['Set-Cookie'] = resolved.cookie;
 
   const probe: SessionProbe = {
     user: resolved.active.user,
     expiresAt: resolved.active.expiresAt,
   };
-  return c.json({ data: probe }, 200);
+  return { data: probe };
 });

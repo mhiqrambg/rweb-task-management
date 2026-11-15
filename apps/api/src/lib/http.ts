@@ -5,9 +5,6 @@ import {
   type ErrorEnvelope,
   type ValidationDetail,
 } from '@taskapp/contracts';
-import type { Context } from 'hono';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import type { AppEnv } from '../context';
 import { ApiError } from './errors';
 import { isUuidV4 } from './ids';
 
@@ -30,40 +27,51 @@ export function clientIp(request: Request): string {
   return forwarded ? forwarded : 'unknown';
 }
 
+/**
+ * `errorResponse` returns a plain `Response` so any handler — or the global error handler — can
+ * emit it without depending on a framework context object. `requestId` is threaded in explicitly
+ * rather than read off a Hono-style `c.get`.
+ */
 export function errorResponse(
-  c: Context<AppEnv>,
+  requestId: string,
   code: ErrorCode,
   message: string,
   details: ValidationDetail[] = [],
   headers: Record<string, string> = {},
 ): Response {
   const body: ErrorEnvelope = {
-    error: {
-      code,
-      message,
-      requestId: c.get('requestId'),
-      details,
-    },
+    error: { code, message, requestId, details },
   };
-  return c.json(body, errorStatus[code] as ContentfulStatusCode, headers);
+  return new Response(JSON.stringify(body), {
+    status: errorStatus[code],
+    headers: { 'content-type': 'application/json', ...headers },
+  });
 }
 
 /**
  * §1.1: JSON only, `application/json` with an optional charset; unknown fields are handled by
  * the strict schemas, not here.
  */
-export async function readJson(request: Request): Promise<unknown> {
-  const [mediaType] = (request.headers.get('content-type') ?? '').split(';');
+/**
+ * Parse the request body Elysia already read (via the app's `onParse` hook) into a value, keeping
+ * the wire contract: 415 for a non-JSON media type, 413 past 256 KiB, 422 for an empty or
+ * malformed body. Elysia hands the handler the body as a string, so this never reads the request
+ * stream a second time.
+ */
+export function parseJsonBody(
+  text: string,
+  contentType: string | null,
+  contentLength: string | null,
+): unknown {
+  const [mediaType] = (contentType ?? '').split(';');
   if (mediaType?.trim().toLowerCase() !== JSON_MEDIA_TYPE) {
     throw new ApiError('UNSUPPORTED_MEDIA_TYPE', copy.error.form);
   }
 
-  const declaredLength = Number(request.headers.get('content-length') ?? Number.NaN);
+  const declaredLength = Number(contentLength ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BYTES) {
     throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
   }
-
-  const text = await request.text();
   if (new TextEncoder().encode(text).byteLength > MAX_JSON_BYTES) {
     throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
   }
