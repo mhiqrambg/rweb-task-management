@@ -559,7 +559,7 @@ Worker owns app routes; it is not a catch-all routing layer.
 |---|---|---|
 | `web-astro` | `astro dev` serves the page shell; Vite dev proxy routes `/api` → `http://localhost:8787` | Astro page shell plus API dev server; no CORS needed |
 | `web-next` | `next dev` cannot use `rewrites` under `output: 'export'`; it uses an absolute `NEXT_PUBLIC_API_BASE_URL=http://localhost:8787/api/v1` plus a dev-only CORS allowlist `['http://localhost:3000']` with `credentials: true` | ports differ but the site is the same, so the `Lax` cookie still travels (cookie scope ignores ports); CORS is still required because the origin differs. `origin: '*'` must never be used — with `credentials: true` browsers reject it. `Secure` is off because dev is `http` |
-| `api` | `wrangler dev` on `:8787` with local D1/R2 under `.wrangler/state`; the same ElysiaJS app also runs on Node via `tsx watch` when Worker bindings are not needed | Runtime is chosen per task; measured builds always use the Worker path |
+| `api` | `wrangler dev` on `:8787` with local D1/R2 under `.wrangler/state`; `src/index.ts` is the only entry (ADR-16) | One runtime from test to production; no second server script to keep in sync |
 
 Local dev servers are excluded from measurement (C-09, NFR-PERF-006). Production preview uses `wrangler dev`
 on the built Astro Worker; the dev CORS allowlist is registered only outside production and is absent
@@ -703,7 +703,7 @@ screen-local string (NFR-MAINT-006).
 | pnpm | 9 | ADR-11; strict resolution catches undeclared deps and contract drift | npm workspaces fallback: same layout, weaker strictness | Baseline (fallback documented) |
 | TypeScript | 5.x strict | NFR-MAINT-004 | Type drift between contracts and both apps | Baseline |
 | Cloudflare Workers runtime | current, recorded compat date | C-03, A-08 | No shared API; the comparison loses its instrument | Baseline |
-| Node.js runtime (API) | 24.11.1, same `.nvmrc` | local development of the same ElysiaJS app; `tsx watch` on `:8787` | Divergence between dev and Worker behaviour | Baseline |
+| Node.js runtime (API) | 24.11.1, same `.nvmrc` | hosts `wrangler dev`, Vitest and the build tooling (ADR-16); not a deploy target | A second entry point diverging from the Worker path | Baseline |
 | ElysiaJS | current | C-03; routing, validation hooks and error envelope for `/api/v1/*` on both Node and Worker | Hand-rolled routing and error envelope | Baseline |
 | Elysia cookie handling (built-in `cookie` plugin) | current | FR-AUTH-004 | Manual cookie parsing and signing errors | Baseline |
 | Workers form-data parsing (Web `FormData`) | current | FR-ATT-001, FR-ATT-002 | Hand-rolled multipart parser | Baseline |

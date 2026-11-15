@@ -680,13 +680,15 @@ multi-region or zero-downtime deploys.
 3. A second cloud (Kubernetes or a managed container platform). Provides rolling updates, self-healing
    and horizontal scaling that no confirmed requirement asks for, at the cost of manifests, an ingress
    controller, a registry and a second control plane for a four-person team.
-4. One Worker running all three apps (serving Next HTML from the Worker too). Makes the three-deployable
-   boundary (ADR-01) a fiction, couples deploy and log behaviour, and hides which app is slow.
+4. One Worker running all four apps (serving Next HTML and the admin pages from the Worker too). Makes
+   the four-deployable boundary (ADR-01) a fiction, couples deploy and log behaviour, and hides which app
+   is slow.
 
 **Decision.** Option 1. Cloudflare zone routing / Workers routes provide one Cloudflare-hosted origin:
 `/api/*` → API Worker (`apps/api`), `/` and app paths → Astro `@astrojs/cloudflare` Worker,
-`/b/*` → Next static assets, `/uploads/*` → 404. D1 is bound as `env.DB`; R2 is bound as `env.BUCKET`;
-migrations are applied by `wrangler d1 migrations apply --remote` as a deploy/CI step. The Workers
+`/b/*` → Next static assets, `/admin*` → `apps/admin` SSR, `/uploads/*` → 404. D1 is bound as `env.DB`;
+R2 is bound as `env.BUCKET`; migrations are applied by `wrangler d1 migrations apply --remote` as a
+deploy/CI step. The Workers
 production environment makes `Secure` cookies behave as in production; Worker Cron Triggers run session
 purge and the orphan sweep; per-request JSON logs go through Workers tail / Logpush.
 
@@ -710,6 +712,52 @@ before measuring and never runs while another app is deployed. Migrations never 
 are a deploy step and fail closed. Revisit if a second origin or an availability requirement appears, at
 which point ADR-01, ADR-06 and ADR-07 are reopened together.
 
+### ADR-16 — One API entry: Cloudflare Worker; Node.js is the toolchain, not a second server
+
+Status: Proposed · Deciders: project owner (approval pending)
+
+**Context.** ElysiaJS is the API framework (`ADR-01`). The current implementation has exactly one entry,
+`apps/api/src/index.ts`, exporting `fetch(request, env, ctx)`; D1 arrives as `env.DB` and R2 as
+`env.BUCKET`, stashed by `setEnv(env)` before `app.handle`. `wrangler dev` serves that entry on `:8787`
+against emulated D1/R2 state. Two runtime names appear in the stack description ("ElysiaJS on Node +
+Worker"), and `apps/api/package.json` has only wrangler scripts, so the question is whether a plain Node
+server entry should exist.
+
+**Problem.** Should the API gain a second, non-Worker entry point for local development or deployment?
+
+**Options considered.**
+1. One entry, the Worker (`src/index.ts`); local development through `wrangler dev` (chosen). Node.js 24
+   remains the pinned runtime that hosts wrangler, Vitest and the build tooling.
+2. A Node entry (`src/node.ts` + `tsx watch`) that adapts the same Elysia app to `node:http`, obtaining
+   bindings through `getPlatformProxy()` from wrangler. Feasible and cheap in code, but it adds a second
+   entry, a second dev command and a second boot path to keep verified, while the bindings still come from
+   the same emulator — no new capability, only a different launcher.
+3. A Node entry with real Node drivers (`better-sqlite3` for SQL, `node:fs`/S3 for binaries) behind
+   adapters. Two storage stacks, two SQL dialects to keep aligned, and `env.DB.batch([...])` (the
+   documented atomicity unit) no longer means what `05` §6 says it means.
+
+**Decision.** Option 1. `apps/api/src/index.ts` is the only entry point in the repository.
+`pnpm --filter api dev` remains `wrangler dev` on `:8787`; tests run under the Cloudflare Vitest plugin
+against the same bindings. No `tsx`, no `getPlatformProxy`, no second server script.
+
+**Rationale.** The API's entire persistence and authorization design is written against D1 prepared
+statements and R2 keys (`ADR-02`, `ADR-03`, `ADR-07`). A Node entry that does not change the bindings buys
+a different launcher for the same behaviour, and a Node entry that does change them creates the divergence
+that NFR-RESEARCH-003 and the benchmark's validity depend on avoiding. Node.js is already present and
+pinned (`.nvmrc` 24.11.1) as the process hosting `wrangler dev` — the runtime name in the stack is
+accurate without a second entry.
+
+**Trade-offs.** Development is tied to wrangler; an environment that cannot run workerd (a restricted CI
+runner, for example) cannot start the API, and a future Node host would need a new ADR plus option 2.
+Debugging goes through workerd's inspector rather than plain `node --inspect`.
+
+**Consequences.** One code path from unit test to integration test to preview to production, so a
+behaviour difference cannot hide behind a launcher. `apps/api/package.json` keeps its wrangler-only
+scripts; adding `dev:node` later is an explicit, recorded change rather than a default. `03` §6.1 states
+the same fact: locally `wrangler dev` runs the app as a Node process on `:8787`; in production it is a
+Cloudflare Worker. Revisit if a Node deployment target, an off-Cloudflare CI requirement, or a second API
+host appears.
+
 ## Register
 
 | ADR | Subject | Status | Blocks / blocked by |
@@ -729,6 +777,7 @@ which point ADR-01, ADR-06 and ADR-07 are reopened together.
 | ADR-13 | Astro landing on-demand, not prerendered | Proposed | Blocked by FR-LAND-003/005 and ADR-05; blocks `08` S1 method note and `11` validity section |
 | ADR-14 | Vitest + Playwright | Proposed | Blocks P-05 test scaffolding, `09`, and the benchmark driver (T-1001) |
 | ADR-15 | Cloudflare deploy: Worker + Astro SSR + Next static + D1 + R2 on one origin | Proposed | Blocked by ADR-01/ADR-05; blocks T-405, T-801, `03` §11 mechanisms and NFR-REL-008 rehearsal |
+| ADR-16 | One API entry (Cloudflare Worker); Node.js is the toolchain | Proposed | Blocked by ADR-01/ADR-02/ADR-07; blocks any `dev:node` script, and `03` §6.1 wording |
 
 ## Objections to the locked inputs
 
