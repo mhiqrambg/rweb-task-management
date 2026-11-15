@@ -10,7 +10,7 @@ const UNSAFE_METHODS: Record<string, true> = { POST: true, PATCH: true, PUT: tru
 const DEV_ORIGIN = 'http://localhost:3000';
 
 /**
- * The Elysia app. The `onBeforeHandle` hook replicates the old Hono same-origin middleware
+ * The Elysia app. The `onBeforeHandle` hook enforces the same-origin rule
  * (`.planning/07` §6.2): unsafe methods need a same-origin `Origin` (or `Sec-Fetch-Site` when the
  * browser omits it); a refusal is `401 UNAUTHENTICATED`, identical to an absent session.
  *

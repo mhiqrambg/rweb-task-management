@@ -29,8 +29,8 @@ export function clientIp(request: Request): string {
 
 /**
  * `errorResponse` returns a plain `Response` so any handler — or the global error handler — can
- * emit it without depending on a framework context object. `requestId` is threaded in explicitly
- * rather than read off a Hono-style `c.get`.
+ * emit it without depending on a framework context object. `requestId` is passed in explicitly
+ * rather than read from an ambient request context.
  */
 export function errorResponse(
   requestId: string,

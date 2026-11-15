@@ -4,7 +4,7 @@ import { mockRequest } from './handlers';
 import { MOCK_PASSWORD, MOCK_SECOND_USER_EMAIL } from './store';
 
 /**
- * The mock is the stand-in for Fastify during P6 (13 §2), so its auth answers must match
+ * The mock stands in for the API during P6 (13 §2), so its auth answers must match
  * 06 §5.1-§5.3 exactly: 201 on register, 409 on a taken email, 401 for an unknown session, and
  * one generic message for a wrong password or an unknown email (NFR-SEC-007).
  */

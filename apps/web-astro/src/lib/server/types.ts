@@ -1,6 +1,6 @@
 import type { ErrorCode, ErrorEnvelope, PageMeta, ValidationDetail } from '@taskapp/contracts';
 
-/** One normalised response, whether it came from the Fastify API or the contract-first mock. */
+/** One normalised response, whether it came from the API or the contract-first mock. */
 export interface ApiOk {
   status: number;
   data: unknown;
