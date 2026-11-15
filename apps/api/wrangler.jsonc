@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rweb-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "APP_ORIGIN": "http://localhost:4321",
+    "SESSION_TTL_DAYS": "7",
+    "SESSION_IDLE_HOURS": "24",
+    "SESSION_REFRESH_MINUTES": "60"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rweb-auth",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "env": {
+    "production": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "rweb-auth",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "APP_ORIGIN": "https://app.example.test",
+        "SESSION_TTL_DAYS": "7",
+        "SESSION_IDLE_HOURS": "24",
+        "SESSION_REFRESH_MINUTES": "60"
+      }
+    }
+  }
+}

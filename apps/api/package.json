@@ -1,0 +1,28 @@
+{
+  "name": "@rweb/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --env production",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote --env production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "wrangler deploy --dry-run --env production --outdir dist"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@rweb/contracts": "workspace:*",
+    "hono": "^4.13.18",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.8.2",
+    "@cloudflare/workers-types": "^5.20261114.1",
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
+  }
+}

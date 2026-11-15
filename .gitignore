@@ -44,6 +44,9 @@ jspm_packages/
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
+# Wrangler local state (D1, KV, R2 emulation)
+.wrangler/
+
 # TypeScript cache
 *.tsbuildinfo
 
