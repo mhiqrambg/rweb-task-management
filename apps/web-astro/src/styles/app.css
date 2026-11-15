@@ -1354,12 +1354,12 @@ select.field__input {
   margin: 0;
 }
 
+/* The illustration ships with its own alpha channel, so it must not be given an opaque
+   `background` — that is what filled the letterboxed corners with paper white. The card's
+   hairline would then also box a transparent image, so the border is dropped with it. */
 .hero__figure img {
   width: 100%;
   height: auto;
-  border-radius: var(--r-md);
-  border: 1px solid var(--color-line);
-  background: var(--color-paper);
 }
 
 @media (min-width: 1024px) {
@@ -1371,6 +1371,12 @@ select.field__input {
 
 .section {
   padding: var(--sp-7) 0;
+}
+
+/* The features sit directly under the hero copy: without this the feature body text reads as
+   one block with the panel below it. */
+.section--features {
+  padding-top: var(--sp-6);
 }
 
 .section__title {
@@ -1386,7 +1392,11 @@ select.field__input {
   margin-top: var(--sp-5);
 }
 
+/* Equal-height feature columns: the three bodies wrap to 1, 3 and 2 lines, so without stretch
+   the shorter columns stop short and the row reads ragged. */
 .feature {
+  display: flex;
+  flex-direction: column;
   padding-top: var(--sp-4);
   border-top: 2px solid var(--color-line);
 }
@@ -1411,6 +1421,8 @@ select.field__input {
   font-size: var(--fs-14);
   line-height: 1.45;
   color: var(--color-ink-muted);
+  /* Spare height from the tallest column lands below the text, never inside it. */
+  flex: 1 1 auto;
 }
 
 @media (min-width: 768px) {
@@ -1420,15 +1432,21 @@ select.field__input {
   }
 }
 
+/* Breathing room between the feature copy and the preview panel; the panel's own padding
+   provides the inner spacing, so only the outer edge needs a token. */
 .preview {
+  margin-top: var(--sp-7);
   padding: var(--sp-5);
   background: var(--color-surface-2);
   border-radius: var(--r-lg);
 }
 
+/* `align-items: stretch` is the default, so the cards already share one height — state it
+   explicitly because the equal-height card row is a layout guarantee, not an accident. */
 .preview__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: var(--sp-4);
 }
 
@@ -1438,13 +1456,17 @@ select.field__input {
   }
 }
 
-.preview figcaption {
-  margin-top: var(--sp-3);
-  font-size: var(--fs-14);
-  color: var(--color-ink-muted);
+/* The CTA is its own closing band below the panel (design/02 l-01: "Closing CTA block ... Footer:
+   rule"), left-aligned like the panel it follows; inside the panel it read as a fourth card. */
+.preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-6);
 }
 
-/* Preview task cards (l-01): a static digest of a C-08 card, not a live component. */
+/* Preview task cards (l-01): a static digest of a C-08 card, not a live component. Stretch keeps
+   every card in the row one height, so the thumbnail strips below the bodies line up. */
 .preview-card {
   display: flex;
   flex-direction: column;
@@ -1453,6 +1475,12 @@ select.field__input {
   background: var(--color-paper);
   border: 1px solid var(--color-line);
   border-radius: var(--r-md);
+}
+
+/* The body takes the spare height so `margin-top: auto` on the strip below has a gap to claim
+   instead of shoving the thumbnails up against the text. */
+.preview-card__body {
+  flex: 1 1 auto;
 }
 
 .preview-card__title {
@@ -1467,48 +1495,34 @@ select.field__input {
   flex-wrap: wrap;
 }
 
-.preview-card__badges .badge {
-  color: var(--color-ink-muted);
-  background: var(--color-surface-2);
-}
-
-.preview-card[data-hue='accent'] .preview-card__badges .badge:first-child {
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-}
-
-.preview-card[data-hue='warning'] .preview-card__badges .badge:first-child {
-  color: var(--color-ink-muted);
-  background: var(--color-surface-2);
-}
-
 .preview-card__thumbs {
   display: flex;
   gap: var(--sp-2);
+  /* Clearance from the description: the strip is pinned to the card's bottom edge. */
   margin-top: auto;
+  padding-top: var(--sp-4);
 }
 
+/* Mocks draw the thumbnails as inert `surface-2` placeholders (DESIGN.md §9); real screens swap
+   in the image. Fixed 4:3 box, so a row of cards lines up regardless of the copy above. */
 .preview-card__thumb {
   display: block;
   width: var(--thumb-w);
   height: var(--thumb-h);
   border-radius: var(--r-sm);
-  background: var(--color-accent-soft);
-}
-
-.preview-card[data-hue='neutral'] .preview-card__thumb {
   background: var(--color-surface-2);
 }
 
-.preview-card[data-hue='warning'] .preview-card__thumb {
-  background: var(--color-warn-soft);
-}
-
+/* The overflow count occupies the same 80x60 cell as a thumbnail, so it has to hold its label on
+   one line — a 14px "2 more" wraps inside 80px at the default 1.45 leading. */
 .preview-card__thumb--more {
   display: grid;
   place-items: center;
-  font-size: var(--fs-14);
+  font-size: var(--fs-12);
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
   color: var(--color-accent);
   background: var(--color-accent-soft);
 }

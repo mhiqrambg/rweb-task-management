@@ -7,9 +7,11 @@
  * Preview content: titles, statuses, and priorities are the deck's fixtures; the dates and
  * bodies are marketing fixtures as drawn in design/02 (they are not record copy).
  *
- * Hero image: design/assets/landing-illustration.png, intrinsic 576x433 (4:3). Rendered at 640
- * wide -> 481 tall; the ratio-true width/height let the browser reserve the box before the image
- * loads (CLS budget, 08 S1). Next must ship the identical illustration (FR-LAND-004 parity).
+ * Hero image: design/assets/landing-illustration.png, intrinsic 576x433. The attributes must be
+ * the intrinsic size: `width="640" height="481"` claims 4:3, so the browser letterboxes the 4:3
+ * image into a taller box and the spare band shows through as background. `height: auto` in CSS
+ * keeps the box ratio-true once loaded; the attributes reserve it before load (CLS, 08 S1).
+ * Next must ship the identical illustration (FR-LAND-004 parity).
  */
 import ImageIcon from '@lucide/astro/icons/image';
 import ListChecks from '@lucide/astro/icons/list-checks';
@@ -20,29 +22,30 @@ import Button from '../components/Button.astro';
 
 const session = Astro.locals.session;
 
+/** The three C-08 instances the deck draws (design/02 l-01). */
 const previewTasks = [
   {
     title: 'Prepare sprint review',
-    status: copy.task.status.in_progress,
-    priority: copy.task.priority.high,
+    status: 'in_progress',
+    priority: 'high',
     date: '12 Nov 2026',
     body: 'Confirm the agenda, the due dates and who owns each task.',
   },
   {
     title: 'Draft Q4 roadmap',
-    status: copy.task.status.todo,
-    priority: copy.task.priority.low,
+    status: 'todo',
+    priority: 'low',
     date: '20 Nov 2026',
     body: 'Collect the top three bets from each squad and note which ones need a decision.',
   },
   {
     title: 'Book team offsite',
-    status: copy.task.status.completed,
-    priority: copy.task.priority.medium,
+    status: 'completed',
+    priority: 'medium',
     date: '28 Nov 2026',
     body: 'Compare three venues and hold the date before the deposit window closes.',
   },
-];
+] as const;
 const previewOverflow = fill(copy.task.attachments.overflow, { n: 2 });
 // On-demand only: the landing reads the session cookie for its auth CTA and must never be
 // prerendered into a static export (ADR-13).
@@ -60,13 +63,13 @@ export const prerender = false;
       <img
         src="/landing-illustration.png"
         alt={copy.landing.previewAlt}
-        width="640"
-        height="481"
+        width="576"
+        height="433"
       />
     </figure>
   </section>
 
-  <section class="section" aria-label={copy.landing.previewAlt}>
+  <section class="section section--features" aria-label={copy.landing.previewAlt}>
     <div class="features">
       <div class="feature">
         <ListChecks size={40} class="feature__icon" />
@@ -92,34 +95,42 @@ export const prerender = false;
             <div class="preview-card">
               <div class="preview-card__title">{task.title}</div>
               <div class="preview-card__badges">
-                <span class="badge">{task.status}</span>
-                <span class="badge">{task.priority}</span>
+                <span class="badge" data-kind="status" data-value={task.status}>
+                  {copy.task.status[task.status]}
+                </span>
+                <span class="badge" data-kind="priority" data-value={task.priority}>
+                  {copy.task.priority[task.priority]}
+                </span>
               </div>
               <div class="preview-card__date">{task.date}</div>
               <p class="preview-card__body">{task.body}</p>
               <div class="preview-card__thumbs" aria-hidden="true">
-                <span class="preview-card__thumb"></span>
-                <span class="preview-card__thumb"></span>
-                <span class="preview-card__thumb"></span>
-                <span class="preview-card__more">{previewOverflow}</span>
+                {Array.from({ length: 3 }, () => (
+                  <span class="preview-card__thumb" />
+                ))}
+                <span class="preview-card__thumb preview-card__thumb--more">
+                  {previewOverflow}
+                </span>
               </div>
             </div>
           ))
         }
       </div>
+    </div>
 
-      <div class="preview__actions">
-        {
-          session ? (
-            <Button href={routes.account}>{copy.cta.goToDashboard}</Button>
-          ) : (
-            <>
-              <Button href={routes.register}>{copy.cta.getStarted}</Button>
-              <Button href={routes.login} variant="secondary">{copy.cta.logIn}</Button>
-            </>
-          )
-        }
-      </div>
+    <div class="preview__actions">
+      {
+        session ? (
+          <Button href={routes.account}>{copy.cta.goToDashboard}</Button>
+        ) : (
+          <>
+            <Button href={routes.register}>{copy.cta.getStarted}</Button>
+            <Button href={routes.login} variant="secondary">
+              {copy.cta.logIn}
+            </Button>
+          </>
+        )
+      }
     </div>
   </section>
 </MarketingLayout>
