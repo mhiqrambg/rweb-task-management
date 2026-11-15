@@ -50,7 +50,7 @@ async function liveRequest(input: ApiRequestInput): Promise<ApiRaw> {
     return { status: 204, data: null, page: null, setCookie, error: null };
   }
 
-  let payload: unknown = null;
+  let payload: unknown;
   try {
     payload = await response.json();
   } catch {

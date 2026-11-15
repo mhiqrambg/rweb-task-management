@@ -62,7 +62,7 @@ If a document is wrong, fix the document in the same PR as the code. Never "just
 - `apps/web-astro` and `apps/web-next` must not share component source. They share **tokens** and
   **contracts**, and they must look identical — not be written identically (brief §9).
 - Commit `pnpm-lock.yaml`. Never commit `node_modules`, `.env`, upload contents, or `.next/out`,
-  `dist/`, `.wrangler/state/`.
+  `dist/`.
 
 ## 4. Branching and commits
 
@@ -101,8 +101,8 @@ Review rules:
   type is already trusted.
 - SQL is parameterized, always (`$1`), in `modules/*/repo.ts`. String-built SQL is a review reject.
 - Errors: throw typed domain errors, map to the envelope once in the error handler. No `res.send(err)`.
-- No `console.log` noise in `apps/api/src` — use the Worker's structured logger; emit one JSON object
-  per request so Workers tail / Logpush can consume it.
+- No `console.log` noise in `apps/api/src` — use the structured logger; emit one JSON object
+  per request so log aggregators can consume it.
 - Frontend data access goes through one module per app (`lib/api.ts`) so the base URL, credentials, and
   error mapping live in one place.
 - Formatting: Prettier defaults; do not reformat files you did not otherwise touch.
@@ -138,7 +138,7 @@ No PR lowers coverage of the modules it touches.
   the SHA-256 hash. Never put a token in `localStorage`, a URL, or a log line.
 - Ownership check on **every** read and write, in the query (`WHERE user_id = $1`), not after the fetch.
 - Uploads: check MIME by content (`file-type`), not by `Content-Type` or extension alone; enforce size
-  before writing to the R2 bucket; generate the storage key server-side; never serve the bucket directly.
+  before writing to the filesystem; generate the storage key server-side; never serve the storage directory directly.
 - Never interpolate user input into SQL, shell, HTML, or a file path.
 - Do not disable CSRF/same-origin checks to "make it work" — report it instead.
 - Report a suspected vulnerability to Iqram and Hamzah before writing a public issue.

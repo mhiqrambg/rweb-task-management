@@ -9,9 +9,9 @@ exercise is the comparison, not the feature list.
 ```
 Astro SSR (MPA)        Next.js SSG (SPA-style)
         \                    /
-     Cloudflare Workers + Hono (REST API · auth · business logic)
+     Node.js + Fastify (REST API · auth · business logic)
                     |
-              D1 (shared database) · R2 (attachment binaries)
+              Cloudflare D1 (SQLite · Serverless Database)
 ```
 
 Both frontends must look and behave identically. Only the rendering model differs — that parity is what
