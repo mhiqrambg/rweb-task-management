@@ -1,0 +1,19 @@
+{
+  "name": "rweb-task-management",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web-astro dev",
+    "build": "pnpm -r build",
+    "preview": "pnpm --filter web-astro preview",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "gate:tokens": "node scripts/gate-tokens.mjs"
+  }
+}

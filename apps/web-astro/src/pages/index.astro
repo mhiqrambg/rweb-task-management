@@ -1,0 +1,112 @@
+---
+/**
+ * Landing page (l-01-landing-1440, design/02): hero with the product illustration, three
+ * feature highlights, a product preview panel with the auth CTA, and footer.
+ * Extended sections (l-04 … l-10) are a separate design pass and are not part of this slice.
+ *
+ * Preview content: titles, statuses, and priorities are the deck's fixtures; the dates and
+ * bodies are marketing fixtures as drawn in design/02 (they are not record copy).
+ */
+import { copy, fill, routes } from '@taskapp/contracts';
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import Button from '../components/Button.astro';
+
+const session = Astro.locals.session;
+
+const previewTasks = [
+  {
+    title: 'Prepare sprint review',
+    status: copy.task.status.in_progress,
+    priority: copy.task.priority.high,
+    date: '12 Nov 2026',
+    body: 'Confirm the agenda, the due dates and who owns each task.',
+  },
+  {
+    title: 'Draft Q4 roadmap',
+    status: copy.task.status.todo,
+    priority: copy.task.priority.low,
+    date: '20 Nov 2026',
+    body: 'Collect the top three bets from each squad and note which ones need a decision.',
+  },
+  {
+    title: 'Book team offsite',
+    status: copy.task.status.completed,
+    priority: copy.task.priority.medium,
+    date: '28 Nov 2026',
+    body: 'Compare three venues and hold the date before the deposit window closes.',
+  },
+];
+const previewOverflow = fill(copy.task.attachments.overflow, { n: 2 });
+---
+
+<MarketingLayout title={copy.brand.name}>
+  <section class="hero">
+    <div>
+      <h1 class="hero__title">{copy.brand.valueLine}</h1>
+      <p class="hero__lead">{copy.landing.intro}</p>
+    </div>
+
+    <figure class="hero__figure">
+      <img
+        src="/landing-illustration.svg"
+        alt={copy.landing.previewAlt}
+        width="640"
+        height="440"
+      />
+    </figure>
+  </section>
+
+  <section class="section" aria-label={copy.landing.previewAlt}>
+    <div class="features">
+      <div class="feature">
+        <h2 class="feature__title">{copy.landing.featureTasksTitle}</h2>
+        <p class="feature__body">{copy.task.empty.body}</p>
+      </div>
+      <div class="feature">
+        <h2 class="feature__title">{copy.landing.featureNotesTitle}</h2>
+        <p class="feature__body">{copy.note.empty.body}</p>
+      </div>
+      <div class="feature">
+        <h2 class="feature__title">{copy.landing.featureImagesTitle}</h2>
+        <p class="feature__body">{copy.task.attachments.noneHint}</p>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="preview__grid">
+        {
+          previewTasks.map((task) => (
+            <div class="preview-card">
+              <div class="preview-card__title">{task.title}</div>
+              <div class="preview-card__badges">
+                <span class="badge">{task.status}</span>
+                <span class="badge">{task.priority}</span>
+              </div>
+              <div class="preview-card__date">{task.date}</div>
+              <p class="preview-card__body">{task.body}</p>
+              <div class="preview-card__thumbs" aria-hidden="true">
+                <span class="preview-card__thumb"></span>
+                <span class="preview-card__thumb"></span>
+                <span class="preview-card__thumb"></span>
+                <span class="preview-card__more">{previewOverflow}</span>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="preview__actions">
+        {
+          session ? (
+            <Button href={routes.account}>{copy.cta.goToDashboard}</Button>
+          ) : (
+            <>
+              <Button href={routes.register}>{copy.cta.getStarted}</Button>
+              <Button href={routes.login} variant="secondary">{copy.cta.logIn}</Button>
+            </>
+          )
+        }
+      </div>
+    </div>
+  </section>
+</MarketingLayout>

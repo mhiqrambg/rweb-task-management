@@ -1,0 +1,88 @@
+---
+/**
+ * C-03/C-04/C-05: a label above the control, a hint below it, and a field-level error with
+ * `role="alert"` (design/05 §4). Native inputs only — no custom popups, for parity and weight.
+ */
+interface Props {
+  name: string;
+  label: string;
+  type?: 'text' | 'email' | 'password' | 'date' | 'search' | undefined;
+  value?: string | undefined;
+  error?: string | undefined;
+  hint?: string | undefined;
+  autocomplete?: string | undefined;
+  maxlength?: number | undefined;
+  as?: 'input' | 'textarea' | undefined;
+  rows?: number | undefined;
+  id?: string | undefined;
+  required?: boolean | undefined;
+  counter?: boolean | undefined;
+  spellcheck?: boolean | undefined;
+}
+
+const {
+  name,
+  label,
+  type = 'text',
+  value = '',
+  error,
+  hint,
+  autocomplete,
+  maxlength,
+  as = 'input',
+  rows = 6,
+  id = `field-${name}`,
+  required = false,
+  counter = false,
+  spellcheck,
+} = Astro.props;
+
+const hintId = hint ? `${id}-hint` : undefined;
+const errorId = error ? `${id}-error` : undefined;
+const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+const showCounter = counter && typeof maxlength === 'number';
+---
+
+<div class="field">
+  <label class="field__label" for={id}>{label}</label>
+
+  {
+    as === 'textarea' ? (
+      <textarea
+        class="field__input"
+        id={id}
+        name={name}
+        rows={rows}
+        maxlength={maxlength}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
+        aria-required={required ? 'true' : undefined}
+        spellcheck={spellcheck}
+      >{value}</textarea>
+    ) : (
+      <input
+        class="field__input"
+        id={id}
+        name={name}
+        type={type}
+        value={value}
+        maxlength={maxlength}
+        autocomplete={autocomplete}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
+        aria-required={required ? 'true' : undefined}
+        spellcheck={spellcheck}
+      />
+    )
+  }
+
+  {hint ? <p class="field__hint" id={hintId}>{hint}</p> : null}
+  {error ? <p class="field__error" id={errorId} role="alert">{error}</p> : null}
+  {
+    showCounter ? (
+      <span class="field__count" data-count-for={id}>
+        {value.length}/{maxlength}
+      </span>
+    ) : null
+  }
+</div>

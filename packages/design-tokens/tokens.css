@@ -1,0 +1,110 @@
+/*
+ * packages/design-tokens/tokens.css
+ *
+ * Single source of colour, type, space, radius, elevation and layout for BOTH frontends
+ * (.planning/14 §2, design/01 §1, design/05 §1-§2). Values are copied one by one from the
+ * blueprint; this file is the only place a colour, size, radius or shadow literal may appear.
+ * App CSS references var(--color-*), var(--sp-*), var(--fs-*) and never a hex value (R-E1).
+ *
+ * Light mode only. No dark theme, no second accent (R-E6).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* surface */
+  --color-paper: #ffffff;
+  --color-surface: #f5f7f9;
+  --color-surface-2: #eef1f5;
+
+  /* ink */
+  --color-ink: #17202a;
+  --color-ink-muted: #5b6773;
+  --color-ink-faint: #8a949e;
+
+  /* lines */
+  --color-line: #dce1e7;
+  --color-line-strong: #b9c2cc;
+
+  /* accent (single brand hue) */
+  --color-accent: #0b6e4f;
+  --color-accent-hover: #095a41;
+  --color-accent-soft: #e6f2ed;
+
+  /* feedback */
+  --color-danger: #b3261e;
+  --color-danger-soft: #fbeceb;
+  --color-warn: #b45309;
+  --color-warn-soft: #fdf3e7;
+  --color-ok: #0b6e4f;
+  --color-ok-soft: #e6f2ed;
+
+  /* status + priority (semantic, always paired with a word) */
+  --color-status-todo: #5b6773;
+  --color-status-progress: #b45309;
+  --color-status-done: #0b6e4f;
+  --color-priority-low: #5b6773;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #b3261e;
+
+  /* type */
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-32: 2rem;
+  --fs-40: 2.5rem;
+  --lh-tight: 1.2;
+  --lh-body: 1.55;
+
+  /* space (4 px scale) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* elevation */
+  --shadow-1: 0 1px 2px rgba(23, 32, 42, 0.06), 0 1px 3px rgba(23, 32, 42, 0.08);
+  --shadow-2: 0 8px 24px rgba(23, 32, 42, 0.12);
+
+  /* layout */
+  --container: 1120px;
+  --measure: 68ch;
+  --header-h: 64px;
+  --header-h-marketing: 72px;
+  --sidebar-w: 240px;
+  --sidebar-w-md: 72px;
+  --gutter: 24px;
+  --list-gap: var(--sp-4);
+
+  /* components */
+  --thumb-w: 80px;
+  --thumb-h: 60px;
+  --thumb-detail-w: 208px;
+  --thumb-detail-h: 156px;
+  --card-min-h: 132px;
+  --note-card-min-h: 148px;
+  --toast-w: 360px;
+  --focus-ring: 0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-accent);
+  --control-h: 40px;
+  --control-h-touch: 44px;
+  --duration: 150ms;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 32px;
+  }
+}

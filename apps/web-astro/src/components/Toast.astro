@@ -1,0 +1,26 @@
+---
+/**
+ * C-15. The message is selected from the whitelisted toast keys by the redirect query string
+ * (`?toast=taskCreated`), so a hand-typed URL can never render arbitrary copy (R-F1).
+ * Fixed-position region: a toast never shifts layout (design/05 §1).
+ */
+import { copy, toastMessages, type ToastKey } from '@taskapp/contracts';
+import Icon from './Icon.astro';
+
+const requested = Astro.url.searchParams.get('toast');
+const key = requested && requested in toastMessages ? (requested as ToastKey) : null;
+const message = key ? toastMessages[key] : null;
+---
+
+{
+  message ? (
+    <div class="toast-region">
+      <div class="toast" role={key === 'errorSave' ? 'alert' : 'status'} data-toast data-toast-key={key}>
+        <span class="toast__message">{message}</span>
+        <button class="icon-btn" type="button" data-dismiss aria-label={copy.action.close}>
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+    </div>
+  ) : null
+}

@@ -1,0 +1,15 @@
+---
+import { copy, routes } from '@taskapp/contracts';
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import Button from '../components/Button.astro';
+---
+
+<MarketingLayout title={copy.state.notFound.title}>
+  <div class="notfound">
+    <div>
+      <h1>{copy.state.notFound.title}</h1>
+      <p class="notfound__body">{copy.state.notFound.body}</p>
+      <Button href={routes.account}>{copy.state.notFound.action}</Button>
+    </div>
+  </div>
+</MarketingLayout>

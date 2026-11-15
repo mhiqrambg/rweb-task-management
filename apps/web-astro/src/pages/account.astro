@@ -1,0 +1,44 @@
+---
+import { actions } from 'astro:actions';
+import { copy, formatDate, routes } from '@taskapp/contracts';
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import Button from '../components/Button.astro';
+
+const session = Astro.locals.session;
+const result = Astro.getActionResult(actions.logout);
+const data = result?.data;
+if (data?.ok) return Astro.redirect(data.redirect, 303);
+
+if (!session) return Astro.redirect(`${routes.login}?next=${encodeURIComponent(routes.account)}`);
+
+const { user } = session;
+---
+
+<MarketingLayout title={copy.account.title}>
+  <section class="section account-panel">
+    <h1 class="page-head__title">{copy.account.title}</h1>
+
+    <div class="panel">
+      <div class="account-row">
+        <span class="account-row__label">{copy.account.email}</span>
+        <span>{user.email}</span>
+      </div>
+      <div class="account-row">
+        <span class="account-row__label">{copy.account.displayName}</span>
+        <span>{user.displayName}</span>
+      </div>
+      <div class="account-row">
+        <span class="account-row__label">{copy.account.createdAt}</span>
+        <span>{formatDate(user.createdAt)}</span>
+      </div>
+
+      <hr class="divider" />
+
+      <p class="muted">{copy.account.readOnly}</p>
+
+      <form method="POST" action={actions.logout}>
+        <Button type="submit" variant="secondary">{copy.auth.logout}</Button>
+      </form>
+    </div>
+  </section>
+</MarketingLayout>

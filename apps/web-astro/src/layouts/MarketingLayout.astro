@@ -1,0 +1,89 @@
+---
+/** Public chrome for the landing and the account screen: wordmark, auth actions, footer. */
+import { copy, routes } from '@taskapp/contracts';
+import BaseLayout from './BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+}
+
+const { title, description } = Astro.props;
+const session = Astro.locals.session;
+---
+
+<BaseLayout title={title} description={description}>
+  <header class="m-header">
+    <div class="m-header__inner">
+      <a class="wordmark" href={routes.landing}>
+        <Icon name="task" />
+        {copy.brand.name}
+      </a>
+
+      <nav class="m-header__actions m-header__links" aria-label={copy.brand.name}>
+        {
+          session ? (
+            <>
+              <span class="muted header-identity">
+                {copy.auth.signedInAs} {session.user.displayName}
+              </span>
+              <a class="btn" data-variant="secondary" href={routes.account}>{copy.nav.account}</a>
+            </>
+          ) : (
+            <>
+              <a class="btn" data-variant="ghost" href={routes.login}>{copy.cta.logIn}</a>
+              <a class="btn" data-variant="primary" href={routes.register}>{copy.cta.getStarted}</a>
+            </>
+          )
+        }
+      </nav>
+
+      <details class="m-menu">
+        <summary class="icon-btn">
+          <Icon name="menu" />
+          <span class="visually-hidden m-menu__open">{copy.nav.openMenu}</span>
+          <span class="visually-hidden m-menu__close">{copy.nav.closeMenu}</span>
+        </summary>
+        <div class="m-menu__panel">
+          {
+            session ? (
+              <a class="m-menu__link" href={routes.account}>{copy.nav.account}</a>
+            ) : (
+              <>
+                <a class="m-menu__link" href={routes.login}>{copy.cta.logIn}</a>
+                <a class="m-menu__link" href={routes.register}>{copy.cta.getStarted}</a>
+              </>
+            )
+          }
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main id="main" class="m-main">
+    <slot />
+  </main>
+
+  <footer class="m-footer">
+    <div class="m-footer__inner">
+      <div>
+        <a class="wordmark" href={routes.landing}>
+          <Icon name="task" />
+          {copy.brand.name}
+        </a>
+        <p class="muted footer-blurb">{copy.landing.footerBlurb}</p>
+      </div>
+      <nav class="m-footer__links">
+        {
+          session ? null : (
+            <>
+              <a href={routes.login}>{copy.cta.logIn}</a>
+              <a href={routes.register}>{copy.cta.getStarted}</a>
+            </>
+          )
+        }
+      </nav>
+    </div>
+  </footer>
+</BaseLayout>

@@ -1,0 +1,27 @@
+{
+  "name": "web-astro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "start": "node ./dist/server/entry.mjs",
+    "preview": "node ./dist/server/entry.mjs",
+    "typecheck": "astro check",
+    "lint": "astro check",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.13",
+    "@taskapp/contracts": "workspace:*",
+    "@taskapp/design-tokens": "workspace:*",
+    "astro": "^7.4.12"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@types/node": "^24.10.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

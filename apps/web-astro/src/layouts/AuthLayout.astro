@@ -1,0 +1,36 @@
+---
+/** Auth chrome: 72 px header with the wordmark only, as in design/02 §3. */
+import { copy, routes } from '@taskapp/contracts';
+import BaseLayout from './BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<BaseLayout title={title}>
+  <header class="m-header">
+    <div class="m-header__inner">
+      <a class="wordmark" href={routes.landing}>
+        <Icon name="task" />
+        {copy.brand.name}
+      </a>
+    </div>
+  </header>
+
+  <main id="main" class="auth-main">
+    <slot />
+  </main>
+
+  <footer class="m-footer">
+    <div class="m-footer__inner">
+      <p class="muted footer-blurb">{copy.landing.footerBlurb}</p>
+      <nav class="m-footer__links">
+        <a href={routes.landing}>{copy.brand.name}</a>
+      </nav>
+    </div>
+  </footer>
+</BaseLayout>

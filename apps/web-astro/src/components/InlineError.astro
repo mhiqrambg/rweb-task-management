@@ -1,0 +1,10 @@
+---
+/** C-19 at form level: one sentence above the submit button, never a status code (R-F4). */
+interface Props {
+  message: string;
+}
+
+const { message } = Astro.props;
+---
+
+<p class="inline-error" role="alert">{message}</p>

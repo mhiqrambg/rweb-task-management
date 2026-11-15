@@ -1,0 +1,38 @@
+---
+/**
+ * The document shell. It owns the head, the skip link, the toast outlet and the one bundled
+ * script (UI enhancement only: focus, busy buttons, toast dismissal — no data fetching, R-A5).
+ */
+import { copy } from '@taskapp/contracts';
+import '../styles/app.css';
+import Toast from '../components/Toast.astro';
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+}
+
+const { title, description = copy.brand.valueLine } = Astro.props;
+const brandName = copy.brand.name;
+const documentTitle = title === brandName ? title : `${title} · ${brandName}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{documentTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">{copy.nav.skipToContent}</a>
+    <slot />
+    <Toast />
+    <script>
+      import '../scripts/app';
+    </script>
+  </body>
+</html>

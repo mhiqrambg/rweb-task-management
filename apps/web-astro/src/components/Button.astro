@@ -1,0 +1,67 @@
+---
+/**
+ * C-01. A link when `href` is set, a button otherwise; the visual contract is identical
+ * (design/05 §4). A loading button keeps its label and gains a spinner (14 §5).
+ */
+interface Props {
+  href?: string;
+  type?: 'submit' | 'button';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  block?: boolean;
+  small?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+  name?: string;
+  value?: string;
+  ariaLabel?: string;
+  id?: string;
+}
+
+const {
+  href,
+  type = 'submit',
+  variant = 'primary',
+  block = false,
+  small = false,
+  busy = false,
+  disabled = false,
+  name,
+  value,
+  ariaLabel,
+  id,
+} = Astro.props;
+
+const classes = ['btn', block ? 'btn--block' : '', small ? 'btn--sm' : '']
+  .filter(Boolean)
+  .join(' ');
+---
+
+{
+  href ? (
+    <a
+      class={classes}
+      href={href}
+      data-variant={variant}
+      aria-label={ariaLabel}
+      id={id}
+    >
+      <slot />
+    </a>
+  ) : (
+    <button
+      class={classes}
+      type={type}
+      data-variant={variant}
+      data-submit={type === 'submit' ? '' : undefined}
+      aria-label={ariaLabel}
+      aria-busy={busy ? 'true' : undefined}
+      disabled={disabled || busy}
+      name={name}
+      value={value}
+      id={id}
+    >
+      {busy ? <span class="btn__spinner" aria-hidden="true"></span> : null}
+      <slot />
+    </button>
+  )
+}

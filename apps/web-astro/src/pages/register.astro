@@ -1,0 +1,51 @@
+---
+import { actions } from 'astro:actions';
+import { copy, routes, safeNextPath } from '@taskapp/contracts';
+import AuthLayout from '../layouts/AuthLayout.astro';
+import Button from '../components/Button.astro';
+import Field from '../components/Field.astro';
+import InlineError from '../components/InlineError.astro';
+
+const next = safeNextPath(Astro.url.searchParams.get('next'));
+const result = Astro.getActionResult(actions.register);
+const data = result?.data;
+if (data?.ok) return Astro.redirect(data.redirect, 303);
+
+const failure = data && data.ok === false ? data : null;
+const values = failure ? Astro.locals.formValues : {};
+---
+
+<AuthLayout title={copy.auth.register.title}>
+  <div class="auth-card">
+    <h1 class="auth-card__title">{copy.auth.register.title}</h1>
+
+    <form class="auth-card__form" method="POST" action={actions.register} novalidate>
+      <input type="hidden" name="next" value={next ?? ''} />
+
+      {failure?.message ? <InlineError message={failure.message} /> : null}
+
+      <Field
+        name="email"
+        label={copy.auth.field.email}
+        type="email"
+        autocomplete="email"
+        value={values.email ?? ''}
+        error={failure?.errors.email}
+      />
+      <Field
+        name="password"
+        label={copy.auth.field.password}
+        type="password"
+        autocomplete="new-password"
+        hint={copy.auth.hint.password}
+        error={failure?.errors.password}
+      />
+
+      <Button type="submit" block>{copy.auth.register.submit}</Button>
+    </form>
+
+    <p class="auth-card__crosslink">
+      <a href={routes.login}>{copy.auth.register.crossLink}</a>
+    </p>
+  </div>
+</AuthLayout>

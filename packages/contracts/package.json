@@ -1,0 +1,24 @@
+{
+  "name": "@taskapp/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./copy": "./src/copy.ts",
+    "./types": "./src/types/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./errors": "./src/errors.ts",
+    "./routes": "./src/routes.ts",
+    "./format": "./src/format.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
