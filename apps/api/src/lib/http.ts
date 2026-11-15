@@ -4,34 +4,52 @@ import {
   type ErrorCode,
   type ErrorEnvelope,
   type ValidationDetail,
-} from '@taskapp/contracts';
-import { ApiError } from './errors';
-import { isUuidV4 } from './ids';
+} from "@taskapp/contracts";
+import { ApiError } from "./errors";
+import { isUuidV4 } from "./ids";
 
 /** §1.8: JSON bodies are capped at 256 KiB. */
 export const MAX_JSON_BYTES = 256 * 1024;
 
-const JSON_MEDIA_TYPE = 'application/json';
+/** Dev-only Next.js origin. The API answers its preflight; production needs no CORS at all. */
+export const DEV_ORIGIN = "http://localhost:3000";
+
+export function devPreflightResponse(
+  method: string,
+  origin: string | null,
+  isProduction: boolean,
+): Response | null {
+  if (method !== "OPTIONS" || isProduction || origin !== DEV_ORIGIN) return null;
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": DEV_ORIGIN,
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-Request-Id",
+      Vary: "Origin",
+    },
+  });
+}
+
+const JSON_MEDIA_TYPE = "application/json";
 
 export function requestIdFrom(request: Request): string {
-  const inbound = request.headers.get('x-request-id')?.trim();
+  const inbound = request.headers.get("x-request-id")?.trim();
   return inbound && isUuidV4(inbound) ? inbound : crypto.randomUUID();
 }
 
 /** Cloudflare overwrites `CF-Connecting-IP`; it is the only trustworthy client address here. */
 export function clientIp(request: Request): string {
-  const connecting = request.headers.get('cf-connecting-ip')?.trim();
+  const connecting = request.headers.get("cf-connecting-ip")?.trim();
   if (connecting) return connecting;
-  const [firstForwarded] = (request.headers.get('x-forwarded-for') ?? '').split(',');
+  const [firstForwarded] = (request.headers.get("x-forwarded-for") ?? "").split(
+    ",",
+  );
   const forwarded = firstForwarded?.trim();
-  return forwarded ? forwarded : 'unknown';
+  return forwarded ? forwarded : "unknown";
 }
 
-/**
- * `errorResponse` returns a plain `Response` so any handler — or the global error handler — can
- * emit it without depending on a framework context object. `requestId` is passed in explicitly
- * rather than read from an ambient request context.
- */
 export function errorResponse(
   requestId: string,
   code: ErrorCode,
@@ -44,7 +62,7 @@ export function errorResponse(
   };
   return new Response(JSON.stringify(body), {
     status: errorStatus[code],
-    headers: { 'content-type': 'application/json', ...headers },
+    headers: { "content-type": "application/json", ...headers },
   });
 }
 
@@ -63,29 +81,31 @@ export function parseJsonBody(
   contentType: string | null,
   contentLength: string | null,
 ): unknown {
-  const [mediaType] = (contentType ?? '').split(';');
+  const [mediaType] = (contentType ?? "").split(";");
   if (mediaType?.trim().toLowerCase() !== JSON_MEDIA_TYPE) {
-    throw new ApiError('UNSUPPORTED_MEDIA_TYPE', copy.error.form);
+    throw new ApiError("UNSUPPORTED_MEDIA_TYPE", copy.error.form);
   }
 
   const declaredLength = Number(contentLength ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BYTES) {
-    throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
+    throw new ApiError("PAYLOAD_TOO_LARGE", copy.upload.reject.sizeShort);
   }
   if (new TextEncoder().encode(text).byteLength > MAX_JSON_BYTES) {
-    throw new ApiError('PAYLOAD_TOO_LARGE', copy.upload.reject.sizeShort);
+    throw new ApiError("PAYLOAD_TOO_LARGE", copy.upload.reject.sizeShort);
   }
-  if (text.trim() === '') {
-    throw new ApiError('VALIDATION_FAILED', copy.error.form, {
-      details: [{ field: 'body', code: 'required', message: copy.error.form }],
+  if (text.trim() === "") {
+    throw new ApiError("VALIDATION_FAILED", copy.error.form, {
+      details: [{ field: "body", code: "required", message: copy.error.form }],
     });
   }
 
   try {
     return JSON.parse(text);
   } catch {
-    throw new ApiError('VALIDATION_FAILED', copy.error.form, {
-      details: [{ field: 'body', code: 'invalid_json', message: copy.error.form }],
+    throw new ApiError("VALIDATION_FAILED", copy.error.form, {
+      details: [
+        { field: "body", code: "invalid_json", message: copy.error.form },
+      ],
     });
   }
 }
@@ -93,16 +113,17 @@ export function parseJsonBody(
 /** §6.5 of `.planning/07`: identical values for every API response. */
 export function securityHeaders(isProduction: boolean): Record<string, string> {
   const headers: Record<string, string> = {
-    'Content-Security-Policy':
+    "Content-Security-Policy":
       "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'no-referrer',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Cross-Origin-Opener-Policy': 'same-origin',
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
   };
   if (isProduction) {
-    headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+    headers["Strict-Transport-Security"] =
+      "max-age=31536000; includeSubDomains";
   }
   return headers;
 }

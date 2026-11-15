@@ -2,12 +2,11 @@ import { copy } from '@taskapp/contracts';
 import { Elysia } from 'elysia';
 import { getConfig } from './context';
 import { ApiError } from './lib/errors';
-import { errorResponse, requestIdFrom } from './lib/http';
+import { DEV_ORIGIN, errorResponse, requestIdFrom } from './lib/http';
 import { authRoutes } from './modules/auth/routes';
 import { healthRoutes } from './modules/health/routes';
 
 const UNSAFE_METHODS: Record<string, true> = { POST: true, PATCH: true, PUT: true, DELETE: true };
-const DEV_ORIGIN = 'http://localhost:3000';
 
 /**
  * The Elysia app. The `onBeforeHandle` hook enforces the same-origin rule
@@ -33,25 +32,10 @@ export const app = new Elysia({
     const config = getConfig();
     const origin = request.headers.get('origin');
 
-    if (!config.isProduction && origin === DEV_ORIGIN) {
-      // CORS is dev-only (`origin: localhost:3000`); the production origin needs no CORS headers.
-      if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 204,
-          headers: {
-            'Access-Control-Allow-Origin': DEV_ORIGIN,
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, X-Request-Id',
-            Vary: 'Origin',
-          },
-        });
-      }
-    }
-
     if (UNSAFE_METHODS[request.method]) {
+      // Dev runs two frontends on different ports (Astro :4321, Next :3000); both are same-site here.
       const sameOrigin = origin
-        ? origin === config.appOrigin
+        ? origin === config.appOrigin || (!config.isProduction && origin === DEV_ORIGIN)
         : request.headers.get('sec-fetch-site') === 'same-origin';
       if (!sameOrigin) throw new ApiError('UNAUTHENTICATED', copy.auth.error.sessionExpired);
     }
