@@ -1503,13 +1503,16 @@ select.field__input {
   padding-top: var(--sp-4);
 }
 
-/* Mocks draw the thumbnails as inert `surface-2` placeholders (DESIGN.md §9); real screens swap
-   in the image. Fixed 4:3 box, so a row of cards lines up regardless of the copy above. */
+/* Mocks draw the thumbnails as `surface-2` placeholders with a centred image glyph
+   (DESIGN.md §9, C-10); real screens swap in the image. Fixed 4:3 box, so a row of cards lines
+   up regardless of the copy above. */
 .preview-card__thumb {
-  display: block;
+  display: grid;
+  place-items: center;
   width: var(--thumb-w);
   height: var(--thumb-h);
   border-radius: var(--r-sm);
+  color: var(--color-ink-muted);
   background: var(--color-surface-2);
 }
 

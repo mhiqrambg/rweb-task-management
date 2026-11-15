@@ -106,7 +106,9 @@ export const prerender = false;
               <p class="preview-card__body">{task.body}</p>
               <div class="preview-card__thumbs" aria-hidden="true">
                 {Array.from({ length: 3 }, () => (
-                  <span class="preview-card__thumb" />
+                  <span class="preview-card__thumb">
+                    <ImageIcon size={20} stroke-width={1.6} />
+                  </span>
                 ))}
                 <span class="preview-card__thumb preview-card__thumb--more">
                   {previewOverflow}
