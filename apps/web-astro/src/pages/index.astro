@@ -11,6 +11,7 @@
  * wide -> 481 tall; the ratio-true width/height let the browser reserve the box before the image
  * loads (CLS budget, 08 S1). Next must ship the identical illustration (FR-LAND-004 parity).
  */
+import Icon from '../components/Icon.astro';
 import { copy, fill, routes } from '@taskapp/contracts';
 import MarketingLayout from '../layouts/MarketingLayout.astro';
 import Button from '../components/Button.astro';
@@ -66,14 +67,17 @@ export const prerender = false;
   <section class="section" aria-label={copy.landing.previewAlt}>
     <div class="features">
       <div class="feature">
+        <Icon name="task" size={40} class="feature__icon" />
         <h2 class="feature__title">{copy.landing.featureTasksTitle}</h2>
         <p class="feature__body">{copy.task.empty.body}</p>
       </div>
       <div class="feature">
+        <Icon name="note" size={40} class="feature__icon" />
         <h2 class="feature__title">{copy.landing.featureNotesTitle}</h2>
         <p class="feature__body">{copy.note.empty.body}</p>
       </div>
       <div class="feature">
+        <Icon name="image" size={40} class="feature__icon" />
         <h2 class="feature__title">{copy.landing.featureImagesTitle}</h2>
         <p class="feature__body">{copy.task.attachments.noneHint}</p>
       </div>

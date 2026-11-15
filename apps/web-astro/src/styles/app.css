@@ -1391,6 +1391,15 @@ select.field__input {
   border-top: 2px solid var(--color-line);
 }
 
+/* Feature glyph: the shared SVG sprite (public/icons.svg), coloured by the surrounding token. */
+.feature__icon {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--sp-2);
+  color: var(--color-accent);
+}
+
 .feature__title {
   font-size: var(--fs-20);
   line-height: var(--lh-tight);
