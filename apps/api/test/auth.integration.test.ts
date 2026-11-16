@@ -81,6 +81,8 @@ describe('POST /auth/register', () => {
     expect(await shortPassword.json()).toMatchObject({
       error: {
         code: 'VALIDATION_FAILED',
+        // One failing field names itself; the generic banner would be the dead end the UI showed.
+        message: 'Use at least 12 characters.',
         details: [{ field: 'password', code: 'password_policy' }],
       },
     });
@@ -107,6 +109,22 @@ describe('POST /auth/register', () => {
       .bind('unknown@example.test')
       .first<{ n: number }>();
     expect(created?.n).toBe(0);
+  });
+
+  it('keeps the generic banner when both fields fail, with a message under each field', async () => {
+    const empty = await call(REGISTER, { body: {}, ip: '198.51.100.25' });
+    expect(empty.status).toBe(422);
+    const body: unknown = await empty.json();
+    expect(body).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: 'Check the highlighted fields and try again.',
+        details: [
+          { field: 'email', code: 'required', message: 'Enter your email.' },
+          { field: 'password', code: 'required', message: 'Enter your password.' },
+        ],
+      },
+    });
   });
 
   it('enforces the JSON media type and the 256 KiB body limit', async () => {

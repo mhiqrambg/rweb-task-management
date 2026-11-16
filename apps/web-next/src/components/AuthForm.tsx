@@ -6,8 +6,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import {
   api,
   copy,
+  fieldError,
   loginSchema,
   registerSchema,
+  validationMessage,
   routes,
   type ItemResponse,
   type SessionProbe,
@@ -75,6 +77,17 @@ function errorCopy(mode: Mode, cause: unknown): { field?: FieldErrors; message?:
     case 409:
       // Login while authenticated is a precondition conflict (Q-15), not an email error.
       return mode === 'register' ? { field: { email: copy.auth.error.emailTaken } } : { message: copy.error.form };
+    case 422: {
+      // Parity with Astro: map the API's per-field details onto the fields (so they get
+      // highlighted) and use a specific top message when exactly one field failed. The
+      // generic banner used to appear with nothing highlighted — the "check the highlighted
+      // fields" dead end.
+      const email = fieldError(cause.details, 'email');
+      const password = fieldError(cause.details, 'password');
+      const field =
+        email || password ? { ...(email ? { email } : {}), ...(password ? { password } : {}) } : undefined;
+      return { field, message: cause.message || validationMessage(cause.details) };
+    }
     case 429:
       return { message: copy.auth.error.rateLimited };
     default:

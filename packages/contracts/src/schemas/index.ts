@@ -160,6 +160,27 @@ export function validationDetails(error: z.ZodError): ValidationDetail[] {
   return details;
 }
 
+/**
+ * Wire shape of a 422 `details[]` entry and of the error envelope that carries it, as
+ * validators — the API writes them, clients parse them at the fetch boundary (07 §6).
+ * `file` is optional because only upload errors carry it.
+ */
+export const validationDetailSchema = z.object({
+  field: z.string(),
+  code: z.string(),
+  message: z.string(),
+  file: z.string().optional(),
+});
+
+export const errorEnvelopeSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    requestId: z.string(),
+    details: z.array(validationDetailSchema),
+  }),
+});
+
 type Issue = z.ZodError['issues'][number];
 
 function detailCode(field: string, issue: Issue): string {

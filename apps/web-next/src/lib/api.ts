@@ -4,14 +4,19 @@
  * For SSG: every private-data request runs in the browser, never at build time, so the
  * static export contains no user data.
  */
-import { copy } from '@taskapp/contracts';
+import { copy, errorEnvelopeSchema, type ValidationDetail } from '@taskapp/contracts';
 
 const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN ?? '').replace(/\/$/, '');
 
 export const SESSION_EXPIRED_EVENT = 'taskapp:session-expired';
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    /** Field-level messages from a 422 envelope; empty for every other status. */
+    public readonly details: ValidationDetail[] = [],
+  ) {
     super(message);
     this.name = 'ApiError';
   }
@@ -32,6 +37,15 @@ function messageFromResponse(value: unknown, fallback: string): string {
     if (typeof message === 'string' && message.trim()) return message;
   }
   return fallback;
+}
+
+/**
+ * Field-level messages of a 422 envelope, parsed with the contract's own detail schema at
+ * this untrusted boundary. A malformed detail is ignored, never trusted.
+ */
+function detailsFromResponse(value: unknown): ValidationDetail[] {
+  const envelope = errorEnvelopeSchema.safeParse(value);
+  return envelope.success ? envelope.data.error.details : [];
 }
 
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -57,15 +71,18 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
     const fallback =
       response.status === 401 ? copy.auth.error.sessionExpired : `Request failed (HTTP ${response.status}).`;
     let message = fallback;
+    let details: ValidationDetail[] = [];
     try {
-      message = messageFromResponse(await response.json(), fallback);
+      const body: unknown = await response.json();
+      message = messageFromResponse(body, fallback);
+      details = detailsFromResponse(body);
     } catch {
       // The server may not return JSON.
     }
     if (response.status === 401 && typeof window !== 'undefined') {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, details);
   }
 
   if (response.status === 204) return undefined as T;
