@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useRef, type KeyboardEvent, type SyntheticEvent } from 'react';
-import { copy, fill, formatBytes, formatDimensions, type Attachment } from '@taskapp/contracts';
+import { copy, fill, formatBytes, formatDimensions, type AttachmentSummary } from '@taskapp/contracts';
+
+/**
+ * What a thumbnail or a slide needs. Dashboard lists carry the summary shape (no byte size yet), the
+ * detail screens carry the full record, so the size is optional here and rendered only when present.
+ */
+export type AttachmentView = AttachmentSummary & { sizeBytes?: number };
 import { ImageIcon, X } from './icons';
 
 /**
@@ -21,7 +27,7 @@ export function AttachmentLightbox({
   onClose,
 }: {
   label: string;
-  attachments: Attachment[];
+  attachments: AttachmentView[];
   index: number;
   onChange: (index: number) => void;
   onClose: () => void;
@@ -48,7 +54,7 @@ export function AttachmentLightbox({
   const position = fill(copy.task.attachments.counter, { index: index + 1, count: attachments.length });
   // FR-ATT-005 names dimensions *and* size, so the caption carries both.
   const caption =
-    [formatDimensions(current.width, current.height), formatBytes(current.sizeBytes)]
+    [formatDimensions(current.width, current.height), current.sizeBytes === undefined ? null : formatBytes(current.sizeBytes)]
       .filter(Boolean)
       .join(' · ') || current.mime;
 
@@ -124,46 +130,79 @@ export function AttachmentLightbox({
  */
 export function AttachmentStrip({
   attachments,
+  size = 'card',
+  overflow = 0,
   onOpen,
+  onRemove,
 }: {
-  attachments: Attachment[];
+  attachments: AttachmentView[];
+  /** Lists show three 80×60 thumbs; detail screens show every attachment at 208×156 (design/05 §1). */
+  size?: 'card' | 'detail';
+  overflow?: number;
   onOpen: (index: number) => void;
+  onRemove?: (index: number) => void;
 }) {
-  if (!attachments.length) {
+  const shown = size === 'detail' ? attachments : attachments.slice(0, 3);
+  const hidden = size === 'detail' ? overflow : Math.max(overflow, 0);
+  const thumbWidth = size === 'detail' ? 208 : 80;
+  const thumbHeight = size === 'detail' ? 156 : 60;
+  if (!shown.length) {
     return (
-      <p className="muted stat__hint">
-        <ImageIcon />
+      <p className="muted">
+        <ImageIcon size={16} />
         {copy.task.attachments.none}
       </p>
     );
   }
 
   return (
-    <div className="thumbs" data-size="detail">
-      {attachments.map((attachment, index) => {
+    <div className="thumbs" data-size={size}>
+      {shown.map((attachment, index) => {
         const label = fill(copy.task.attachments.open, {
           index: index + 1,
-          count: attachments.length,
+          count: shown.length,
         });
         const caption =
-          [formatDimensions(attachment.width, attachment.height), formatBytes(attachment.sizeBytes)]
+          [
+            formatDimensions(attachment.width, attachment.height),
+            attachment.sizeBytes === undefined ? null : formatBytes(attachment.sizeBytes),
+          ]
             .filter(Boolean)
             .join(' · ') || attachment.mime;
         return (
           <figure className="thumb-figure" key={attachment.id}>
             <button
-              className="thumb thumb--detail"
+              className={size === 'detail' ? 'thumb thumb--detail' : 'thumb'}
               type="button"
               aria-label={label}
               onClick={() => onOpen(index)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static export: next/image cannot optimise, and explicit dimensions are required (R-D5) */}
-              <img src={attachment.thumbUrl} alt={label} width={208} height={156} loading="lazy" decoding="async" />
+              <img
+                src={attachment.thumbUrl}
+                alt={label}
+                width={thumbWidth}
+                height={thumbHeight}
+                loading="lazy"
+                decoding="async"
+              />
             </button>
-            <figcaption className="thumb-figure__caption">{caption}</figcaption>
+            {size === 'detail' && onRemove ? (
+              <button
+                className="thumb-figure__remove"
+                type="button"
+                onClick={() => onRemove(index)}
+              >
+                {copy.task.attachments.remove}
+              </button>
+            ) : null}
+            {size === 'detail' ? (
+              <figcaption className="thumb-figure__caption">{caption}</figcaption>
+            ) : null}
           </figure>
         );
       })}
+      {hidden > 0 ? <span className="thumbs__more">{`+${hidden}`}</span> : null}
     </div>
   );
 }

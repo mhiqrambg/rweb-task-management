@@ -48,18 +48,12 @@ const draft = {
         actionHref={routes.note(id)}
       />
     ) : (
-      <div class="page-head">
-        <div class="page-head__row">
-          <h1 class="page-head__title">{copy.action.edit}</h1>
+      <dialog class="dialog" id="note-form" data-modal aria-label={copy.action.edit}>
+        <div class="dialog__head">
+            <h2 class="dialog__title">{copy.action.edit}</h2>
         </div>
-      </div>
-
-      <form
-        class="panel stack"
-        method="POST"
-        action={actions.updateNote}
-        style="max-width: var(--measure)"
-      >
+        <form method="POST" action={actions.updateNote}>
+          <div class="dialog__body stack">
         <input type="hidden" name="id" value={note.id} />
 
         {failure?.message ? <InlineError message={failure.message} /> : null}
@@ -77,7 +71,7 @@ const draft = {
           name="body"
           label={copy.note.field.body}
           as="textarea"
-          rows={10}
+          rows={8}
           value={draft.body}
           error={failure?.errors.body}
           counter
@@ -85,13 +79,19 @@ const draft = {
           required
         />
 
-        <div class="dialog__actions">
-          <a class="btn" data-variant="secondary" href={routes.note(note.id)}>
-            {copy.action.cancel}
-          </a>
-          <Button type="submit">{copy.action.save}</Button>
-        </div>
-      </form>
+          </div>
+          <div class="dialog__actions">
+            <a class="btn" data-variant="secondary" href={routes.note(note.id)}>
+              {copy.action.cancel}
+            </a>
+            <Button type="submit">{copy.action.save}</Button>
+          </div>
+        </form>
+      </dialog>
     )
   }
 </AppLayout>
+
+<script>
+  import '../../../scripts/modal';
+</script>

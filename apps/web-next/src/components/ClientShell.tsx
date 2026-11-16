@@ -192,7 +192,7 @@ export function ClientShell() {
           <div className="shell__container">
             {view === 'dashboard' && <DashboardPanel />}
             {view === 'tasks' && <TaskPanel id={id} mode={mode} />}
-            {view === 'notes' && <NotePanel id={id} />}
+            {view === 'notes' && <NotePanel id={id} mode={mode} />}
             {view === 'account' && (
               <AccountPanel
                 profile={user}

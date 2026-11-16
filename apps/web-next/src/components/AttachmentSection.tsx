@@ -102,7 +102,12 @@ export function AttachmentSection({
         {copy.task.field.images}
       </h2>
 
-      <AttachmentStrip attachments={attachments} onOpen={setOpenAt} />
+      <AttachmentStrip
+        attachments={attachments}
+        size="detail"
+        onOpen={setOpenAt}
+        onRemove={(index) => setPending(attachments[index])}
+      />
 
       {attachments.length === 0 ? (
         <p className="muted stat__hint">{copy.task.attachments.noneHint}</p>
@@ -143,30 +148,6 @@ export function AttachmentSection({
           {copy.task.attachments.add}
         </button>
       </div>
-
-      {attachments.length > 0 ? (
-        <ul className="attachment-removals">
-          {attachments.map((attachment) => (
-            <li key={attachment.id}>
-              <button
-                className="btn"
-                data-variant="danger"
-                type="button"
-                disabled={busy}
-                onClick={() => setPending(attachment)}
-              >
-                {copy.task.attachments.remove}
-                <span className="visually-hidden">
-                  {fill(copy.task.attachments.open, {
-                    index: attachments.indexOf(attachment) + 1,
-                    count: attachments.length,
-                  })}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
 
       {pending ? (
         <RemoveImageDialog

@@ -8,8 +8,6 @@
 import { actions } from 'astro:actions';
 import {
   copy,
-  fill,
-  formatRelative,
   noteListHref,
   parseNoteListQuery,
   routes,
@@ -17,7 +15,7 @@ import {
 import AppLayout from '../../layouts/AppLayout.astro';
 import Field from '../../components/Field.astro';
 import StateBlock from '../../components/StateBlock.astro';
-import ThumbStrip from '../../components/ThumbStrip.astro';
+import NoteCard from '../../components/NoteCard.astro';
 import Lightbox from '../../components/Lightbox.astro';
 import { cookieHeader } from '../../lib/server/session';
 import { getNotes } from '../../lib/server/data';
@@ -38,6 +36,11 @@ const actionFailure = actionResult?.data && !actionResult.data.ok ? actionResult
 if (actionResult?.data?.ok) return Astro.redirect(actionResult.data.redirect, 303);
 
 const showCreate = Astro.url.searchParams.get('new') === '1';
+
+// n-02: pinned notes sit in their own labelled block above the rest of the grid.
+const items = result.ok ? result.value.items : [];
+const pinnedNotes = items.filter((note) => note.pinned);
+const restNotes = items.filter((note) => !note.pinned);
 ---
 
 <AppLayout title={copy.note.title} current="notes">
@@ -59,10 +62,11 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
         {query.pinned !== null ? (
           <input type="hidden" name="pinned" value={String(query.pinned)} />
         ) : null}
-        <button class="btn" data-variant="primary" type="submit">
-          {copy.note.new}
-        </button>
       </form>
+
+      <a class="btn" data-variant="primary" href={`${routes.notes}?new=1`}>
+        {copy.note.new}
+      </a>
     </div>
   </div>
 
@@ -112,33 +116,20 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
       )
     ) : (
       <>
+        {pinnedNotes.length > 0 ? (
+          <section class="stack-sm" aria-labelledby="notes-pinned">
+            <h2 class="section__title" id="notes-pinned">{copy.note.pinned}</h2>
+            <div class="card-grid">
+              {pinnedNotes.map((note) => (
+                <NoteCard note={note} href={noteListHref(query, routes.note(note.id))} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <div class="card-grid">
-          {result.value.items.map((note) => (
-            <article class="card card--hoverable note-card" data-pinned={note.pinned ? '' : undefined}>
-              <h2 class="note-card__title">
-                <a href={noteListHref(query, routes.note(note.id))}>{note.title}</a>
-              </h2>
-
-              {note.pinned ? (
-                <span class="badge" data-kind="pin">
-                  {copy.note.pinned}
-                </span>
-              ) : null}
-
-              <p class="note-card__body">{note.excerpt}</p>
-
-              <div class="note-card__meta">
-                <span>{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
-              </div>
-
-              {note.attachments.length > 0 ? (
-                <ThumbStrip
-                  attachments={note.attachments}
-                  overflow={Math.max(0, note.attachmentCount - note.attachments.length)}
-                  target="note"
-                />
-              ) : null}
-            </article>
+          {restNotes.map((note) => (
+            <NoteCard note={note} href={noteListHref(query, routes.note(note.id))} />
           ))}
         </div>
 
@@ -163,14 +154,12 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
 
   {
     showCreate ? (
-      <dialog class="dialog" id="note-form" open aria-label={copy.note.new}>
-        <form method="POST" action={actions.createNote} class="dialog__body stack">
-          <div class="dialog__head">
+      <dialog class="dialog" id="note-form" data-modal aria-label={copy.note.new}>
+        <div class="dialog__head">
             <h2 class="dialog__title">{copy.note.new}</h2>
-            <a class="icon-btn" href={routes.notes}>
-              <span class="visually-hidden">{copy.action.cancel}</span>
-            </a>
-          </div>
+        </div>
+        <form method="POST" action={actions.createNote}>
+          <div class="dialog__body stack">
 
           {actionFailure?.message ? (
             <p class="inline-error" role="alert">{actionFailure.message}</p>
@@ -195,11 +184,7 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
             required
           />
 
-          <label class="row">
-            <input type="checkbox" name="pinned" value="on" />
-            <span>{copy.note.pinned}</span>
-          </label>
-
+          </div>
           <div class="dialog__actions">
             <a class="btn" data-variant="secondary" href={routes.notes}>
               {copy.action.cancel}
@@ -230,4 +215,5 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
 <script>
   import '../../scripts/lightbox';
   import '../../scripts/drawer';
+  import '../../scripts/modal';
 </script>

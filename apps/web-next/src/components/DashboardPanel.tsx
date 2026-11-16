@@ -13,7 +13,7 @@ import {
   type ItemResponse,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
-import styles from './DashboardPanel.module.css';
+import { AttachmentLightbox, AttachmentStrip, type AttachmentView } from './AttachmentLightbox';
 
 type RequestResult =
   | { requestId: number; status: 'success'; dashboard: Dashboard }
@@ -40,17 +40,17 @@ function isDashboard(value: unknown): value is Dashboard {
 export function LoadingDashboard() {
   return (
     <section aria-label={copy.dash.loading} role="status" aria-live="polite">
-      <span className={styles.srOnly}>{copy.dash.loading}</span>
-      <div className={styles.stats} aria-hidden="true">
+      <span className="visually-hidden">{copy.dash.loading}</span>
+      <div className="grid-3" aria-hidden="true">
         {[0, 1, 2].map((item) => (
-          <div className={`panel ${styles.statCard}`} key={item}>
+          <div className="panel stat" key={item}>
             <div className="skeleton" style={{ width: '62%', height: 16 }} />
             <div className="skeleton" style={{ width: '45%', height: 42 }} />
             <div className="skeleton" style={{ width: '80%', height: 14 }} />
           </div>
         ))}
       </div>
-      <div className={styles.columns} aria-hidden="true">
+      <div className="grid-3" aria-hidden="true">
         {[0, 1, 2].map((item) => (
           <div className="panel" key={item}>
             <div className="skeleton" style={{ width: '40%', height: 22 }} />
@@ -64,10 +64,12 @@ export function LoadingDashboard() {
 
 export function DashboardError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <section className={`panel ${styles.errorPanel}`} role="alert">
+    <section className="panel" role="alert">
       <h2>{copy.state.error.title}</h2>
-      <p>{message}</p>
-      <button className="button secondary" type="button" onClick={onRetry}>{copy.action.retry}</button>
+      <p className="inline-error">{message}</p>
+      <button className="btn" data-variant="secondary" type="button" onClick={onRetry}>
+        {copy.action.retry}
+      </button>
     </section>
   );
 }
@@ -75,47 +77,53 @@ export function DashboardError({ message, onRetry }: { message: string; onRetry:
 /** Bentuk data minimum untuk tampilan Dashboard: kontrak Dashboard penuh. */
 export type DashboardDisplayData = Dashboard;
 
-function Breakdown({ title, rows }: { title: string; rows: Array<[string, number]> }) {
+function Breakdown({ id, title, rows }: { id: string; title: string; rows: Array<[string, number]> }) {
   return (
-    <section className="panel" aria-label={title}>
-      <h2 className={styles.panelTitle}>{title}</h2>
-      <dl className={styles.breakdown}>
+    <section className="panel" aria-labelledby={id}>
+      <div className="panel__head">
+        <h2 className="section__title" id={id}>{title}</h2>
+      </div>
+      <div className="breakdown">
         {rows.map(([label, value]) => (
-          <div className={styles.breakdownRow} key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
+          <div className="breakdown__row" key={label}>
+            <span>{label}</span>
+            <span className="breakdown__value">{value}</span>
           </div>
         ))}
-      </dl>
+      </div>
     </section>
   );
 }
+
 export function DashboardHeader() {
   const router = useRouter();
   const [query, setQuery] = useState('');
 
   return (
-    <div className={styles.titleRow}>
-      <h1 id="dashboard-heading">{copy.dash.title}</h1>
-      <form
-        className={styles.searchRow}
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          router.push(`/app/?view=tasks${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}`);
-        }}
-      >
-        <label className={styles.srOnly} htmlFor="dashboard-search">{copy.dash.search.label}</label>
-        <input
-          id="dashboard-search"
-          className={styles.searchInput}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={copy.dash.search.label}
-        />
+    <div className="page-head">
+      <div className="page-head__row">
+        <h1 className="page-head__title" id="dashboard-heading">{copy.dash.title}</h1>
+        <form
+          className="search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const q = query.trim();
+            router.push(`/app/?view=tasks${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+          }}
+        >
+          <label className="visually-hidden" htmlFor="dashboard-search">{copy.dash.search.label}</label>
+          <input
+            id="dashboard-search"
+            className="field__input"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={copy.dash.search.label}
+          />
+        </form>
         <Link className="btn" data-variant="primary" href="/app/?view=tasks">{copy.task.new}</Link>
-      </form>
+      </div>
     </div>
   );
 }
@@ -126,119 +134,166 @@ export function DashboardContent({ dashboard }: { dashboard: DashboardDisplayDat
     { label: copy.dash.stat.active, hint: copy.dash.stat.activeHint, value: dashboard.tasks.active },
     { label: copy.dash.stat.completed, hint: copy.dash.stat.completedHint, value: dashboard.tasks.completed },
   ] as const;
+  // d-01 caps each list at two cards.
   const recentTasks = dashboard.recentTasks.slice(0, 2);
   const recentNotes = dashboard.recentNotes.slice(0, 2);
+  const [openAt, setOpenAt] = useState<number | null>(null);
+
+  // One lightbox over both lists, so a thumbnail on either card opens (Astro's counterpart does the
+  // same). `attachments` is the flat slide list; each strip passes its own offset into it.
+  const slides: AttachmentView[] = [
+    ...recentTasks.flatMap((task) => task.attachments),
+    ...recentNotes.flatMap((note) => note.attachments),
+  ];
+  const noteOffset = recentTasks.reduce((total, task) => total + task.attachments.length, 0);
 
   return (
     <>
       <DashboardHeader />
-      <div className={styles.stats} aria-label={copy.dash.title}>
+
+      <div className="grid-3" aria-label={copy.dash.title}>
         {stats.map((stat) => (
-          <div className={`panel ${styles.statCard}`} key={stat.label}>
-            <span className={styles.statLabel}>{stat.label}</span>
-            <strong className={styles.statNumber}>{stat.value}</strong>
-            <span className={styles.statDetail}>{stat.hint}</span>
+          <div className="panel stat" key={stat.label}>
+            <span className="stat__label">{stat.label}</span>
+            <strong className="stat__value">{stat.value}</strong>
+            <span className="stat__hint">{stat.hint}</span>
           </div>
         ))}
       </div>
 
-      <div className={styles.columns}>
-        <div className={styles.column}>
-          <Breakdown
-            title={copy.dash.breakdown.status}
-            rows={[
-              [copy.task.status.todo, dashboard.byStatus.todo],
-              [copy.task.status.in_progress, dashboard.byStatus.in_progress],
-              [copy.task.status.completed, dashboard.byStatus.completed],
-            ]}
-          />
-          <section className="panel" aria-labelledby="recent-tasks-heading">
-            <div className={styles.panelHeading}>
-              <h2 id="recent-tasks-heading" className={styles.panelTitle}>{copy.dash.recentTasks}</h2>
-              <Link href="/app/?view=tasks" className={styles.inlineLink}>{copy.dash.viewAll}</Link>
+      <div className="grid-3">
+        <Breakdown
+          id="dash-status"
+          title={copy.dash.breakdown.status}
+          rows={[
+            [copy.task.status.todo, dashboard.byStatus.todo],
+            [copy.task.status.in_progress, dashboard.byStatus.in_progress],
+            [copy.task.status.completed, dashboard.byStatus.completed],
+          ]}
+        />
+        <Breakdown
+          id="dash-priority"
+          title={copy.dash.breakdown.priority}
+          rows={[
+            [copy.task.priority.low, dashboard.byPriority.low],
+            [copy.task.priority.medium, dashboard.byPriority.medium],
+            [copy.task.priority.high, dashboard.byPriority.high],
+          ]}
+        />
+        <section className="panel" aria-labelledby="dash-overdue">
+          <div className="panel__head">
+            <h2 className="section__title" id="dash-overdue">{copy.dash.breakdown.overdue}</h2>
+          </div>
+          <div className="breakdown">
+            <div className="breakdown__row">
+              <strong
+                className="breakdown__value"
+                data-tone={dashboard.tasks.overdue > 0 ? 'danger' : undefined}
+              >
+                {dashboard.tasks.overdue}
+              </strong>
             </div>
-            {recentTasks.length === 0 ? (
-              <div role="status">
-                <p><strong>{copy.dash.empty.tasks}</strong></p>
-                <p className="muted">{copy.dash.empty.tasksHint}</p>
-                <p><Link className="btn" data-variant="primary" href="/app/?view=tasks">{copy.task.new}</Link></p>
-              </div>
-            ) : (
-              <ul className={styles.recentList}>
-                {recentTasks.map((task) => (
-                  <li className={styles.recentCard} key={task.id}>
-                    <Link className={styles.taskLink} href={`/app/?view=tasks&id=${encodeURIComponent(task.id)}`}>
-                      {task.title}
-                    </Link>
-                    <div className={styles.badges}>
-                      <span className="badge" data-kind="status" data-value={task.status}>
-                        {copy.task.status[task.status]}
-                      </span>
-                      <span className="badge" data-kind="priority" data-value={task.priority}>
-                        {copy.task.priority[task.priority]}
-                      </span>
-                    </div>
-                    <p className={styles.cardMeta}>
-                      {task.isOverdue && task.dueDate
-                        ? <span className={styles.dangerText}>{`${copy.task.overdue} · ${formatDate(task.dueDate)}`}</span>
-                        : task.dueDate ? formatDate(task.dueDate) : null}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <div className={styles.column}>
-          <Breakdown
-            title={copy.dash.breakdown.priority}
-            rows={[
-              [copy.task.priority.low, dashboard.byPriority.low],
-              [copy.task.priority.medium, dashboard.byPriority.medium],
-              [copy.task.priority.high, dashboard.byPriority.high],
-            ]}
-          />
-          <section className="panel" aria-labelledby="recent-notes-heading">
-            <div className={styles.panelHeading}>
-              <h2 id="recent-notes-heading" className={styles.panelTitle}>{copy.dash.recentNotes}</h2>
-              <Link href="/app/?view=notes" className={styles.inlineLink}>{copy.dash.viewAll}</Link>
-            </div>
-            {recentNotes.length === 0 ? (
-              <div role="status">
-                <p><strong>{copy.dash.empty.notes}</strong></p>
-                <p className="muted">{copy.note.empty.body}</p>
-                <p><Link className="btn" data-variant="primary" href="/app/?view=notes">{copy.note.new}</Link></p>
-              </div>
-            ) : (
-              <ul className={styles.recentList}>
-                {recentNotes.map((note) => (
-                  <li className={styles.recentCard} key={note.id}>
-                    <Link className={styles.taskLink} href={`/app/?view=notes&id=${encodeURIComponent(note.id)}`}>
-                      {note.title}
-                    </Link>
-                    {note.pinned ? <span className="badge" data-kind="pin">{copy.note.pinned}</span> : null}
-                    <p className={styles.excerpt}>{note.excerpt}</p>
-                    <p className={styles.cardMeta}>
-                      {fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <div className={styles.column}>
-          <section className="panel" aria-labelledby="overdue-heading">
-            <h2 id="overdue-heading" className={styles.panelTitle}>{copy.dash.breakdown.overdue}</h2>
-            <strong className={`${styles.statNumber} ${dashboard.tasks.overdue > 0 ? styles.dangerText : ''}`}>
-              {dashboard.tasks.overdue}
-            </strong>
-            <p className="muted">{copy.dash.breakdown.overdueHint}</p>
-          </section>
-        </div>
+          </div>
+          <p className="muted stat__hint">{copy.dash.breakdown.overdueHint}</p>
+        </section>
       </div>
+
+      <div className="grid-2">
+        <section className="panel" aria-labelledby="dash-recent-tasks">
+          <div className="panel__head">
+            <h2 className="section__title" id="dash-recent-tasks">{copy.dash.recentTasks}</h2>
+            <Link className="btn btn--sm" data-variant="ghost" href="/app/?view=tasks">
+              {copy.dash.viewAll}
+            </Link>
+          </div>
+          {recentTasks.length === 0 ? (
+            <div className="empty-state">
+              <p><strong>{copy.dash.empty.tasks}</strong></p>
+              <p className="muted">{copy.dash.empty.tasksHint}</p>
+              <Link className="btn" data-variant="primary" href="/app/?view=tasks">{copy.task.new}</Link>
+            </div>
+          ) : (
+            <ul className="panel__list">
+              {recentTasks.map((task) => (
+                <li className="card card--hoverable task-card" key={task.id}>
+                  <h3 className="task-card__title">
+                    <Link href={`/app/?view=tasks&id=${encodeURIComponent(task.id)}`}>{task.title}</Link>
+                  </h3>
+                  <div className="task-card__meta">
+                    <span className="badge" data-kind="status" data-value={task.status}>
+                      {copy.task.status[task.status]}
+                    </span>
+                    <span className="badge" data-kind="priority" data-value={task.priority}>
+                      {copy.task.priority[task.priority]}
+                    </span>
+                  </div>
+                  {task.dueDate ? (
+                    <p className="task-card__due" data-overdue={task.isOverdue ? '' : undefined}>
+                      {task.isOverdue ? `${copy.task.overdue} · ` : ''}
+                      {formatDate(task.dueDate)}
+                    </p>
+                  ) : null}
+                  {task.attachments.length > 0 ? (
+                    <AttachmentStrip
+                      attachments={task.attachments}
+                      overflow={Math.max(0, task.attachmentCount - task.attachments.length)}
+                      onOpen={(index) => setOpenAt(index)}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel" aria-labelledby="dash-recent-notes">
+          <div className="panel__head">
+            <h2 className="section__title" id="dash-recent-notes">{copy.dash.recentNotes}</h2>
+            <Link className="btn btn--sm" data-variant="ghost" href="/app/?view=notes">
+              {copy.dash.viewAll}
+            </Link>
+          </div>
+          {recentNotes.length === 0 ? (
+            <div className="empty-state">
+              <p><strong>{copy.dash.empty.notes}</strong></p>
+              <p className="muted">{copy.note.empty.body}</p>
+              <Link className="btn" data-variant="primary" href="/app/?view=notes">{copy.note.new}</Link>
+            </div>
+          ) : (
+            <ul className="panel__list">
+              {recentNotes.map((note) => (
+                <li className="card card--hoverable note-card" key={note.id}>
+                  <h3 className="note-card__title">
+                    <Link href={`/app/?view=notes&id=${encodeURIComponent(note.id)}`}>{note.title}</Link>
+                  </h3>
+                  {note.pinned ? <span className="badge" data-kind="pin">{copy.note.pinned}</span> : null}
+                  <p className="note-card__body">{note.excerpt}</p>
+                  <div className="task-card__meta">
+                    <span>{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
+                  </div>
+                  {note.attachments.length > 0 ? (
+                    <AttachmentStrip
+                      attachments={note.attachments}
+                      overflow={Math.max(0, note.attachmentCount - note.attachments.length)}
+                      onOpen={(index) => setOpenAt(noteOffset + index)}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {openAt !== null && slides[openAt] ? (
+        <AttachmentLightbox
+          label={copy.task.attachments.open}
+          attachments={slides}
+          index={openAt}
+          onChange={setOpenAt}
+          onClose={() => setOpenAt(null)}
+        />
+      ) : null}
     </>
   );
 }

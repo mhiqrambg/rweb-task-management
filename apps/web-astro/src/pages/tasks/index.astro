@@ -78,10 +78,11 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
         {query.due ? <input type="hidden" name="due" value={query.due} /> : null}
         {query.hasImages ? <input type="hidden" name="hasImages" value="true" /> : null}
         {query.sort !== 'updated' ? <input type="hidden" name="sort" value={query.sort} /> : null}
-        <button class="btn" data-variant="primary" type="submit">
-          {copy.task.new}
-        </button>
       </form>
+
+      <a class="btn" data-variant="primary" href={`${routes.tasks}?new=1`}>
+        {copy.task.new}
+      </a>
     </div>
   </div>
 
@@ -269,14 +270,12 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
 
   {
     showCreate ? (
-      <dialog class="dialog" id="task-form" open aria-label={copy.task.new}>
-        <form method="POST" action={actions.createTask} class="dialog__body">
-          <div class="dialog__head">
+      <dialog class="dialog" id="task-form" data-modal aria-label={copy.task.new}>
+        <div class="dialog__head">
             <h2 class="dialog__title">{copy.task.new}</h2>
-            <a class="icon-btn" href={taskListHref(query, routes.tasks)}>
-              <span class="visually-hidden">{copy.action.cancel}</span>
-            </a>
-          </div>
+        </div>
+        <form method="POST" action={actions.createTask}>
+          <div class="dialog__body stack">
 
           {actionFailure?.message ? <p class="inline-error" role="alert">{actionFailure.message}</p> : null}
 
@@ -323,6 +322,7 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
             error={actionFailure?.errors.dueDate}
           />
 
+          </div>
           <div class="dialog__actions">
             <a class="btn" data-variant="secondary" href={taskListHref(query, routes.tasks)}>
               {copy.action.cancel}
@@ -357,6 +357,7 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
   import '../../scripts/lightbox';
   import '../../scripts/drawer';
   import '../../scripts/confirm';
+  import '../../scripts/modal';
 
   // Filters and sort are URL state (FR-TASK-014): each change navigates, so reload and Back work
   // with no client router. The status forms submit on change, which is the same guarantee.

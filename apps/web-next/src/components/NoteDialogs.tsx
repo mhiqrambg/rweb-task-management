@@ -124,6 +124,7 @@ export function NoteFormDialog({
               aria-describedby={errors.body ? bodyErrorId : undefined}
               onChange={(event) => setDraft((value) => ({ ...value, body: event.target.value }))}
             />
+            <span className="field__count">{`${draft.body.length}/20000`}</span>
             {errors.body && <p className="field__error" id={bodyErrorId}>{errors.body}</p>}
           </div>
           {(errors.form || failure) && (

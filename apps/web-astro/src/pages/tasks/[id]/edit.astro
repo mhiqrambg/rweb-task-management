@@ -71,18 +71,12 @@ const draft = {
         actionHref={routes.taskEdit(id)}
       />
     ) : (
-      <div class="page-head">
-        <div class="page-head__row">
-          <h1 class="page-head__title">{copy.action.edit}</h1>
+      <dialog class="dialog" id="task-form" data-modal aria-label={copy.action.edit}>
+        <div class="dialog__head">
+            <h2 class="dialog__title">{copy.action.edit}</h2>
         </div>
-      </div>
-
-      <form
-        class="panel stack"
-        method="POST"
-        action={actions.updateTask}
-        style="max-width: var(--measure)"
-      >
+        <form method="POST" action={actions.updateTask}>
+          <div class="dialog__body stack">
         <input type="hidden" name="id" value={task.id} />
 
         {failure?.message ? <InlineError message={failure.message} /> : null}
@@ -100,7 +94,7 @@ const draft = {
           name="description"
           label={copy.task.field.description}
           as="textarea"
-          rows={6}
+          rows={4}
           value={draft.description}
           error={failure?.errors.description}
           counter
@@ -153,13 +147,19 @@ const draft = {
           error={failure?.errors.dueDate}
         />
 
-        <div class="dialog__actions">
-          <a class="btn" data-variant="secondary" href={routes.task(task.id)}>
-            {copy.action.cancel}
-          </a>
-          <Button type="submit">{copy.action.save}</Button>
-        </div>
-      </form>
+          </div>
+          <div class="dialog__actions">
+            <a class="btn" data-variant="secondary" href={routes.task(task.id)}>
+              {copy.action.cancel}
+            </a>
+            <Button type="submit">{copy.action.save}</Button>
+          </div>
+        </form>
+      </dialog>
     )
   }
 </AppLayout>
+
+<script>
+  import '../../../scripts/modal';
+</script>

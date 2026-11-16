@@ -29,6 +29,7 @@ const EMPTY_TASK: TaskDraft = {
 };
 
 const FIELD_NAMES = ['title', 'description', 'status', 'priority', 'dueDate'] as const;
+const MAX_DESCRIPTION = 5000;
 
 /** The native dialog element supplies the backdrop, Escape handling and focus return. */
 function useDialogElement() {
@@ -176,13 +177,17 @@ export function TaskFormDialog({
               className="field__input"
               value={draft.description}
               onChange={(event) => patch('description', event.target.value)}
-              maxLength={5000}
+              maxLength={MAX_DESCRIPTION}
               rows={4}
               {...errorProps('description')}
             />
+            {kind === 'edit' ? (
+              <span className="field__count">{`${draft.description.length}/${MAX_DESCRIPTION}`}</span>
+            ) : null}
             {fieldError('description')}
           </div>
 
+          <div className="grid-2">
           <div className="field">
             <label className="field__label" htmlFor={`${baseId}-status`}>
               {copy.task.field.status}
@@ -217,6 +222,7 @@ export function TaskFormDialog({
               <option value="high">{taskPriorityLabel('high')}</option>
             </select>
             {fieldError('priority')}
+          </div>
           </div>
 
           <div className="field">
