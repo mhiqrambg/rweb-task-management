@@ -4,6 +4,7 @@ import {
   createNoteSchema,
   updateNoteSchema,
   validationDetails,
+  validationMessage,
   type Note,
   type User,
 } from '@taskapp/contracts';
@@ -32,7 +33,8 @@ const NOTES_LIMIT = 300;
 const NOTES_WINDOW_SECONDS = 60;
 
 function validationFailure(error: ZodError): ApiError {
-  return new ApiError('VALIDATION_FAILED', copy.error.form, { details: validationDetails(error) });
+  const details = validationDetails(error);
+  return new ApiError('VALIDATION_FAILED', validationMessage(details), { details });
 }
 
 async function enforceUserLimit(db: D1Database, userId: string): Promise<void> {

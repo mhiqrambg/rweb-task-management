@@ -38,6 +38,19 @@ export function errorMessage(code: ErrorCode): string {
   }
 }
 
+/**
+ * Message for a 422: when exactly one field failed, its own message says more than a generic
+ * "check the highlighted fields" — one bad field is never ambiguous. Two or more failing fields
+ * keep the generic banner; the per-field messages sit under each field.
+ *
+ * `errorMessage('VALIDATION_FAILED')` stays as-is on purpose: it is the code-level fallback for
+ * a 422 with no details at all (none today), not the wording for a details-bearing response.
+ */
+export function validationMessage(details: ValidationDetail[]): string {
+  const only = details.length === 1 ? details[0] : undefined;
+  return only ? only.message : copy.error.form;
+}
+
 /** True when a failure means "log in again" rather than "show an error". */
 export function isUnauthenticated(status: number, code?: ErrorCode): boolean {
   return status === 401 || code === 'UNAUTHENTICATED';

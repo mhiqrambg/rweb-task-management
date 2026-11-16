@@ -5,6 +5,7 @@ import {
   toCalendarDate,
   updateTaskSchema,
   validationDetails,
+  validationMessage,
   type Task,
   type TaskListItem,
   type User,
@@ -38,9 +39,8 @@ const TASKS_LIMIT = 300;
 const TASKS_WINDOW_SECONDS = 60;
 
 function validationFailure(error: ZodError): ApiError {
-  return new ApiError('VALIDATION_FAILED', copy.error.form, {
-    details: validationDetails(error),
-  });
+  const details = validationDetails(error);
+  return new ApiError('VALIDATION_FAILED', validationMessage(details), { details });
 }
 
 async function enforceUserLimit(db: D1Database, userId: string): Promise<void> {

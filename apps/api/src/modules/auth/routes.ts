@@ -5,6 +5,7 @@ import {
   loginSchema,
   registerSchema,
   validationDetails,
+  validationMessage,
   type SessionProbe,
 } from '@taskapp/contracts';
 import { Elysia } from 'elysia';
@@ -49,9 +50,8 @@ async function enforceAuthIpLimit(db: D1Database, request: Request): Promise<voi
 }
 
 function validationFailure(error: ZodError): ApiError {
-  return new ApiError('VALIDATION_FAILED', copy.error.form, {
-    details: validationDetails(error),
-  });
+  const details = validationDetails(error);
+  return new ApiError('VALIDATION_FAILED', validationMessage(details), { details });
 }
 
 function isUniqueViolation(error: unknown): boolean {
