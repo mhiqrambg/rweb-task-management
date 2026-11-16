@@ -1,35 +1,36 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import styles from './NotePanel.module.css';
+import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import {
+  copy, createNoteSchema, fill, parseForm, updateNoteSchema,
+} from '@taskapp/contracts';
 
 export type NoteDraft = { title: string; body: string };
 
-function useDialogFocus() {
-  const dialogRef = useRef<HTMLDivElement>(null);
+/**
+ * Native `<dialog>`: the element owns Escape, the backdrop layer and the focus trap.
+ * The caller unmounts this component to close, so cleanup closes the element and restores focus.
+ */
+function useModalDialog() {
+  const ref = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialogRef.current?.querySelector<HTMLElement>('input, textarea, button')?.focus();
-    return () => previousFocus?.focus();
+    const dialog = ref.current;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (dialog && !dialog.open) dialog.showModal();
+    const target = dialog?.querySelector<HTMLElement>('[data-autofocus]');
+    target?.focus();
+    return () => {
+      if (dialog?.open) dialog.close();
+      if (previous?.isConnected) previous.focus();
+    };
   }, []);
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>, close: () => void) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab' || !dialogRef.current) return;
-    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ));
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  }
-  return { dialogRef, onKeyDown };
+
+  return ref;
+}
+
+function backdrop(event: MouseEvent<HTMLDialogElement>, close: () => void) {
+  if (event.target === event.currentTarget) close();
 }
 
 export function NoteFormDialog({
@@ -40,82 +41,160 @@ export function NoteFormDialog({
   onSave: (draft: NoteDraft) => Promise<void>;
   onClose: () => void;
 }) {
+  // The caller keys this component per note, so `initial` never changes underneath the fields.
   const [draft, setDraft] = useState<NoteDraft>(initial ?? { title: '', body: '' });
+  const [errors, setErrors] = useState<{ title?: string; body?: string; form?: string }>({});
+  const [failure, setFailure] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const headingId = useId();
-  const { dialogRef, onKeyDown } = useDialogFocus();
+  const titleErrorId = useId();
+  const bodyErrorId = useId();
+  const dialogRef = useModalDialog();
+
+  function dismiss() {
+    if (!busy) onClose();
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const cleaned = { title: draft.title.trim(), body: draft.body.trim() };
-    if (!cleaned.title || cleaned.title.length > 200) {
-      setError('Judul harus berisi 1–200 karakter.'); return;
+    const cleaned: NoteDraft = { title: draft.title.trim(), body: draft.body.trim() };
+    const parsed = parseForm(kind === 'create' ? createNoteSchema : updateNoteSchema, cleaned);
+    if (!parsed.ok) {
+      setErrors({
+        title: parsed.errors.title,
+        body: parsed.errors.body,
+        form: parsed.errors.form,
+      });
+      setFailure('');
+      return;
     }
-    if (!cleaned.body || cleaned.body.length > 20000) {
-      setError('Isi catatan harus berisi 1–20000 karakter.'); return;
+    setErrors({});
+    setFailure('');
+    setBusy(true);
+    try {
+      await onSave(cleaned);
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : copy.toast.errorSave);
+    } finally {
+      setBusy(false);
     }
-    setError(''); setBusy(true);
-    try { await onSave(cleaned); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Gagal menyimpan catatan.'); }
-    finally { setBusy(false); }
   }
+
   return (
-    <div className={styles.overlay}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={headingId} ref={dialogRef}
-        onKeyDown={(event) => onKeyDown(event, () => { if (!busy) onClose(); })}>
-        <div className={styles.dialogHeader}>
-          <h2 id={headingId}>{kind === 'create' ? 'Tambah catatan' : 'Edit catatan'}</h2>
-          <button type="button" className="button secondary" onClick={onClose} disabled={busy}>Tutup</button>
-        </div>
-        <form className={styles.form} onSubmit={(event) => void submit(event)}>
-          <label>Judul <input required maxLength={200} value={draft.title}
-            onChange={(event) => setDraft((v) => ({ ...v, title: event.target.value }))} /></label>
-          <label>Isi catatan <textarea required rows={7} maxLength={20000} value={draft.body}
-            onChange={(event) => setDraft((v) => ({ ...v, body: event.target.value }))} /></label>
-          <span className={styles.hint}>{draft.body.length.toLocaleString('id-ID')} / 20.000 karakter</span>
-          {error && <p className="error" role="alert">{error}</p>}
-          <div className={styles.dialogActions}>
-            <button type="button" className="button secondary" onClick={onClose} disabled={busy}>Batal</button>
-            <button type="submit" className="button" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan catatan'}</button>
-          </div>
-        </form>
+    <dialog
+      ref={dialogRef}
+      className="dialog"
+      aria-labelledby={headingId}
+      onCancel={(event) => { event.preventDefault(); dismiss(); }}
+      onClick={(event) => backdrop(event, dismiss)}
+    >
+      <div className="dialog__head">
+        <h2 className="dialog__title" id={headingId}>
+          {kind === 'create' ? copy.note.new : copy.action.edit}
+        </h2>
       </div>
-    </div>
+      <form onSubmit={(event) => void submit(event)} noValidate>
+        <div className="dialog__body stack">
+          <div className="field">
+            <label className="field__label" htmlFor={`${headingId}-title`}>{copy.note.field.title}</label>
+            <input
+              id={`${headingId}-title`}
+              className="field__input"
+              type="text"
+              maxLength={200}
+              autoComplete="off"
+              data-autofocus
+              value={draft.title}
+              aria-invalid={errors.title ? true : undefined}
+              aria-describedby={errors.title ? titleErrorId : undefined}
+              onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))}
+            />
+            {errors.title && <p className="field__error" id={titleErrorId}>{errors.title}</p>}
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor={`${headingId}-body`}>{copy.note.field.body}</label>
+            <textarea
+              id={`${headingId}-body`}
+              className="field__input"
+              rows={8}
+              maxLength={20000}
+              value={draft.body}
+              aria-invalid={errors.body ? true : undefined}
+              aria-describedby={errors.body ? bodyErrorId : undefined}
+              onChange={(event) => setDraft((value) => ({ ...value, body: event.target.value }))}
+            />
+            {errors.body && <p className="field__error" id={bodyErrorId}>{errors.body}</p>}
+          </div>
+          {(errors.form || failure) && (
+            <div className="inline-error" role="alert">{errors.form ?? failure}</div>
+          )}
+        </div>
+        <div className="dialog__actions">
+          <button type="button" className="btn" data-variant="secondary" disabled={busy} onClick={onClose}>
+            {copy.action.cancel}
+          </button>
+          <button type="submit" className="btn" data-variant="primary" disabled={busy} aria-busy={busy || undefined}>
+            {kind === 'create' ? copy.note.new : copy.action.save}
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }
 
-export function NoteDeleteDialog({ title, onConfirm, onClose }: {
+export function NoteDeleteDialog({
+  title, onConfirm, onClose,
+}: {
   title: string;
   onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [failure, setFailure] = useState('');
   const headingId = useId();
-  const { dialogRef, onKeyDown } = useDialogFocus();
+  const dialogRef = useModalDialog();
+
+  function dismiss() {
+    if (!busy) onClose();
+  }
+
   async function confirm() {
     if (busy) return;
-    setError(''); setBusy(true);
-    try { await onConfirm(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Gagal menghapus catatan.'); }
-    finally { setBusy(false); }
+    setFailure('');
+    setBusy(true);
+    try {
+      await onConfirm();
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : copy.toast.errorSave);
+    } finally {
+      setBusy(false);
+    }
   }
+
   return (
-    <div className={styles.overlay}>
-      <div className={`${styles.dialog} ${styles.smallDialog}`} role="alertdialog" aria-modal="true"
-        aria-labelledby={headingId} ref={dialogRef}
-        onKeyDown={(event) => onKeyDown(event, () => { if (!busy) onClose(); })}>
-        <h2 id={headingId}>Hapus catatan?</h2>
-        <p>Catatan <strong>{title}</strong> akan dihapus permanen.</p>
-        {error && <p className="error" role="alert">{error}</p>}
-        <div className={styles.dialogActions}>
-          <button className="button secondary" type="button" disabled={busy} onClick={onClose}>Batal</button>
-          <button className="button danger" type="button" disabled={busy} onClick={() => void confirm()}>
-            {busy ? 'Menghapus…' : 'Ya, hapus'}
-          </button>
-        </div>
+    <dialog
+      ref={dialogRef}
+      className="dialog dialog--confirm"
+      aria-labelledby={headingId}
+      onCancel={(event) => { event.preventDefault(); dismiss(); }}
+      onClick={(event) => backdrop(event, dismiss)}
+    >
+      <div className="dialog__head">
+        <h2 className="dialog__title" id={headingId}>{copy.confirm.deleteNote.title}</h2>
       </div>
-    </div>
+      <div className="dialog__body stack">
+        <p>{fill(copy.confirm.deleteNote.body, { title })}</p>
+        {failure && <div className="inline-error" role="alert">{failure}</div>}
+      </div>
+      <div className="dialog__actions">
+        <button type="button" className="btn" data-variant="secondary" data-autofocus disabled={busy} onClick={onClose}>
+          {copy.action.cancel}
+        </button>
+        <button type="button" className="btn" data-variant="danger" disabled={busy} aria-busy={busy || undefined} onClick={() => void confirm()}>
+          {copy.confirm.confirmDelete}
+        </button>
+      </div>
+    </dialog>
   );
 }
