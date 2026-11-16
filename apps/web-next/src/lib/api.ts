@@ -1,8 +1,11 @@
 /**
- * Kontrak API sudah mengandung prefix /api/v1.
- * NEXT_PUBLIC_API_ORIGIN harus hanya berupa origin (contoh http://127.0.0.1:3001).
- * Untuk SSG: semua request data pengguna harus dari browser, bukan saat build.
+ * The API contract already carries the /api/v1 prefix.
+ * NEXT_PUBLIC_API_ORIGIN must be an origin only (e.g. http://127.0.0.1:8787), no path.
+ * For SSG: every private-data request runs in the browser, never at build time, so the
+ * static export contains no user data.
  */
+import { copy } from '@taskapp/contracts';
+
 const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN ?? '').replace(/\/$/, '');
 
 export const SESSION_EXPIRED_EVENT = 'taskapp:session-expired';
@@ -16,13 +19,18 @@ export class ApiError extends Error {
 
 function messageFromResponse(value: unknown, fallback: string): string {
   if (typeof value !== 'object' || value === null) return fallback;
-  const body = value as { error?: unknown; message?: unknown };
-  if (typeof body.error === 'string' && body.error.trim()) return body.error;
-  if (typeof body.error === 'object' && body.error !== null) {
-    const nested = body.error as { message?: unknown };
-    if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
+  if ('error' in value) {
+    const error: unknown = value.error;
+    if (typeof error === 'string' && error.trim()) return error;
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const nested: unknown = error.message;
+      if (typeof nested === 'string' && nested.trim()) return nested;
+    }
   }
-  if (typeof body.message === 'string' && body.message.trim()) return body.message;
+  if ('message' in value) {
+    const message: unknown = value.message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
   return fallback;
 }
 
@@ -42,22 +50,17 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
       cache: 'no-store',
     });
   } catch {
-    throw new ApiError(
-      0,
-      'API belum dapat dihubungi. Pastikan API ElysiaJS aktif, alamat API benar, dan CORS mengizinkan frontend.',
-    );
+    throw new ApiError(0, copy.state.error.body);
   }
 
   if (!response.ok) {
     const fallback =
-      response.status === 401
-        ? 'Sesi tidak valid atau telah berakhir. Silakan masuk kembali.'
-        : `Permintaan gagal (HTTP ${response.status}).`;
+      response.status === 401 ? copy.auth.error.sessionExpired : `Request failed (HTTP ${response.status}).`;
     let message = fallback;
     try {
       message = messageFromResponse(await response.json(), fallback);
     } catch {
-      // Server mungkin tidak mengembalikan JSON.
+      // The server may not return JSON.
     }
     if (response.status === 401 && typeof window !== 'undefined') {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
@@ -68,7 +71,8 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
   if (response.status === 204) return undefined as T;
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) {
-    throw new ApiError(response.status, 'Server tidak mengembalikan respons JSON sesuai kontrak API.');
+    // The envelope is always JSON; anything else is a broken upstream.
+    throw new ApiError(response.status, copy.state.error.body);
   }
   return (await response.json()) as T;
 }

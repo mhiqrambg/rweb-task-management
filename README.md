@@ -83,6 +83,24 @@ Full detail: `.planning/13-team-responsibility-matrix.md`.
 - User data never enters the Next.js static output; the API is the only authorization gate.
 - Benchmark numbers are admissible only with a run ID and raw files (`.planning/08`).
 
+## Deploy
+
+One origin (ADR-05/ADR-15): `/api/*` → API Worker, `/` → Astro Worker, `/b/*` → Next static
+assets on the `web-next` Worker below, `/admin*` → admin Worker. Zone routes are operator
+config (T-405); the repo only provides the workers and their `wrangler.jsonc` files.
+
+```bash
+wrangler login                                   # once per machine
+pnpm --filter web-next deploy                   # prod static export + upload
+```
+
+`deploy` builds with `NEXT_PUBLIC_API_ORIGIN` forced empty (same-origin API, no CORS in
+production) and then runs `wrangler deploy` from `apps/web-next`, whose `worker.ts` strips the
+`/b` mount prefix before serving `out/` through the `ASSETS` binding. Never deploy a build made
+with `.env.local` present unless the override is in place — `NEXT_PUBLIC_*` is baked in at build
+time and a dev origin would ship to production. `wrangler dev` in `apps/web-next` serves the same
+worker locally for a pre-deploy smoke check (`/b/` → landing, `/b/app/` → shell).
+
 ## Open items before the build starts
 
 - `git init` + first push (this commit), then protect `main`.

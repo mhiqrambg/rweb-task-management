@@ -1,0 +1,11 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "web-next",
+	"main": "./worker.ts",
+	"compatibility_date": "2026-01-01",
+	"assets": {
+		"directory": "./out",
+		"binding": "ASSETS",
+		"not_found_handling": "404-page"
+	}
+}
