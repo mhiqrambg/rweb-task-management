@@ -24,12 +24,12 @@ import {
   insertTask,
   listTasks,
   parseTaskListQuery,
-  recentNotePreviews,
   recentTasks,
   taskRowToListItem,
   taskRowToTask,
   updateTask,
 } from './repo';
+import { recentNotePreviews } from '../notes/repo';
 
 export const tasksRoutes = new Elysia();
 

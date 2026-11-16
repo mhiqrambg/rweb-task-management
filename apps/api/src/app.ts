@@ -5,6 +5,7 @@ import { ApiError } from './lib/errors';
 import { DEV_ORIGIN, errorResponse, requestIdFrom } from './lib/http';
 import { authRoutes } from './modules/auth/routes';
 import { healthRoutes } from './modules/health/routes';
+import { notesRoutes } from './modules/notes/routes';
 import { tasksRoutes } from './modules/tasks/routes';
 
 const UNSAFE_METHODS: Record<string, true> = { POST: true, PATCH: true, PUT: true, DELETE: true };
@@ -44,6 +45,7 @@ export const app = new Elysia({
   .use(authRoutes)
   .use(healthRoutes)
   .use(tasksRoutes)
+  .use(notesRoutes)
   // Let Elysia infer the handler's context type; annotating it defeats the inference.
   .onError(({ request, code, error, set }) => {
     // Unmatched route → `NOT_FOUND` envelope, identical to a foreign-owned resource (§1.9).

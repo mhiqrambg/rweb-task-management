@@ -1,5 +1,14 @@
 import type { Dashboard, Task, TaskListItem } from '@taskapp/contracts';
-import { base64UrlDecodeText, base64UrlEncodeText, newUuid } from '../../lib/ids';
+import { newUuid } from '../../lib/ids';
+import {
+  cursorPredicate,
+  decodeCursor,
+  encodeCursor,
+  escapeLike,
+  queryFailure as fail,
+  type CursorValue,
+  type QueryFailure,
+} from '../../lib/list';
 
 /** Explicit SQL only (ADR-03); snake_case rows, camelCase at the boundary. */
 
@@ -179,20 +188,11 @@ export interface ParsedTaskList {
   orderBy: string;
   /** Key expressions in ORDER BY order (due_date expands to two), for cursor checks. */
   keyIds: string[];
-  directions: Array<'ASC' | 'DESC'>;
   sortId: string;
   limit: number;
-  cursorKeys: Array<string | number | null> | null;
-}
-
-export interface QueryFailure {
-  field: string;
-  code: string;
-  message: string;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const CURSOR_RE = /^[A-Za-z0-9_-]{16,512}$/;
 
 function isCalendarDate(value: string): boolean {
   if (!DATE_RE.test(value)) return false;
@@ -204,14 +204,6 @@ function isCalendarDate(value: string): boolean {
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
-}
-
-export function escapeLike(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
-function fail(field: string, code: string, message: string): QueryFailure {
-  return { field, code, message };
 }
 
 /** Validates §6.6 task grammar; returns the failure instead of throwing so routes stay thin. */
@@ -341,86 +333,12 @@ export function parseTaskListQuery(
   keyOrderIds.push('id');
   const orderBy = `ORDER BY ${orderExprs.map((e) => `${e.sql} ${e.dir}`).join(', ')}`;
 
-  let cursorKeys: Array<string | number | null> | null = null;
+  let cursorKeys: CursorValue[] | null = null;
   if (params.cursor !== undefined) {
-    if (!CURSOR_RE.test(params.cursor)) {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    let payload: unknown;
-    try {
-      const json = base64UrlDecodeText(params.cursor);
-      payload = JSON.parse(json);
-    } catch {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    if (typeof payload !== 'object' || payload === null) {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    if (!('v' in payload) || !('s' in payload) || !('k' in payload)) {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    const version: unknown = payload.v;
-    const sort: unknown = payload.s;
-    const keys: unknown = payload.k;
-    if (version !== 1 || sort !== sortId || !Array.isArray(keys)) {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    if (keys.length !== keyOrderIds.length) {
-      return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-    }
-    const checked: Array<string | number | null> = [];
-    for (let i = 0; i < keys.length; i++) {
-      const id = keyOrderIds[i];
-      const value: unknown = keys[i];
-      if (id === 'due_date_is_null') {
-        if (value !== 0 && value !== 1) {
-          return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-        }
-        checked.push(value);
-      } else if (id === 'due_date') {
-        if (value !== null && (typeof value !== 'string' || !isCalendarDate(value))) {
-          return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-        }
-        checked.push(value);
-      } else if (id === 'id') {
-        if (typeof value !== 'string' || value.length === 0) {
-          return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-        }
-        checked.push(value);
-      } else if (typeof value !== 'string') {
-        return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-      } else {
-        checked.push(value);
-      }
-    }
-    cursorKeys = checked;
-
-    // Keyset predicate over the ORDER BY expressions in order.
-    const branches: string[] = [];
-    for (let i = 0; i < keyOrderIds.length; i++) {
-      const expr = orderExprs[i];
-      const leaf = cursorKeys[i];
-      if (expr === undefined || leaf === undefined) {
-        return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-      }
-      const parts: string[] = [];
-      for (let j = 0; j < i; j++) {
-        const prefix = orderExprs[j];
-        const prefixKey = cursorKeys[j];
-        if (prefix === undefined || prefixKey === undefined) {
-          return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
-        }
-        parts.push(`${prefix.sql} IS ${useBind(prefixKey)}`);
-      }
-      if (leaf === null) {
-        parts.push('1 = 0');
-      } else {
-        const op = expr.dir === 'ASC' ? '>' : '<';
-        parts.push(`${expr.sql} ${op} ${useBind(leaf)}`);
-      }
-      branches.push(`(${parts.join(' AND ')})`);
-    }
-    where.push(`(${branches.join(' OR ')})`);
+    const decoded = decodeCursor(params.cursor, sortId, keyOrderIds, taskCursorKeyCheck);
+    if (!decoded.ok) return { ok: false, failure: fail('cursor', 'cursor', 'That link is no longer valid.') };
+    cursorKeys = decoded.keys;
+    where.push(cursorPredicate(orderExprs, cursorKeys, useBind));
   }
 
   return {
@@ -430,10 +348,8 @@ export function parseTaskListQuery(
       binds,
       orderBy,
       keyIds: keyOrderIds,
-      directions: [...orderExprs.map((e) => e.dir)],
       sortId,
       limit,
-      cursorKeys,
     },
   };
 }
@@ -443,11 +359,18 @@ export interface TaskPage {
   nextCursor: string | null;
 }
 
-export function encodeCursor(sortId: string, keys: Array<string | number | null>): string {
-  return base64UrlEncodeText(JSON.stringify({ v: 1, s: sortId, k: keys }));
+/** §6.1 per-key typing: each ORDER BY expression's cursor value must parse to its declared type. */
+function taskCursorKeyCheck(keyId: string, value: unknown): CursorValue | undefined {
+  if (keyId === 'due_date_is_null') return value === 0 || value === 1 ? value : undefined;
+  if (keyId === 'due_date') {
+    if (value === null) return null;
+    return typeof value === 'string' && isCalendarDate(value) ? value : undefined;
+  }
+  if (keyId === 'id') return typeof value === 'string' && value.length > 0 ? value : undefined;
+  return typeof value === 'string' ? value : undefined;
 }
 
-function cursorKeyFor(row: TaskRow, keyId: string): string | number | null {
+function cursorKeyFor(row: TaskRow, keyId: string): CursorValue {
   if (keyId === 'due_date_is_null') return row.due_date === null ? 1 : 0;
   if (keyId === 'due_date') return row.due_date;
   if (keyId === 'id') return row.id;
@@ -536,40 +459,4 @@ export async function recentTasks(db: D1Database, userId: string): Promise<TaskR
     .bind(userId)
     .all<TaskRow>();
   return rows.results ?? [];
-}
-
-export interface NotePreview {
-  id: string;
-  title: string;
-  excerpt: string;
-  pinned: boolean;
-  attachments: never[];
-  attachmentCount: 0;
-  updatedAt: string;
-}
-
-interface NotePreviewRow {
-  id: string;
-  title: string;
-  excerpt: string;
-  pinned: number;
-  updated_at: string;
-}
-
-export async function recentNotePreviews(db: D1Database, userId: string): Promise<NotePreview[]> {
-  const rows = await db
-    .prepare(
-      'SELECT id, title, substr(body, 1, 200) AS excerpt, pinned, updated_at FROM notes WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 5'
-    )
-    .bind(userId)
-    .all<NotePreviewRow>();
-  return (rows.results ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    excerpt: row.excerpt,
-    pinned: row.pinned === 1,
-    attachments: [],
-    attachmentCount: 0,
-    updatedAt: row.updated_at,
-  }));
 }
