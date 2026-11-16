@@ -13,6 +13,7 @@
 	"assets": {
 		"directory": "./out",
 		"binding": "ASSETS",
+      "base_path": "/b",
 		"not_found_handling": "404-page"
 	},
 	// Same-origin `/api/*` proxy target (worker.ts `proxyApi`). Worker-to-Worker fetch on
