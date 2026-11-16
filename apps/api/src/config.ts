@@ -5,6 +5,8 @@ export interface Env {
   DB: D1Database;
   ENVIRONMENT?: string;
   APP_ORIGIN?: string;
+  /** Second frontend origin on `*.workers.dev`, where no zone route can share one origin (ADR-05). */
+  APP_ORIGIN_NEXT?: string;
   SESSION_TTL_DAYS?: string;
   SESSION_IDLE_HOURS?: string;
   SESSION_REFRESH_MINUTES?: string;
@@ -14,6 +16,7 @@ export interface Config {
   db: D1Database;
   isProduction: boolean;
   appOrigin: string;
+  nextOrigin: string | null;
   sessionTtlMs: number;
   sessionIdleMs: number;
   sessionRefreshMs: number;
@@ -39,10 +42,12 @@ export function loadConfig(env: Env): Config {
     throw new Error('APP_ORIGIN is required');
   }
   const isProduction = env.ENVIRONMENT === 'production';
+  const nextOrigin = env.APP_ORIGIN_NEXT?.trim().replace(/\/+$/u, '') || null;
   return {
     db: env.DB,
     isProduction,
     appOrigin: appOrigin.replace(/\/+$/u, ''),
+    nextOrigin,
     sessionTtlMs: positiveNumber(env.SESSION_TTL_DAYS, 7, 'SESSION_TTL_DAYS') * DAY_MS,
     sessionIdleMs: positiveNumber(env.SESSION_IDLE_HOURS, 24, 'SESSION_IDLE_HOURS') * HOUR_MS,
     sessionRefreshMs:

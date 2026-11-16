@@ -6,7 +6,9 @@
 	// `process.env` is how src/lib/server/env.ts reads runtime config on the Worker.
 	"compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"logs": { "enabled": true, "head_sampling_rate": 1 },
+		"traces": { "enabled": true, "head_sampling_rate": 0.01 }
 	},
 	"vars": {
 		"PUBLIC_API_BASE_URL": "https://rweb-api-production.wanaask.workers.dev/api/v1",

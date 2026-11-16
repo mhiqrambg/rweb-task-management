@@ -3,9 +3,26 @@
 	"name": "web-next",
 	"main": "./worker.ts",
 	"compatibility_date": "2026-01-01",
+	// workers-best-practices: logs + traces on for a production Worker. `enabled` alone does
+	// not turn on traces; sampling keeps volume low on this low-traffic benchmark app.
+	"observability": {
+		"enabled": true,
+		"logs": { "enabled": true, "head_sampling_rate": 1 },
+		"traces": { "enabled": true, "head_sampling_rate": 0.01 }
+	},
 	"assets": {
 		"directory": "./out",
 		"binding": "ASSETS",
 		"not_found_handling": "404-page"
-	}
+	},
+	// Same-origin `/api/*` proxy target (worker.ts `proxyApi`). Worker-to-Worker fetch on
+	// workers.dev is blocked (Cloudflare error 1042); without this binding `env.API` is
+	// undefined and every browser API call fails. Service name is the production API Worker
+	// (`rweb-api` + `--env production` suffix), same as web-astro's binding.
+	"services": [
+		{
+			"binding": "API",
+			"service": "rweb-api-production"
+		}
+	]
 }

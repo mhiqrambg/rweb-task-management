@@ -37,7 +37,9 @@ export const app = new Elysia({
     if (UNSAFE_METHODS[request.method]) {
       // Dev runs two frontends on different ports (Astro :4321, Next :3000); both are same-site here.
       const sameOrigin = origin
-        ? origin === config.appOrigin || (!config.isProduction && origin === DEV_ORIGIN)
+        ? origin === config.appOrigin ||
+          origin === config.nextOrigin ||
+          (!config.isProduction && origin === DEV_ORIGIN)
         : request.headers.get('sec-fetch-site') === 'same-origin';
       if (!sameOrigin) throw new ApiError('UNAUTHENTICATED', copy.auth.error.sessionExpired);
     }
