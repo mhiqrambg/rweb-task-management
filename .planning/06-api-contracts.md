@@ -901,3 +901,15 @@ approved admin extension BCR-01 adds four endpoints as #23-#26 (D-12); nothing i
 Two things the locked surface leaves implicit, restated rather than changed: #1 and #2 both return
 `SessionProbe` (Next's bootstrap and Astro's cookie round trip need the same shape), and #7 returns
 breakdowns as flat count objects because FR-DASH-003 names exactly seven figures.
+
+### 11.1 Deviations found during implementation
+
+| # | Item | Locked said | Built | Driver | Status |
+|---|---|---|---|---|---|
+| D-15 | #18 gate 2 (decode) and #20 thumbnail rendition | `@jsquash` decode + WebP re-encode ≤ 320 px (D-6, 07 §5.3) | `image-size` parses the frame header for dimensions and integrity; the stored original bytes back **both** variants | This Workers runtime refuses every Wasm module: `CompileError: WebAssembly.Module(): Wasm code generation disallowed by embedder`, reproduced with an 8-byte empty module, so it is an embedder property and not a codec bug. No decode-and-re-encode path exists without Wasm | **Deviation** — thumbnails are not a smaller file; the `variant` parameter still selects the cache key and `Content-Type` |
+
+The consequence is bounded and recorded rather than hidden: `FR-ATT-004` ("list and dashboard MUST NOT
+request full-resolution binaries") is **not** met, because the thumb variant returns the original
+bytes. Gate 1 (content sniffing) and gate 2 (header parse, dimension limits) still reject renamed,
+truncated, oversized and non-image files, and `nosniff` plus the MIME allowlist keep a stored object
+from being interpreted as anything else.

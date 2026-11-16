@@ -226,7 +226,7 @@ export const copy = {
     },
     deleteImage: {
       title: 'Remove this image?',
-      body: '“{filename}” will be removed from this {target}.',
+      body: 'Image {index} of {count} will be removed from this {target}.',
     },
     confirmDelete: 'Delete',
   },
