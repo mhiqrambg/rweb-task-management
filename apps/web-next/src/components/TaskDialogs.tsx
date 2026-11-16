@@ -1,51 +1,71 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import styles from './TaskDialogs.module.css';
+import { useEffect, useId, useRef, useState, type FormEvent, type SyntheticEvent } from 'react';
+import {
+  copy,
+  createTaskSchema,
+  fill,
+  taskPriorityLabel,
+  taskStatusLabel,
+  updateTaskSchema,
+  type TaskPriority,
+  type TaskStatus,
+} from '@taskapp/contracts';
 
 export type TaskDraft = {
   title: string;
   description: string;
-  priority: 'low' | 'medium' | 'high';
+  status: TaskStatus;
+  priority: TaskPriority;
   dueDate: string;
 };
 
 const EMPTY_TASK: TaskDraft = {
-  title: '', description: '', priority: 'medium', dueDate: '',
+  title: '',
+  description: '',
+  status: 'todo',
+  priority: 'medium',
+  dueDate: '',
 };
 
-/** Focus management without React state changes inside effects. */
-function useModalFocus() {
-  const ref = useRef<HTMLDivElement>(null);
+const FIELD_NAMES = ['title', 'description', 'status', 'priority', 'dueDate'] as const;
+
+/** The native dialog element supplies the backdrop, Escape handling and focus return. */
+function useDialogElement() {
+  const ref = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
-    const beforeOpen = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    ref.current?.querySelector<HTMLElement>('input, button, select, textarea')?.focus();
-    return () => beforeOpen?.focus();
+    const dialog = ref.current;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog?.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+      opener?.focus();
+    };
   }, []);
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>, close: () => void) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
+
+  return ref;
+}
+
+function fieldErrors(issues: { path: PropertyKey[]; message: string }[]) {
+  const byField: Record<string, string> = {};
+  let form = '';
+  for (const issue of issues) {
+    const field = issue.path[0];
+    if (typeof field === 'string' && (FIELD_NAMES as readonly string[]).includes(field)) {
+      if (!byField[field]) byField[field] = issue.message;
+    } else if (!form) {
+      form = issue.message;
     }
-    if (event.key !== 'Tab' || !ref.current) return;
-    const focusable = Array.from(ref.current.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ));
-    if (focusable.length === 0) { event.preventDefault(); return; }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault(); last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault(); first.focus();
-    }
-  };
-  return { ref, onKeyDown };
+  }
+  return { byField, form };
 }
 
 export function TaskFormDialog({
-  kind, initial, onSave, onClose,
+  kind,
+  initial,
+  onSave,
+  onClose,
 }: {
   kind: 'create' | 'edit';
   initial?: TaskDraft;
@@ -54,80 +74,202 @@ export function TaskFormDialog({
 }) {
   // The caller provides a key when switching between different tasks.
   const [draft, setDraft] = useState<TaskDraft>(initial ?? EMPTY_TASK);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false);
-  const titleId = useId();
-  const { ref, onKeyDown } = useModalFocus();
+  const baseId = useId();
+  const headingId = `${baseId}-heading`;
+  const ref = useDialogElement();
+
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault();
+    if (!busy) onClose();
+  }
 
   function patch<K extends keyof TaskDraft>(key: K, value: TaskDraft[K]) {
     setDraft((previous) => ({ ...previous, [key]: value }));
   }
 
+  function errorProps(field: (typeof FIELD_NAMES)[number]) {
+    return {
+      'aria-invalid': errors[field] ? true : undefined,
+      'aria-describedby': errors[field] ? `${baseId}-${field}-error` : undefined,
+    } as const;
+  }
+
+  function fieldError(field: (typeof FIELD_NAMES)[number]) {
+    if (!errors[field]) return null;
+    return (
+      <p className="field__error" id={`${baseId}-${field}-error`}>
+        {errors[field]}
+      </p>
+    );
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const cleaned: TaskDraft = { ...draft, title: draft.title.trim(), description: draft.description.trim() };
-    if (!cleaned.title || cleaned.title.length > 200) {
-      setError('Judul harus berisi 1–200 karakter.'); return;
+    const cleaned: TaskDraft = {
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      status: draft.status,
+      priority: draft.priority,
+      dueDate: draft.dueDate,
+    };
+    const schema = kind === 'create' ? createTaskSchema : updateTaskSchema;
+    const parsed = schema.safeParse({
+      title: cleaned.title,
+      description: cleaned.description,
+      status: cleaned.status,
+      priority: cleaned.priority,
+      dueDate: cleaned.dueDate || (kind === 'create' ? undefined : null),
+    });
+    if (!parsed.success) {
+      const { byField, form } = fieldErrors(parsed.error.issues);
+      setErrors(byField);
+      setFormError(form);
+      return;
     }
-    if (cleaned.description.length > 2000) {
-      setError('Deskripsi maksimal 2000 karakter.'); return;
+    setErrors({});
+    setFormError('');
+    setBusy(true);
+    try {
+      await onSave(cleaned);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : copy.error.form);
+    } finally {
+      setBusy(false);
     }
-    if (cleaned.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(cleaned.dueDate)) {
-      setError('Format tanggal tenggat tidak valid.'); return;
-    }
-    setError(''); setBusy(true);
-    try { await onSave(cleaned); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Gagal menyimpan tugas.'); }
-    finally { setBusy(false); }
   }
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        ref={ref}
-        onKeyDown={(event) => onKeyDown(event, () => { if (!busy) onClose(); })}
-      >
-        <header className={styles.header}>
-          <h2 id={titleId}>{kind === 'create' ? 'Tambah tugas' : 'Edit tugas'}</h2>
-          <button type="button" className="button secondary" onClick={onClose} disabled={busy} aria-label="Tutup formulir tugas">Tutup</button>
-        </header>
-        <form onSubmit={(event) => void submit(event)} className={styles.form}>
-          <label className={styles.field}>Judul <span aria-hidden="true">*</span>
-            <input value={draft.title} onChange={(event) => patch('title', event.target.value)} maxLength={200} required autoComplete="off" />
-          </label>
-          <label className={styles.field}>Deskripsi
-            <textarea value={draft.description} onChange={(event) => patch('description', event.target.value)} maxLength={2000} rows={4} />
-          </label>
-          <div className={styles.twoColumns}>
-            <label className={styles.field}>Prioritas
-              <select value={draft.priority} onChange={(event) => patch('priority', event.target.value as TaskDraft['priority'])}>
-                <option value="low">Rendah</option>
-                <option value="medium">Sedang</option>
-                <option value="high">Tinggi</option>
-              </select>
-            </label>
-            <label className={styles.field}>Tenggat
-              <input type="date" value={draft.dueDate} onChange={(event) => patch('dueDate', event.target.value)} />
-            </label>
-          </div>
-          {error && <p role="alert" className={styles.error}>{error}</p>}
-          <footer className={styles.footer}>
-            <button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button>
-            <button className="button" type="submit" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan tugas'}</button>
-          </footer>
-        </form>
+    <dialog ref={ref} className="dialog" aria-labelledby={headingId} onCancel={handleCancel}>
+      <div className="dialog__head">
+        <h2 className="dialog__title" id={headingId}>
+          {kind === 'create' ? copy.task.new : copy.action.edit}
+        </h2>
       </div>
-    </div>
+      <form noValidate onSubmit={(event) => void submit(event)}>
+        <div className="dialog__body stack">
+          <div className="field">
+            <label className="field__label" htmlFor={`${baseId}-title`}>
+              {copy.task.field.title}
+            </label>
+            <input
+              id={`${baseId}-title`}
+              className="field__input"
+              value={draft.title}
+              onChange={(event) => patch('title', event.target.value)}
+              maxLength={200}
+              autoComplete="off"
+              {...errorProps('title')}
+            />
+            {fieldError('title')}
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor={`${baseId}-description`}>
+              {copy.task.field.description}
+            </label>
+            <textarea
+              id={`${baseId}-description`}
+              className="field__input"
+              value={draft.description}
+              onChange={(event) => patch('description', event.target.value)}
+              maxLength={5000}
+              rows={4}
+              {...errorProps('description')}
+            />
+            {fieldError('description')}
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor={`${baseId}-status`}>
+              {copy.task.field.status}
+            </label>
+            <select
+              id={`${baseId}-status`}
+              className="field__input"
+              value={draft.status}
+              onChange={(event) => patch('status', event.target.value as TaskStatus)}
+              {...errorProps('status')}
+            >
+              <option value="todo">{taskStatusLabel('todo')}</option>
+              <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+              <option value="completed">{taskStatusLabel('completed')}</option>
+            </select>
+            {fieldError('status')}
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor={`${baseId}-priority`}>
+              {copy.task.field.priority}
+            </label>
+            <select
+              id={`${baseId}-priority`}
+              className="field__input"
+              value={draft.priority}
+              onChange={(event) => patch('priority', event.target.value as TaskPriority)}
+              {...errorProps('priority')}
+            >
+              <option value="low">{taskPriorityLabel('low')}</option>
+              <option value="medium">{taskPriorityLabel('medium')}</option>
+              <option value="high">{taskPriorityLabel('high')}</option>
+            </select>
+            {fieldError('priority')}
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor={`${baseId}-dueDate`}>
+              {copy.task.field.dueDate}
+            </label>
+            <input
+              id={`${baseId}-dueDate`}
+              className="field__input"
+              type="date"
+              value={draft.dueDate}
+              onChange={(event) => patch('dueDate', event.target.value)}
+              {...errorProps('dueDate')}
+            />
+            {fieldError('dueDate')}
+          </div>
+
+          {formError && (
+            <p className="inline-error" role="alert">
+              {formError}
+            </p>
+          )}
+        </div>
+
+        <div className="dialog__actions">
+          <button
+            className="btn"
+            data-variant="secondary"
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+          >
+            {copy.action.cancel}
+          </button>
+          <button
+            className="btn"
+            data-variant="primary"
+            type="submit"
+            disabled={busy}
+            aria-busy={busy || undefined}
+          >
+            {kind === 'create' ? copy.task.new : copy.action.save}
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }
 
 export function TaskDeleteDialog({
-  title, onConfirm, onClose,
+  title,
+  onConfirm,
+  onClose,
 }: {
   title: string;
   onConfirm: () => Promise<void>;
@@ -135,35 +277,69 @@ export function TaskDeleteDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const titleId = useId();
-  const { ref, onKeyDown } = useModalFocus();
+  const headingId = useId();
+  const ref = useDialogElement();
+
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault();
+    if (!busy) onClose();
+  }
 
   async function confirm() {
     if (busy) return;
-    setError(''); setBusy(true);
-    try { await onConfirm(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Gagal menghapus tugas.'); }
-    finally { setBusy(false); }
+    setError('');
+    setBusy(true);
+    try {
+      await onConfirm();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : copy.error.form);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className={styles.overlay}>
-      <div
-        className={`${styles.dialog} ${styles.smallDialog}`}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        ref={ref}
-        onKeyDown={(event) => onKeyDown(event, () => { if (!busy) onClose(); })}
-      >
-        <h2 id={titleId}>Hapus tugas?</h2>
-        <p>Anda akan menghapus <strong>{title}</strong>. Tindakan ini tidak dapat dibatalkan.</p>
-        {error && <p role="alert" className={styles.error}>{error}</p>}
-        <div className={styles.footer}>
-          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button>
-          <button type="button" className="button danger" disabled={busy} onClick={() => void confirm()}>{busy ? 'Menghapus…' : 'Ya, hapus'}</button>
-        </div>
+    <dialog
+      ref={ref}
+      className="dialog dialog--confirm"
+      aria-labelledby={headingId}
+      onCancel={handleCancel}
+    >
+      <div className="dialog__head">
+        <h2 className="dialog__title" id={headingId}>
+          {copy.confirm.deleteTask.title}
+        </h2>
       </div>
-    </div>
+      <div className="dialog__body stack-sm">
+        <p>{fill(copy.confirm.deleteTask.body, { title })}</p>
+        {error && (
+          <p className="inline-error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className="dialog__actions">
+        <button
+          className="btn"
+          data-variant="secondary"
+          type="button"
+          autoFocus
+          onClick={onClose}
+          disabled={busy}
+        >
+          {copy.action.cancel}
+        </button>
+        <button
+          className="btn"
+          data-variant="danger"
+          type="button"
+          onClick={() => void confirm()}
+          disabled={busy}
+          aria-busy={busy || undefined}
+        >
+          {copy.confirm.confirmDelete}
+        </button>
+      </div>
+    </dialog>
   );
 }
