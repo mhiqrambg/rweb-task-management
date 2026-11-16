@@ -2,18 +2,21 @@ import { DAY_MS, HOUR_MS, MINUTE_MS } from './lib/time';
 
 /** Bindings and vars declared in `wrangler.jsonc`. */
 export interface Env {
-  DB: D1Database;
-  ENVIRONMENT?: string;
-  APP_ORIGIN?: string;
-  /** Second frontend origin on `*.workers.dev`, where no zone route can share one origin (ADR-05). */
-  APP_ORIGIN_NEXT?: string;
-  SESSION_TTL_DAYS?: string;
-  SESSION_IDLE_HOURS?: string;
-  SESSION_REFRESH_MINUTES?: string;
+	DB: D1Database;
+	/** Attachment binaries (06 §8.5). Absent only in unit contexts that never upload. */
+	BUCKET?: R2Bucket;
+	ENVIRONMENT?: string;
+	APP_ORIGIN?: string;
+	/** Second frontend origin on `*.workers.dev`, where no zone route can share one origin (ADR-05). */
+	APP_ORIGIN_NEXT?: string;
+	SESSION_TTL_DAYS?: string;
+	SESSION_IDLE_HOURS?: string;
+	SESSION_REFRESH_MINUTES?: string;
 }
 
 export interface Config {
   db: D1Database;
+  bucket: R2Bucket;
   isProduction: boolean;
   appOrigin: string;
   nextOrigin: string | null;
@@ -22,7 +25,6 @@ export interface Config {
   sessionRefreshMs: number;
   cookieSecure: boolean;
 }
-
 function positiveNumber(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value.trim() === '') return fallback;
   const parsed = Number(value);
@@ -30,6 +32,11 @@ function positiveNumber(value: string | undefined, fallback: number, name: strin
     throw new Error(`${name} must be a positive number`);
   }
   return parsed;
+}
+
+/** A missing binding is a deployment defect, not a runtime fallback (07 §7.2). */
+function missingBinding(name: string): never {
+  throw new Error(`${name} binding is required`);
 }
 
 /**
@@ -45,6 +52,8 @@ export function loadConfig(env: Env): Config {
   const nextOrigin = env.APP_ORIGIN_NEXT?.trim().replace(/\/+$/u, '') || null;
   return {
     db: env.DB,
+    // Fail closed like APP_ORIGIN: without the bucket every upload would fail at the write.
+    bucket: env.BUCKET ?? missingBinding('BUCKET'),
     isProduction,
     appOrigin: appOrigin.replace(/\/+$/u, ''),
     nextOrigin,

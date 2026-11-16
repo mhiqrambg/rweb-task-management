@@ -423,7 +423,8 @@ describe('platform behaviour', () => {
   it('reports readiness without leaking counts or versions', async () => {
     const response = await call('/api/v1/health');
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ data: { status: 'ok', db: 'ok' } });
+    // D-5: `storage` is part of readiness, and the payload still carries no counts or versions.
+    expect(await response.json()).toEqual({ data: { status: 'ok', db: 'ok', storage: 'ok' } });
   });
 
   it('answers unknown paths and unsupported methods with 404 NOT_FOUND', async () => {

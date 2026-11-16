@@ -31,6 +31,8 @@ import {
   updateTask,
 } from './repo';
 import { recentNotePreviews } from '../notes/repo';
+import { hydrateAttachments, taskAttachmentSets } from '../attachments/routes';
+import { attachmentKeysForTarget } from '../attachments/repo';
 
 export const tasksRoutes = new Elysia();
 
@@ -113,8 +115,18 @@ tasksRoutes.get(api.tasks, async ({ request, set }) => {
       details: [{ field: parsed.failure.field, code: parsed.failure.code, message: parsed.failure.message }],
     });
   }
+  // FR-TASK-017: the first three thumbnails plus the exact count, from one query for the page.
   const page = await listTasks(cfg.db, user.id, parsed.query, today);
-  return { data: page.items, page: { limit: parsed.query.limit, nextCursor: page.nextCursor } };
+  const hydrated = await hydrateAttachments(
+    cfg.db,
+    user.id,
+    page.items.map((item) => item.id),
+  );
+  const items = page.items.map((item) => {
+    const entry = hydrated.get(item.id);
+    return { ...item, attachments: entry?.summaries ?? [], attachmentCount: entry?.count ?? 0 };
+  });
+  return { data: items, page: { limit: parsed.query.limit, nextCursor: page.nextCursor } };
 });
 
 /** #9 — create a task owned by the session user (FR-TASK-001/002). */
@@ -158,7 +170,8 @@ tasksRoutes.get(`${api.tasks}/:id`, async ({ request, set, params }) => {
 
   const row = await findTask(cfg.db, user.id, routeId(params));
   if (!row) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
-  const task: Task = taskRowToTask(row, toCalendarDate(new Date()));
+  const { all } = await taskAttachmentSets(cfg.db, user.id, row.id);
+  const task: Task = taskRowToTask(row, toCalendarDate(new Date()), all);
   return { data: task };
 });
 
@@ -190,7 +203,8 @@ tasksRoutes.patch(`${api.tasks}/:id`, async ({ request, body, set, params }) => 
 
   const row = await updateTask(cfg.db, user.id, routeId(params), patch, new Date(Date.now()).toISOString());
   if (!row) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
-  const task: Task = taskRowToTask(row, toCalendarDate(new Date()));
+  const { all } = await taskAttachmentSets(cfg.db, user.id, row.id);
+  const task: Task = taskRowToTask(row, toCalendarDate(new Date()), all);
   return { data: task };
 });
 
@@ -201,8 +215,17 @@ tasksRoutes.delete(`${api.tasks}/:id`, async ({ request, set, params }) => {
   await enforceUserLimit(cfg.db, user.id);
   withSessionCookie(set, cookie);
 
-  const deleted = await deleteTask(cfg.db, user.id, routeId(params));
+  const id = routeId(params);
+  // FR-ATT-011: read the keys before the cascade deletes the rows that name them, then sweep.
+  const keys = await attachmentKeysForTarget(cfg.db, user.id, { taskId: id, noteId: null });
+  const deleted = await deleteTask(cfg.db, user.id, id);
   if (!deleted) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
+  await Promise.all(
+    keys.flatMap((entry) => [
+      cfg.bucket.delete(entry.storage_key),
+      entry.thumb_key ? cfg.bucket.delete(entry.thumb_key) : Promise.resolve(),
+    ]),
+  );
   set.status = 204;
 });
 
@@ -220,7 +243,20 @@ tasksRoutes.get(api.dashboard, async ({ request, set }) => {
     recentTasks(cfg.db, user.id),
     recentNotePreviews(cfg.db, user.id),
   ]);
-  const items: TaskListItem[] = taskRows.map((row) => taskRowToListItem(row, today));
+  // FR-DASH-004/005: each recent row carries its first three thumbnails plus the exact count.
+  const recent = await hydrateAttachments(
+    cfg.db,
+    user.id,
+    [...taskRows.map((row) => row.id), ...noteRows.map((row) => row.id)],
+  );
+  const items: TaskListItem[] = taskRows.map((row) => {
+    const entry = recent.get(row.id);
+    return taskRowToListItem(row, today, entry?.summaries ?? [], entry?.count ?? 0);
+  });
+  const recentNotes = noteRows.map((row) => {
+    const entry = recent.get(row.id);
+    return { ...row, attachments: entry?.summaries ?? [], attachmentCount: entry?.count ?? 0 };
+  });
 
   return {
     data: {
@@ -228,7 +264,7 @@ tasksRoutes.get(api.dashboard, async ({ request, set }) => {
       byStatus: figures.byStatus,
       byPriority: figures.byPriority,
       recentTasks: items,
-      recentNotes: noteRows,
+      recentNotes,
     },
   };
 });

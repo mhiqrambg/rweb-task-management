@@ -78,6 +78,9 @@ authRoutes.post(api.auth.register, async ({ request, body, set }) => {
     email: parsed.data.email,
     password_hash: await hashPassword(parsed.data.password),
     display_name: parsed.data.displayName ?? defaultDisplayName(parsed.data.email),
+    // D-12: a self-registered account is always a plain member. The role is never client-settable.
+    role: 'member',
+    status: 'active',
     created_at: isoFrom(now),
     updated_at: isoFrom(now),
   };
@@ -131,7 +134,9 @@ authRoutes.post(api.auth.login, async ({ request, body, set }) => {
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
 
-  if (!(await verifyPassword(password, user.password_hash))) {
+  // FR-ADMIN-004: a disabled member is refused exactly like a wrong password. The message stays
+  // generic, so the refusal does not reveal that the account exists or that it was disabled.
+  if (user.status === 'disabled' || !(await verifyPassword(password, user.password_hash))) {
     await consumeRateLimit(cfg.db, LOGIN_FAIL_BUCKET, failureKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
   }
