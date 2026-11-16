@@ -37,6 +37,8 @@ function pick<T extends string>(value: string | null, allowed: readonly T[], fal
 }
 
 function clampLimit(value: string | null): number {
+  // `Number(null)` is 0, so an absent key must be handled before the numeric read.
+  if (value === null || value.trim() === '') return DEFAULT_LIMIT;
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) return DEFAULT_LIMIT;
   return Math.min(MAX_LIMIT, Math.max(1, parsed));
@@ -83,7 +85,7 @@ export function taskListHref(query: TaskListQuery, base = '/tasks'): string {
   const search = new URLSearchParams(
     [...byKey].filter(([, value]) => value !== '') as Array<[string, string]>,
   ).toString();
-  return search ? `${base}?${search}` : base;
+  return search ? `${base}${base.includes('?') ? '&' : '?'}${search}` : base;
 }
 
 export function noteListHref(query: NoteListQuery, base = '/notes'): string {
@@ -98,7 +100,7 @@ export function noteListHref(query: NoteListQuery, base = '/notes'): string {
   const search = new URLSearchParams(
     [...byKey].filter(([, value]) => value !== '') as Array<[string, string]>,
   ).toString();
-  return search ? `${base}?${search}` : base;
+  return search ? `${base}${base.includes('?') ? '&' : '?'}${search}` : base;
 }
 
 export function hasTaskFilters(query: TaskListQuery): boolean {
