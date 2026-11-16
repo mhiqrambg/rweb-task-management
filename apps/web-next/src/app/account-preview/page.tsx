@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AccountPanel } from '@/components/AccountPanel';
-import '../account.css';
+import '../app.css';
 
 const demoProfile = {
   displayName: 'Demo User',
