@@ -1,0 +1,42 @@
+---
+/**
+ * C-14 confirm dialog. Native `<dialog>`: the browser traps focus, closes on Escape and returns
+ * focus, which is what FR-UI-007 requires. **Cancel is focused by default**, so a stray Enter never
+ * destroys anything.
+ *
+ * The dialog is inert until `data-confirm-open` is activated, so it costs nothing on a page that
+ * never deletes. One dialog per form is enough: the form names the record it deletes.
+ */
+import { copy } from '@taskapp/contracts';
+
+interface Props {
+  /** Copy-deck title, e.g. `copy.confirm.deleteTask.title`. */
+  title: string;
+  /** Copy-deck body, already filled with the record name. */
+  body: string;
+  confirmLabel?: string | undefined;
+}
+
+const { title, body, confirmLabel = copy.confirm.confirmDelete } = Astro.props;
+---
+
+<dialog class="dialog dialog--confirm" data-confirm aria-label={title}>
+  <form method="POST" class="dialog__body" data-confirm-form>
+    <div class="dialog__head">
+      <h2 class="dialog__title" data-confirm-title>{title}</h2>
+    </div>
+    <p class="muted" data-confirm-body>{body}</p>
+    <div class="dialog__actions">
+      <button class="btn" data-variant="secondary" type="button" data-confirm-cancel autofocus>
+        {copy.action.cancel}
+      </button>
+      <button class="btn" data-variant="danger" type="submit">
+        {confirmLabel}
+      </button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import '../scripts/confirm';
+</script>

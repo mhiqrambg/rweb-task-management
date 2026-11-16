@@ -584,6 +584,23 @@ select.field__input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.thumb-figure__remove {
+  font-size: var(--fs-12);
+  color: var(--color-danger, currentColor);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.thumb-figure__remove:focus-visible {
+  outline: 2px solid var(--color-focus, currentColor);
+  outline-offset: 2px;
+}
+
 
 /* ---------------------------------------------------------------- C-11 lightbox */
 
@@ -636,6 +653,14 @@ select.field__input {
   color: var(--color-ink-muted);
   border-top: 1px solid var(--color-line);
 }
+.lightbox__controls {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--color-line);
+}
+
 
 /* ---------------------------------------------------------------- C-12 dropzone */
 
@@ -1173,8 +1198,12 @@ select.field__input {
   color: var(--color-accent);
 }
 
+/* The drawer is a native <dialog> (focus trap, Escape and backdrop come from the platform), so the
+   `dialog::backdrop` rule above supplies the scrim. It only exists below 768 px: the sidebar is
+   always visible above that, so the opener is hidden and the drawer is never opened. */
 .drawer {
   width: min(86vw, var(--sidebar-w));
+  max-width: var(--sidebar-w);
   height: 100vh;
   max-height: 100vh;
   margin: 0 auto 0 0;
@@ -1184,15 +1213,44 @@ select.field__input {
   box-shadow: var(--shadow-2);
 }
 
-.drawer::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
-}
-
 .drawer__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--sp-3);
   margin-bottom: var(--sp-4);
+}
+
+/* The name in the header is present from 768 px up, where the sidebar already shows the brand. */
+.shell__identity {
+  display: none;
+}
+
+.nav-item--logout {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .shell__identity {
+    display: inline;
+    margin-left: auto;
+    padding-left: var(--sp-3);
+  }
+}
+
+@media (max-width: 767px) {
+  .drawer {
+    display: none;
+  }
+
+  .drawer[open] {
+    display: block;
+  }
 }
 
 /* ---------------------------------------------------------------- marketing */

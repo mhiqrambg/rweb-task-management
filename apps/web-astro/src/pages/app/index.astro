@@ -1,0 +1,270 @@
+---
+/**
+ * Dashboard (d-01, d-02, design/02 §4): three counters, two breakdowns plus overdue, and the two
+ * recent lists (FR-DASH-001..005). Every figure comes from `GET /dashboard`, so a counter always
+ * equals the corresponding filtered list (FR-DASH-002).
+ *
+ * The page also carries the search box that hands its term to the task list (FR-DASH-006) and the
+ * create-task action. A failed read renders the error state with a retry, never a zero (FR-UI-003).
+ */
+import { actions } from 'astro:actions';
+import { copy, fill, formatDate, formatRelative, routes } from '@taskapp/contracts';
+import AppLayout from '../../layouts/AppLayout.astro';
+import StateBlock from '../../components/StateBlock.astro';
+import ThumbStrip from '../../components/ThumbStrip.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import { cookieHeader } from '../../lib/server/session';
+import { getDashboard } from '../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const result = await getDashboard(cookieHeader(Astro.request));
+
+/** A 404 from an app action means the record is gone or not ours; the shell shows the not-found page. */
+const actionResult = Astro.getActionResult(actions.setTaskStatus);
+if (actionResult?.data && !actionResult.data.ok) {
+  return Astro.redirect(`${routes.tasks}?toast=errorSave`, 303);
+}
+---
+
+<AppLayout title={copy.dash.title} current="dashboard">
+  {
+    !result.ok ? (
+      <StateBlock
+        kind="error"
+        title={copy.state.error.title}
+        body={copy.state.error.body}
+        actionLabel={copy.action.retry}
+        actionHref={routes.dashboard}
+      />
+    ) : (
+      <>
+        <div class="page-head">
+          <div class="page-head__row">
+            <h1 class="page-head__title">{copy.dash.title}</h1>
+
+            <form class="search" role="search" method="GET" action={routes.tasks}>
+              <label class="visually-hidden" for="dashboard-search">
+                {copy.dash.search.label}
+              </label>
+              <input
+                class="field__input"
+                id="dashboard-search"
+                type="search"
+                name="q"
+                maxlength={200}
+                placeholder={copy.dash.search.label}
+              />
+            </form>
+
+            <a class="btn" data-variant="primary" href={`${routes.tasks}?new=1`}>
+              {copy.task.new}
+            </a>
+          </div>
+        </div>
+
+        <div class="grid-3" aria-label={copy.dash.title}>
+          <div class="panel stat">
+            <span class="stat__label">{copy.dash.stat.total}</span>
+            <strong class="stat__value">{result.value.tasks.total}</strong>
+            <span class="stat__hint">{copy.dash.stat.totalHint}</span>
+          </div>
+          <div class="panel stat">
+            <span class="stat__label">{copy.dash.stat.active}</span>
+            <strong class="stat__value">{result.value.tasks.active}</strong>
+            <span class="stat__hint">{copy.dash.stat.activeHint}</span>
+          </div>
+          <div class="panel stat">
+            <span class="stat__label">{copy.dash.stat.completed}</span>
+            <strong class="stat__value">{result.value.tasks.completed}</strong>
+            <span class="stat__hint">{copy.dash.stat.completedHint}</span>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <section class="panel" aria-labelledby="dash-status">
+            <div class="panel__head">
+              <h2 class="section__title" id="dash-status">{copy.dash.breakdown.status}</h2>
+            </div>
+            <div class="breakdown">
+              <div class="breakdown__row">
+                <span>{copy.task.status.todo}</span>
+                <span class="breakdown__value">{result.value.byStatus.todo}</span>
+              </div>
+              <div class="breakdown__row">
+                <span>{copy.task.status.in_progress}</span>
+                <span class="breakdown__value">{result.value.byStatus.in_progress}</span>
+              </div>
+              <div class="breakdown__row">
+                <span>{copy.task.status.completed}</span>
+                <span class="breakdown__value">{result.value.byStatus.completed}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="dash-priority">
+            <div class="panel__head">
+              <h2 class="section__title" id="dash-priority">{copy.dash.breakdown.priority}</h2>
+            </div>
+            <div class="breakdown">
+              <div class="breakdown__row">
+                <span>{copy.task.priority.low}</span>
+                <span class="breakdown__value">{result.value.byPriority.low}</span>
+              </div>
+              <div class="breakdown__row">
+                <span>{copy.task.priority.medium}</span>
+                <span class="breakdown__value">{result.value.byPriority.medium}</span>
+              </div>
+              <div class="breakdown__row">
+                <span>{copy.task.priority.high}</span>
+                <span class="breakdown__value">{result.value.byPriority.high}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="dash-overdue">
+            <div class="panel__head">
+              <h2 class="section__title" id="dash-overdue">{copy.dash.breakdown.overdue}</h2>
+            </div>
+            <div class="breakdown">
+              <div class="breakdown__row">
+                <strong
+                  class="breakdown__value"
+                  data-tone={result.value.tasks.overdue > 0 ? 'danger' : undefined}
+                >
+                  {result.value.tasks.overdue}
+                </strong>
+              </div>
+            </div>
+            <p class="muted stat__hint">{copy.dash.breakdown.overdueHint}</p>
+          </section>
+        </div>
+
+        <div class="grid-2">
+          <section class="panel" aria-labelledby="dash-recent-tasks">
+            <div class="panel__head">
+              <h2 class="section__title" id="dash-recent-tasks">{copy.dash.recentTasks}</h2>
+              <a class="btn btn--sm" data-variant="ghost" href={routes.tasks}>
+                {copy.dash.viewAll}
+              </a>
+            </div>
+
+            {
+              result.value.recentTasks.length === 0 ? (
+                <StateBlock
+                  kind="empty"
+                  title={copy.dash.empty.tasks}
+                  body={copy.dash.empty.tasksHint}
+                  actionLabel={copy.task.new}
+                  actionHref={`${routes.tasks}?new=1`}
+                />
+              ) : (
+                <ul class="panel__list">
+                  {result.value.recentTasks.map((task) => (
+                    <li class="card card--hoverable task-card">
+                      <h3 class="task-card__title">
+                        <a href={routes.task(task.id)}>{task.title}</a>
+                      </h3>
+                      <div class="task-card__meta">
+                        <span class="badge" data-kind="status" data-value={task.status}>
+                          {copy.task.status[task.status]}
+                        </span>
+                        <span class="badge" data-kind="priority" data-value={task.priority}>
+                          {copy.task.priority[task.priority]}
+                        </span>
+                      </div>
+                      {task.dueDate ? (
+                        <p
+                          class="task-card__due"
+                          data-overdue={task.isOverdue ? '' : undefined}
+                        >
+                          {task.isOverdue ? `${copy.task.overdue} · ` : ''}
+                          {formatDate(task.dueDate)}
+                        </p>
+                      ) : null}
+                      {task.attachments.length > 0 ? (
+                        <ThumbStrip
+                          attachments={task.attachments}
+                          overflow={Math.max(0, task.attachmentCount - task.attachments.length)}
+                          target="task"
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+          </section>
+
+          <section class="panel" aria-labelledby="dash-recent-notes">
+            <div class="panel__head">
+              <h2 class="section__title" id="dash-recent-notes">{copy.dash.recentNotes}</h2>
+              <a class="btn btn--sm" data-variant="ghost" href={routes.notes}>
+                {copy.dash.viewAll}
+              </a>
+            </div>
+
+            {
+              result.value.recentNotes.length === 0 ? (
+                <StateBlock
+                  kind="empty"
+                  title={copy.dash.empty.notes}
+                  body={copy.note.empty.body}
+                  actionLabel={copy.note.new}
+                  actionHref={`${routes.notes}?new=1`}
+                />
+              ) : (
+                <ul class="panel__list">
+                  {result.value.recentNotes.map((note) => (
+                    <li class="card card--hoverable note-card">
+                      <h3 class="note-card__title">
+                        <a href={routes.note(note.id)}>{note.title}</a>
+                      </h3>
+                      {note.pinned ? (
+                        <span class="badge" data-kind="pin">
+                          {copy.note.pinned}
+                        </span>
+                      ) : null}
+                      <p class="note-card__body">{note.excerpt}</p>
+                      <div class="task-card__meta">
+                        <span>{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
+                      </div>
+                      {note.attachments.length > 0 ? (
+                        <ThumbStrip
+                          attachments={note.attachments}
+                          overflow={Math.max(0, note.attachmentCount - note.attachments.length)}
+                          target="note"
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+          </section>
+        </div>
+
+        <Lightbox
+          label={copy.task.attachments.open}
+          slides={[
+            ...result.value.recentTasks.flatMap((task) =>
+              task.attachments.map((attachment) => ({
+                full: attachment.fullUrl,
+                alt: copy.task.attachments.open,
+                caption: attachment.width && attachment.height
+                  ? `${attachment.width} × ${attachment.height}`
+                  : attachment.mime,
+              })),
+            ),
+          ]}
+        />
+      </>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../scripts/drawer';
+  import '../../scripts/confirm';
+</script>

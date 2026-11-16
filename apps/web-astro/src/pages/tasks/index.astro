@@ -1,0 +1,369 @@
+---
+/**
+ * Task list (tk-01…tk-04, tk-08; design/02 §5). Search, filters, sort and the cursor live in the
+ * URL, so a copied URL restores the identical page and Back/Forward work (FR-TASK-014). Key order is
+ * the shared constant, so an Astro URL and a Next URL encode the same state.
+ *
+ * Every state the parity checklist names is here: loading (skeleton), empty, no-results, error with
+ * retry, the filters-applied note, and the cursor's `Load more`.
+ */
+import { actions } from 'astro:actions';
+import {
+  copy,
+  formatDate,
+  parseTaskListQuery,
+  routes,
+  taskListHref,
+  taskPriorityLabel,
+  taskStatusLabel,
+  type TaskListQuery,
+} from '@taskapp/contracts';
+import AppLayout from '../../layouts/AppLayout.astro';
+import Button from '../../components/Button.astro';
+import Field from '../../components/Field.astro';
+import StateBlock from '../../components/StateBlock.astro';
+import ThumbStrip from '../../components/ThumbStrip.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import ConfirmDialog from '../../components/ConfirmDialog.astro';
+import { cookieHeader } from '../../lib/server/session';
+import { getTasks } from '../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const query = parseTaskListQuery(Astro.url.searchParams);
+const result = await getTasks(cookieHeader(Astro.request), query);
+const hasFilters = Boolean(
+  query.q || query.status || query.priority || query.due || query.hasImages,
+);
+
+/** A state change replaces the query, minus the cursor: the page restarts at the first row. */
+function hrefWith(patch: Partial<TaskListQuery>): string {
+  return taskListHref({ ...query, cursor: null, ...patch }, routes.tasks);
+}
+
+/** Server field errors from a failed action, keyed by field. */
+const actionResult = Astro.getActionResult(actions.createTask);
+const actionFailure = actionResult?.data && !actionResult.data.ok ? actionResult.data : null;
+if (actionResult?.data?.ok) return Astro.redirect(actionResult.data.redirect, 303);
+
+/**
+ * The inline status control posts to this page. A successful change redirects (POST/redirect/GET),
+ * so a refresh cannot resubmit it and the toast survives the navigation (FR-TASK-007, FR-UI-004).
+ */
+const statusResult = Astro.getActionResult(actions.setTaskStatus);
+if (statusResult?.data?.ok) return Astro.redirect(statusResult.data.redirect, 303);
+
+const showCreate = Astro.url.searchParams.get('new') === '1';
+---
+
+<AppLayout title={copy.task.title} current="tasks">
+  <div class="page-head">
+    <div class="page-head__row">
+      <h1 class="page-head__title">{copy.task.title}</h1>
+
+      <form class="search" role="search" method="GET" action={routes.tasks}>
+        <label class="visually-hidden" for="task-search">{copy.task.search.label}</label>
+        <input
+          class="field__input"
+          id="task-search"
+          type="search"
+          name="q"
+          value={query.q}
+          maxlength={200}
+          placeholder={copy.task.search.label}
+        />
+        {query.status ? <input type="hidden" name="status" value={query.status} /> : null}
+        {query.priority ? <input type="hidden" name="priority" value={query.priority} /> : null}
+        {query.due ? <input type="hidden" name="due" value={query.due} /> : null}
+        {query.hasImages ? <input type="hidden" name="hasImages" value="true" /> : null}
+        {query.sort !== 'updated' ? <input type="hidden" name="sort" value={query.sort} /> : null}
+        <button class="btn" data-variant="primary" type="submit">
+          {copy.task.new}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <label class="field toolbar__field">
+      <span class="field__label">{copy.filter.status}</span>
+      <select class="field__input" name="status" data-filter="status">
+        <option value="">{copy.filter.all}</option>
+        <option value="todo" selected={query.status === 'todo'}>
+          {taskStatusLabel('todo')}
+        </option>
+        <option value="in_progress" selected={query.status === 'in_progress'}>
+          {taskStatusLabel('in_progress')}
+        </option>
+        <option value="completed" selected={query.status === 'completed'}>
+          {taskStatusLabel('completed')}
+        </option>
+      </select>
+    </label>
+
+    <label class="field toolbar__field">
+      <span class="field__label">{copy.filter.priority}</span>
+      <select class="field__input" name="priority" data-filter="priority">
+        <option value="">{copy.filter.all}</option>
+        <option value="low" selected={query.priority === 'low'}>
+          {taskPriorityLabel('low')}
+        </option>
+        <option value="medium" selected={query.priority === 'medium'}>
+          {taskPriorityLabel('medium')}
+        </option>
+        <option value="high" selected={query.priority === 'high'}>
+          {taskPriorityLabel('high')}
+        </option>
+      </select>
+    </label>
+
+    <label class="field toolbar__field">
+      <span class="field__label">{copy.filter.due}</span>
+      <select class="field__input" name="due" data-filter="due">
+        <option value="" selected={query.due === ''}>{copy.filter.dueValue.any}</option>
+        <option value="overdue" selected={query.due === 'overdue'}>{copy.filter.dueValue.overdue}</option>
+        <option value="today" selected={query.due === 'today'}>{copy.filter.dueValue.today}</option>
+        <option value="next7" selected={query.due === 'next7'}>{copy.filter.dueValue.next7}</option>
+        <option value="none" selected={query.due === 'none'}>{copy.filter.dueValue.none}</option>
+      </select>
+    </label>
+
+    <label class="field toolbar__field">
+      <span class="field__label">{copy.sort.label}</span>
+      <select class="field__input" name="sort" data-filter="sort">
+        <option value="updated" selected={query.sort === 'updated'}>{copy.sort.updated}</option>
+        <option value="created" selected={query.sort === 'created'}>{copy.sort.created}</option>
+        <option value="due" selected={query.sort === 'due'}>{copy.sort.due}</option>
+        <option value="priority" selected={query.sort === 'priority'}>{copy.sort.priority}</option>
+      </select>
+    </label>
+
+    <a
+      class="btn"
+      data-variant="secondary"
+      href={hrefWith({ hasImages: !query.hasImages })}
+      aria-pressed={query.hasImages}
+    >
+      {copy.filter.hasImages}
+    </a>
+
+    <a class="btn" data-variant="ghost" href={routes.tasks}>{copy.filter.clear}</a>
+
+    {hasFilters ? <p class="toolbar__note">{copy.filter.applied}</p> : null}
+  </div>
+
+  {
+    !result.ok ? (
+      <StateBlock
+        kind="error"
+        title={copy.state.error.tasks}
+        body={result.message}
+        actionLabel={copy.action.retry}
+        actionHref={taskListHref(query, routes.tasks)}
+      />
+    ) : result.value.items.length === 0 ? (
+      hasFilters ? (
+        <StateBlock
+          kind="empty"
+          title={copy.task.noResults.title}
+          body={copy.task.noResults.body}
+          actionLabel={copy.task.noResults.clear}
+          actionHref={routes.tasks}
+        />
+      ) : (
+        <StateBlock
+          kind="empty"
+          title={copy.task.empty.title}
+          body={copy.task.empty.body}
+          actionLabel={copy.task.new}
+          actionHref={`${routes.tasks}?new=1`}
+        />
+      )
+    ) : (
+      <>
+        <div class="card-grid">
+          {result.value.items.map((task) => {
+            const detailHref = taskListHref(query, routes.task(task.id));
+            return (
+              <article class="card card--hoverable task-card" data-overdue={task.isOverdue ? '' : undefined}>
+                <h2 class="task-card__title">
+                  <a href={detailHref}>{task.title}</a>
+                </h2>
+
+                <div class="task-card__meta">
+                  <span class="badge" data-kind="status" data-value={task.status}>
+                    {taskStatusLabel(task.status)}
+                  </span>
+                  <span class="badge" data-kind="priority" data-value={task.priority}>
+                    {taskPriorityLabel(task.priority)}
+                  </span>
+                </div>
+
+                {task.dueDate ? (
+                  <p class="task-card__due">
+                    {task.isOverdue ? `${copy.task.overdue} · ` : ''}
+                    {formatDate(task.dueDate)}
+                  </p>
+                ) : (
+                  <p class="task-card__due">{copy.task.field.dueDateEmpty}</p>
+                )}
+
+                {task.attachments.length > 0 ? (
+                  <ThumbStrip
+                    attachments={task.attachments}
+                    overflow={Math.max(0, task.attachmentCount - task.attachments.length)}
+                    target="task"
+                  />
+                ) : null}
+
+                <form method="POST" action={actions.setTaskStatus}>
+                  <input type="hidden" name="id" value={task.id} />
+                  <input type="hidden" name="next" value={detailHref} />
+                  <label class="visually-hidden" for={`status-${task.id}`}>
+                    {copy.task.field.status}
+                  </label>
+                  <select
+                    class="field__input"
+                    id={`status-${task.id}`}
+                    name="status"
+                    data-status-form
+                  >
+                    <option value="todo" selected={task.status === 'todo'}>
+                      {taskStatusLabel('todo')}
+                    </option>
+                    <option value="in_progress" selected={task.status === 'in_progress'}>
+                      {taskStatusLabel('in_progress')}
+                    </option>
+                    <option value="completed" selected={task.status === 'completed'}>
+                      {taskStatusLabel('completed')}
+                    </option>
+                  </select>
+                  <button class="btn btn--sm" data-variant="ghost" type="submit">
+                    {copy.action.save}
+                  </button>
+                </form>
+              </article>
+            );
+          })}
+        </div>
+
+        <div class="pagination">
+          {
+            result.value.page.nextCursor ? (
+              <a
+                class="btn"
+                data-variant="secondary"
+                href={taskListHref({ ...query, cursor: result.value.page.nextCursor }, routes.tasks)}
+              >
+                {copy.pagination.loadMore}
+              </a>
+            ) : (
+              <span class="pagination__end muted">{copy.pagination.end}</span>
+            )
+          }
+        </div>
+      </>
+    )
+  }
+
+  {
+    showCreate ? (
+      <dialog class="dialog" id="task-form" open aria-label={copy.task.new}>
+        <form method="POST" action={actions.createTask} class="dialog__body">
+          <div class="dialog__head">
+            <h2 class="dialog__title">{copy.task.new}</h2>
+            <a class="icon-btn" href={taskListHref(query, routes.tasks)}>
+              <span class="visually-hidden">{copy.action.cancel}</span>
+            </a>
+          </div>
+
+          {actionFailure?.message ? <p class="inline-error" role="alert">{actionFailure.message}</p> : null}
+
+          <Field
+            name="title"
+            label={copy.task.field.title}
+            value={actionFailure ? '' : ''}
+            error={actionFailure?.errors.title}
+            maxlength={200}
+            required
+          />
+          <Field
+            name="description"
+            label={copy.task.field.description}
+            as="textarea"
+            rows={4}
+            error={actionFailure?.errors.description}
+          />
+
+          <div class="grid-2">
+            <label class="field">
+              <span class="field__label">{copy.task.field.status}</span>
+              <select class="field__input" name="status">
+                <option value="todo">{taskStatusLabel('todo')}</option>
+                <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+                <option value="completed">{taskStatusLabel('completed')}</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">{copy.task.field.priority}</span>
+              <select class="field__input" name="priority">
+                <option value="low">{taskPriorityLabel('low')}</option>
+                <option value="medium" selected>{taskPriorityLabel('medium')}</option>
+                <option value="high">{taskPriorityLabel('high')}</option>
+              </select>
+            </label>
+          </div>
+
+          <Field
+            name="dueDate"
+            label={copy.task.field.dueDate}
+            type="date"
+            error={actionFailure?.errors.dueDate}
+          />
+
+          <div class="dialog__actions">
+            <a class="btn" data-variant="secondary" href={taskListHref(query, routes.tasks)}>
+              {copy.action.cancel}
+            </a>
+            <Button type="submit">{copy.task.new}</Button>
+          </div>
+        </form>
+      </dialog>
+    ) : null
+  }
+
+  <Lightbox
+    label={copy.task.title}
+    slides={result.ok
+      ? result.value.items.flatMap((task) =>
+          task.attachments.map((attachment) => ({
+            full: attachment.fullUrl,
+            alt: copy.task.attachments.open,
+            caption: '',
+          })),
+        )
+      : []}
+  />
+
+  <ConfirmDialog
+    title={copy.confirm.deleteTask.title}
+    body={copy.confirm.deleteTask.body.replace('{title}', '')}
+  />
+</AppLayout>
+
+<script>
+  import '../../scripts/lightbox';
+  import '../../scripts/drawer';
+  import '../../scripts/confirm';
+
+  // Filters and sort are URL state (FR-TASK-014): each change navigates, so reload and Back work
+  // with no client router. The status forms submit on change, which is the same guarantee.
+  for (const select of document.querySelectorAll<HTMLSelectElement>('select[data-filter]')) {
+    select.addEventListener('change', () => select.form?.requestSubmit());
+  }
+  for (const select of document.querySelectorAll<HTMLSelectElement>('select[data-status-form]')) {
+    select.addEventListener('change', () => select.form?.requestSubmit());
+  }
+</script>

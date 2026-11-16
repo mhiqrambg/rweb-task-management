@@ -5,6 +5,12 @@
  * value must not be baked into the build (03 §7, O-11). API_MODE selects the contract-first
  * dummy dataset so the SSR screens can be built and reviewed before the Worker lands (13 §2,
  * "independent: page/layout/components against a contract-first mock").
+ *
+ * Local development: `wrangler.jsonc` carries the **production** API origin, because the same file
+ * configures the deploy. A `wrangler dev` run therefore reads production unless
+ * `PUBLIC_API_BASE_URL` is overridden for that run only — `--var PUBLIC_API_BASE_URL:…` merges over
+ * the file. Overriding it in `wrangler.jsonc` itself would ship the local address to production, so
+ * it must stay a per-run flag (see `.env.example` and `README.md`).
  */
 
 export type ApiMode = 'live' | 'mock';

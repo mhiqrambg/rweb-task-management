@@ -1,0 +1,165 @@
+---
+/**
+ * Task edit (tk-06; design/02 §5). A prefilled form on its own URL, so a reload keeps the draft
+ * and Back returns to the detail (FR-TASK-005/006). The server field errors map onto the same
+ * fields the person filled (FR-UI-005), and an absent or foreign id is a 404 (FR-TASK-019).
+ */
+import { actions } from 'astro:actions';
+import {
+  copy,
+  routes,
+  taskPriorityLabel,
+  taskStatusLabel,
+} from '@taskapp/contracts';
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Button from '../../../components/Button.astro';
+import Field from '../../../components/Field.astro';
+import InlineError from '../../../components/InlineError.astro';
+import StateBlock from '../../../components/StateBlock.astro';
+import { cookieHeader } from '../../../lib/server/session';
+import { getTask } from '../../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect(routes.tasks);
+
+const result = await getTask(cookieHeader(Astro.request), id);
+if (!result.ok) {
+  if (result.status === 404) {
+    return Astro.redirect(
+      `${routes.login}?next=${encodeURIComponent(routes.task(id))}`,
+      303,
+    );
+  }
+}
+
+const task = result.ok ? result.value : null;
+
+const actionResult = Astro.getActionResult(actions.updateTask);
+const outcome = actionResult?.data;
+if (outcome?.ok) return Astro.redirect(outcome.redirect, 303);
+
+const failure = outcome && !outcome.ok ? outcome : null;
+// A 404 outcome means the row went away mid-edit; there is nothing left to show.
+if (failure?.message === copy.state.notFound.body) {
+  return Astro.redirect(routes.tasks, 303);
+}
+
+/** What the form shows: what the person typed when validation failed, else what is stored. */
+const values = failure
+  ? Object.fromEntries(new URLSearchParams(new URL(Astro.request.url).search))
+  : {};
+const draft = {
+  title: values.title ?? task?.title ?? '',
+  description: values.description ?? task?.description ?? '',
+  status: values.status ?? task?.status ?? 'todo',
+  priority: values.priority ?? task?.priority ?? 'medium',
+  dueDate: values.dueDate ?? task?.dueDate ?? '',
+};
+---
+
+<AppLayout title={copy.action.edit} current="tasks">
+  {
+    !task ? (
+      <StateBlock
+        kind="error"
+        title={copy.state.error.detail}
+        body={result.ok ? copy.state.notFound.body : result.message}
+        actionLabel={copy.action.retry}
+        actionHref={routes.taskEdit(id)}
+      />
+    ) : (
+      <div class="page-head">
+        <div class="page-head__row">
+          <h1 class="page-head__title">{copy.action.edit}</h1>
+        </div>
+      </div>
+
+      <form
+        class="panel stack"
+        method="POST"
+        action={actions.updateTask}
+        style="max-width: var(--measure)"
+      >
+        <input type="hidden" name="id" value={task.id} />
+
+        {failure?.message ? <InlineError message={failure.message} /> : null}
+
+        <Field
+          name="title"
+          label={copy.task.field.title}
+          value={draft.title}
+          error={failure?.errors.title}
+          maxlength={200}
+          required
+        />
+
+        <Field
+          name="description"
+          label={copy.task.field.description}
+          as="textarea"
+          rows={6}
+          value={draft.description}
+          error={failure?.errors.description}
+          counter
+          maxlength={5000}
+        />
+
+        <div class="grid-2">
+          <label class="field">
+            <span class="field__label">{copy.task.field.status}</span>
+            <select class="field__input" name="status">
+              <option value="todo" selected={draft.status === 'todo'}>
+                {taskStatusLabel('todo')}
+              </option>
+              <option value="in_progress" selected={draft.status === 'in_progress'}>
+                {taskStatusLabel('in_progress')}
+              </option>
+              <option value="completed" selected={draft.status === 'completed'}>
+                {taskStatusLabel('completed')}
+              </option>
+            </select>
+            {failure?.errors.status ? (
+              <p class="field__error" role="alert">{failure.errors.status}</p>
+            ) : null}
+          </label>
+
+          <label class="field">
+            <span class="field__label">{copy.task.field.priority}</span>
+            <select class="field__input" name="priority">
+              <option value="low" selected={draft.priority === 'low'}>
+                {taskPriorityLabel('low')}
+              </option>
+              <option value="medium" selected={draft.priority === 'medium'}>
+                {taskPriorityLabel('medium')}
+              </option>
+              <option value="high" selected={draft.priority === 'high'}>
+                {taskPriorityLabel('high')}
+              </option>
+            </select>
+            {failure?.errors.priority ? (
+              <p class="field__error" role="alert">{failure.errors.priority}</p>
+            ) : null}
+          </label>
+        </div>
+
+        <Field
+          name="dueDate"
+          label={copy.task.field.dueDate}
+          type="date"
+          value={draft.dueDate}
+          error={failure?.errors.dueDate}
+        />
+
+        <div class="dialog__actions">
+          <a class="btn" data-variant="secondary" href={routes.task(task.id)}>
+            {copy.action.cancel}
+          </a>
+          <Button type="submit">{copy.action.save}</Button>
+        </div>
+      </form>
+    )
+  }
+</AppLayout>

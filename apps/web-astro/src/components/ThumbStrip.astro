@@ -1,0 +1,97 @@
+---
+/**
+ * C-10 thumbnails. The strip is server-rendered; `data-state` carries loading/error so a broken
+ * image degrades to the deck's message instead of an empty box (FR-ATT-010).
+ *
+ * `variant` is always the thumbnail rendition (FR-ATT-004) — a list never requests the full bytes.
+ * Each button also carries `data-full` so the lightbox can open the full image without a round trip.
+ */
+import { copy, fill, formatBytes, formatDimensions, type AttachmentSummary } from '@taskapp/contracts';
+import ImageIcon from '@lucide/astro/icons/image';
+
+interface Props {
+  /** Detail screens pass the full attachment, which also carries the byte size FR-ATT-005 names. */
+  attachments: (AttachmentSummary & { sizeBytes?: number })[];
+  /** Extra attachments beyond the ones shown, as an overflow count. */
+  overflow?: number;
+  /** Detail screens use the larger 208×156 box and show every attachment (design/05 §1). */
+  size?: 'card' | 'detail';
+  target: 'task' | 'note';
+}
+
+const { attachments, overflow = 0, size = 'card', target } = Astro.props;
+const shown = size === 'detail' ? attachments : attachments.slice(0, 3);
+const hidden = size === 'detail' ? overflow : Math.max(overflow, 0);
+const thumbWidth = size === 'detail' ? 208 : 80;
+const thumbHeight = size === 'detail' ? 156 : 60;
+---
+
+{
+  shown.length > 0 ? (
+    <div class="thumbs" data-size={size}>
+      {shown.map((attachment, index) => {
+        const label = fill(copy.task.attachments.open, {
+          index: index + 1,
+          count: shown.length,
+        });
+        const caption =
+          [
+            formatDimensions(attachment.width, attachment.height),
+            attachment.sizeBytes === undefined ? null : formatBytes(attachment.sizeBytes),
+          ]
+            .filter(Boolean)
+            .join(' · ') || attachment.mime;
+
+        return (
+          <figure class="thumb-figure">
+            <button
+              class={`thumb${size === 'detail' ? ' thumb--detail' : ''}`}
+              type="button"
+              data-lightbox-open
+              data-target={target}
+              aria-label={label}
+            >
+              <img
+                src={attachment.thumbUrl}
+                data-full={attachment.fullUrl}
+                alt={label}
+                width={thumbWidth}
+                height={thumbHeight}
+                loading="lazy"
+                decoding="async"
+                data-state="loaded"
+              />
+            </button>
+            {size === 'detail' ? (
+              <>
+                <button
+                  class="thumb-figure__remove"
+                  type="button"
+                  data-confirm-open
+                  data-confirm-form="#image-delete"
+                  data-confirm-title={copy.confirm.deleteImage.title}
+                  data-confirm-id={attachment.id}
+                  data-confirm-body={fill(copy.confirm.deleteImage.body, {
+                    index: index + 1,
+                    count: shown.length,
+                    target,
+                  })}
+                >
+                  {copy.task.attachments.remove}
+                </button>
+                <figcaption class="thumb-figure__caption">{caption}</figcaption>
+              </>
+            ) : null}
+          </figure>
+        );
+      })}
+
+      {hidden > 0 ? <span class="thumbs__more">+{hidden}</span> : null}
+    </div>
+  ) : size === 'detail' ? (
+    <p class="muted">
+      <ImageIcon size={16} stroke-width={1.6} />
+      {copy.task.attachments.none}
+    </p>
+  ) : null
+}

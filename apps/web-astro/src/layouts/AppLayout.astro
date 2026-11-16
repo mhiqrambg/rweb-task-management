@@ -1,0 +1,119 @@
+---
+/**
+ * C-22 app shell: 64 px header, 240 px sidebar at `lg`, a drawer below `md` (design/05 §4,
+ * DESIGN.md §5). The nav is server-rendered per request, so the current section is correct on the
+ * first byte (FR-DASH-007) and no client router is needed (R-A5).
+ */
+import { copy, routes } from '@taskapp/contracts';
+import BaseLayout from './BaseLayout.astro';
+import ListChecks from '@lucide/astro/icons/list-checks';
+import LayoutDashboard from '@lucide/astro/icons/layout-dashboard';
+import StickyNote from '@lucide/astro/icons/sticky-note';
+import CircleUser from '@lucide/astro/icons/circle-user';
+import LogOut from '@lucide/astro/icons/log-out';
+import Menu from '@lucide/astro/icons/menu';
+import X from '@lucide/astro/icons/x';
+
+interface Props {
+  title: string;
+  /** Which nav item is current; matched against the pathname when omitted. */
+  current?: 'dashboard' | 'tasks' | 'notes' | 'account';
+}
+
+const { title, current: explicit } = Astro.props;
+const { pathname } = Astro.url;
+const session = Astro.locals.session;
+
+const current =
+  explicit ??
+  (pathname.startsWith(routes.tasks)
+    ? 'tasks'
+    : pathname.startsWith(routes.notes)
+      ? 'notes'
+      : pathname.startsWith(routes.account)
+        ? 'account'
+        : 'dashboard');
+
+const items = [
+  { key: 'dashboard', label: copy.nav.dashboard, href: routes.dashboard, Icon: LayoutDashboard },
+  { key: 'tasks', label: copy.nav.tasks, href: routes.tasks, Icon: ListChecks },
+  { key: 'notes', label: copy.nav.notes, href: routes.notes, Icon: StickyNote },
+  { key: 'account', label: copy.nav.account, href: routes.account, Icon: CircleUser },
+] as const;
+---
+
+<BaseLayout title={title}>
+  <div class="shell">
+    <header class="shell__header">
+      <a class="shell__brand" href={routes.dashboard} aria-label={copy.brand.name}>
+        <ListChecks size={20} stroke-width={1.6} />
+        <span>{copy.brand.name}</span>
+      </a>
+      <span class="muted header-identity shell__identity">{session?.user.displayName}</span>
+      <button class="icon-btn shell__menu" type="button" data-drawer-open aria-controls="app-drawer">
+        <Menu size={20} stroke-width={1.6} />
+        <span class="visually-hidden">{copy.nav.openMenu}</span>
+      </button>
+    </header>
+
+    <div class="shell__body">
+      <aside class="shell__sidebar">
+        <nav class="nav-list" aria-label={copy.brand.name}>
+          {
+            items.map(({ key, label, href, Icon }) => (
+              <a class="nav-item" href={href} aria-current={key === current ? 'page' : undefined}>
+                <Icon size={18} stroke-width={1.6} />
+                <span class="nav-list__label">{label}</span>
+              </a>
+            ))
+          }
+        </nav>
+        <form class="shell__foot" method="POST" action="/logout">
+          <button class="nav-item nav-item--logout" type="submit" data-submit>
+            <LogOut size={18} stroke-width={1.6} />
+            <span class="nav-list__label">{copy.auth.logout}</span>
+          </button>
+        </form>
+      </aside>
+
+      <dialog class="drawer" id="app-drawer" aria-label={copy.brand.name}>
+        <div class="drawer__head">
+          <span class="wordmark">
+            <ListChecks size={20} stroke-width={1.6} />
+            {copy.brand.name}
+          </span>
+          <button class="icon-btn" type="button" data-drawer-close>
+            <X size={18} stroke-width={1.6} />
+            <span class="visually-hidden">{copy.nav.closeMenu}</span>
+          </button>
+        </div>
+        <nav class="nav-list" aria-label={copy.brand.name}>
+          {
+            items.map(({ key, label, href, Icon }) => (
+              <a class="nav-item" href={href} aria-current={key === current ? 'page' : undefined}>
+                <Icon size={18} stroke-width={1.6} />
+                <span class="nav-list__label">{label}</span>
+              </a>
+            ))
+          }
+        </nav>
+        <form class="shell__foot" method="POST" action="/logout">
+          <button class="nav-item nav-item--logout" type="submit" data-submit>
+            <LogOut size={18} stroke-width={1.6} />
+            <span class="nav-list__label">{copy.auth.logout}</span>
+          </button>
+        </form>
+      </dialog>
+
+      <main id="main" class="shell__main">
+        <div class="shell__container">
+          <slot />
+        </div>
+      </main>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import '../scripts/drawer';
+</script>

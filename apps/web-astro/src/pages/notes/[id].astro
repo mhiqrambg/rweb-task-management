@@ -1,0 +1,199 @@
+---
+/**
+ * Note detail (n-04, n-07; design/02 §6). Full body, every attachment, the pin toggle and the
+ * edit/delete actions (FR-NOTE-005/007/009). Pin lives on the detail screen and never inside the
+ * edit form, so saving an edit cannot change it (FR-NOTE-006).
+ *
+ * A 404 — absent or foreign-owned (FR-NOTE-013) — is the shared not-found page.
+ */
+import { actions } from 'astro:actions';
+import {
+  copy,
+  fill,
+  formatBytes,
+  formatDate,
+  formatDimensions,
+  formatRelative,
+  routes,
+} from '@taskapp/contracts';
+import AppLayout from '../../layouts/AppLayout.astro';
+import Button from '../../components/Button.astro';
+import StateBlock from '../../components/StateBlock.astro';
+import ThumbStrip from '../../components/ThumbStrip.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import ConfirmDialog from '../../components/ConfirmDialog.astro';
+import { cookieHeader } from '../../lib/server/session';
+import { getNote } from '../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect(routes.notes);
+
+const result = await getNote(cookieHeader(Astro.request), id);
+
+const pinResult = Astro.getActionResult(actions.setNotePinned);
+if (pinResult?.data?.ok) return Astro.redirect(pinResult.data.redirect, 303);
+
+/**
+ * One upload per submission (D-8), so a success is a redirect back to this note with the
+ * `imageAdded` toast, and a rejection re-renders with the per-file reason (FR-ATT-009).
+ */
+/**
+ * Removal is a redirect like any other mutation: the record page has already been re-read, so a
+ * success sends the person back to it with the `imageRemoved` toast (FR-ATT-007).
+ */
+const removeResult = Astro.getActionResult(actions.deleteAttachment);
+if (removeResult?.data?.ok) return Astro.redirect(removeResult.data.redirect, 303);
+
+const uploadResult = Astro.getActionResult(actions.uploadAttachment);
+if (uploadResult?.data?.ok) return Astro.redirect(uploadResult.data.redirect, 303);
+const uploadFailure = uploadResult?.data && !uploadResult.data.ok ? uploadResult.data : null;
+
+const note = result.ok ? result.value : null;
+const detailHref = routes.note(id);
+---
+
+<AppLayout title={note?.title ?? copy.note.title} current="notes">
+  {
+    !result.ok ? (
+      result.status === 404 ? (
+        <StateBlock
+          kind="empty"
+          title={copy.state.notFound.title}
+          body={copy.state.notFound.body}
+          actionLabel={copy.state.notFound.action}
+          actionHref={routes.dashboard}
+        />
+      ) : (
+        <StateBlock
+          kind="error"
+          title={copy.state.error.detail}
+          body={result.message}
+          actionLabel={copy.action.retry}
+          actionHref={detailHref}
+        />
+      )
+    ) : note ? (
+      <>
+        <div class="detail-head">
+          <div>
+            <h1 class="detail-head__title">{note.title}</h1>
+            <div class="detail-meta">
+              {note.pinned ? (
+                <span class="badge" data-kind="pin">
+                  {copy.note.pinned}
+                </span>
+              ) : null}
+              <span class="muted">
+                {fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-head__actions">
+            <form method="POST" action={actions.setNotePinned}>
+              <input type="hidden" name="id" value={note.id} />
+              <input type="hidden" name="pinned" value={note.pinned ? 'false' : 'true'} />
+              <input type="hidden" name="next" value={detailHref} />
+              <Button type="submit" variant="secondary" small>
+                {note.pinned ? copy.note.unpin : copy.note.pin}
+              </Button>
+            </form>
+
+            <a class="btn" data-variant="secondary" href={`${routes.note(note.id)}/edit`}>
+              {copy.action.edit}
+            </a>
+
+            <button class="btn" data-variant="danger" type="button" data-confirm-open
+              data-confirm-form="#record-delete" data-confirm-id={note.id}>
+              {copy.action.delete}
+            </button>
+          </div>
+        </div>
+
+        <section class="detail-section">
+          <p class="detail-body">{note.body}</p>
+        </section>
+
+        <section class="detail-section" aria-labelledby="note-images">
+          <h2 class="detail-section__title" id="note-images">{copy.task.field.images}</h2>
+
+          <ThumbStrip attachments={note.attachments} size="detail" target="note" />
+
+          {note.attachments.length === 0 ? (
+            <p class="muted stat__hint">{copy.task.attachments.noneHint}</p>
+          ) : null}
+
+          <form
+            method="POST"
+            action={actions.uploadAttachment}
+            enctype="multipart/form-data"
+            class="dropzone"
+          >
+            <input type="hidden" name="targetType" value="note" />
+            <input type="hidden" name="targetId" value={note.id} />
+            <input type="hidden" name="next" value={detailHref} />
+
+            <label class="dropzone__label" for="note-upload">
+              {copy.dropzone.idle}
+              <span class="visually-hidden">{copy.task.attachments.add}</span>
+            </label>
+            <p class="dropzone__hint">{copy.dropzone.hint.replace('{target}', 'note')}</p>
+            {uploadFailure?.message ? (
+              <p class="inline-error" role="alert">{uploadFailure.message}</p>
+            ) : null}
+            <input
+              class="visually-hidden"
+              id="note-upload"
+              type="file"
+              name="file"
+              accept="image/jpeg,image/png,image/webp"
+            />
+            <button class="btn" data-variant="secondary" type="submit">
+              {copy.task.attachments.add}
+            </button>
+          </form>
+        </section>
+
+        <p class="muted stat__hint detail-section">
+          {fill(copy.task.updatedAt, { relative: formatRelative(note.updatedAt) })}
+          {' · '}
+          {fill(copy.task.createdAt, { date: formatDate(note.createdAt) })}
+        </p>
+
+        <Lightbox
+          label={note.title}
+          slides={note.attachments.map((attachment) => ({
+            full: attachment.fullUrl,
+            alt: copy.task.attachments.open,
+            caption: [formatDimensions(attachment.width, attachment.height), formatBytes(attachment.sizeBytes)]
+              .filter(Boolean)
+              .join(' · '),
+          }))}
+        />
+
+        <ConfirmDialog
+          title={copy.confirm.deleteNote.title}
+          body={fill(copy.confirm.deleteNote.body, { title: note.title })}
+        />
+        <form method="POST" action={actions.deleteNote} id="record-delete">
+          <input type="hidden" name="id" value={note.id} />
+        </form>
+        <form method="POST" action={actions.deleteAttachment} id="image-delete">
+          <input type="hidden" name="id" value="" />
+          <input type="hidden" name="targetType" value="note" />
+          <input type="hidden" name="next" value={routes.note(note.id)} />
+        </form>
+      </>
+    ) : null
+  }
+</AppLayout>
+
+<script>
+  import '../../scripts/lightbox';
+  import '../../scripts/drawer';
+  import '../../scripts/confirm';
+
+</script>

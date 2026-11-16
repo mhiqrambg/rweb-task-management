@@ -1,0 +1,61 @@
+---
+/**
+ * C-11 lightbox: a native `<dialog>` over the page, with the full-resolution image, its dimensions
+ * and size, a position counter, arrow-key navigation and a close control (FR-ATT-005/006).
+ *
+ * The gallery is read from the thumbnails already in the document, so opening a preview makes no
+ * extra request. The browser supplies the focus trap, the Escape key and the return of focus to the
+ * invoking thumbnail, which are exactly the three behaviours the requirement names.
+ *
+ * `slides` is the already-rendered thumbnail list for this record; each entry carries the full URL,
+ * its alt text and the caption shown under the image.
+ */
+import { copy } from '@taskapp/contracts';
+import X from '@lucide/astro/icons/x';
+import ChevronLeft from '@lucide/astro/icons/chevron-left';
+import ChevronRight from '@lucide/astro/icons/chevron-right';
+
+interface Slide {
+  full: string;
+  alt: string;
+  caption: string;
+}
+
+interface Props {
+  label: string;
+  slides: Slide[];
+}
+
+const { label, slides } = Astro.props;
+const counterTemplate = copy.task.attachments.counter;
+---
+
+{
+  slides.length > 0 ? (
+    <dialog class="lightbox" id="lightbox" aria-label={label} data-lightbox data-counter-template={counterTemplate}>
+      <div class="lightbox__head">
+        <span class="lightbox__counter" data-lightbox-counter aria-live="polite" />
+        <button class="icon-btn" type="button" data-lightbox-close>
+          <X size={18} stroke-width={1.6} />
+          <span class="visually-hidden">{copy.action.close}</span>
+        </button>
+      </div>
+
+      <figure class="lightbox__figure">
+        <img data-lightbox-image src="" alt="" width="0" height="0" />
+        <figcaption class="lightbox__caption" data-lightbox-caption />
+      </figure>
+
+      <div class="lightbox__controls">
+        <button class="icon-btn" type="button" data-lightbox-prev>
+          <ChevronLeft size={20} stroke-width={1.6} />
+          <span class="visually-hidden">{copy.action.previousImage}</span>
+        </button>
+        <button class="icon-btn" type="button" data-lightbox-next>
+          <ChevronRight size={20} stroke-width={1.6} />
+          <span class="visually-hidden">{copy.action.nextImage}</span>
+        </button>
+      </div>
+    </dialog>
+  ) : null
+}
