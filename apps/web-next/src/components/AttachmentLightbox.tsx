@@ -1,50 +1,59 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import Image from 'next/image';
-import styles from './AttachmentWidgets.module.css';
+import { useEffect, useRef, type KeyboardEvent, type SyntheticEvent } from 'react';
+import { copy, fill, formatBytes, formatDimensions, type Attachment } from '@taskapp/contracts';
+import { ImageIcon, X } from './icons';
 
-/** Can be a server URL or an ephemeral blob URL in the local preview. */
-export type AttachmentImage = {
-  id: string;
-  name: string;
-  url: string;
-};
-
+/**
+ * C-11 lightbox (FR-ATT-005/006). A native `<dialog>` over the panel with the full-resolution
+ * image, its dimensions, a position counter, arrow-key navigation, Escape to close and focus
+ * returned to the thumbnail that opened it.
+ *
+ * The element is `<dialog>` rather than a div so the browser supplies the focus trap, the backdrop
+ * and the Escape key — the three behaviours the requirement names. Every string comes from the
+ * copy deck; the Astro twin renders the same sentences from the same keys (R-D2).
+ */
 export function AttachmentLightbox({
-  images, index, onClose, onChange,
+  label,
+  attachments,
+  index,
+  onChange,
+  onClose,
 }: {
-  images: AttachmentImage[];
+  label: string;
+  attachments: Attachment[];
   index: number;
-  onClose: () => void;
   onChange: (index: number) => void;
+  onClose: () => void;
 }) {
-  const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const current = images[index];
+  const openerRef = useRef<HTMLElement | null>(null);
+  const current = attachments[index];
 
   useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const dialog = dialogRef.current;
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (dialog && !dialog.open) dialog.showModal();
     closeRef.current?.focus();
     return () => {
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus();
+      if (dialog?.open) dialog.close();
+      // The browser restores focus on close; this makes the return target explicit.
+      openerRef.current?.focus();
     };
   }, []);
 
   if (!current) return null;
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-    if (event.key === 'ArrowRight' && index < images.length - 1) {
+  const position = fill(copy.task.attachments.counter, { index: index + 1, count: attachments.length });
+  // FR-ATT-005 names dimensions *and* size, so the caption carries both.
+  const caption =
+    [formatDimensions(current.width, current.height), formatBytes(current.sizeBytes)]
+      .filter(Boolean)
+      .join(' · ') || current.mime;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key === 'ArrowRight' && index < attachments.length - 1) {
       event.preventDefault();
       onChange(index + 1);
     }
@@ -52,87 +61,109 @@ export function AttachmentLightbox({
       event.preventDefault();
       onChange(index - 1);
     }
-    if (event.key === 'Tab' && dialogRef.current) {
-      const focusables = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled)'));
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
+  }
+
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault();
+    onClose();
   }
 
   return (
-    <div className={styles.lightboxOverlay} role="presentation">
-      <div
-        ref={dialogRef}
-        className={styles.lightbox}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onKeyDown={handleKeyDown}
-      >
-        <header className={styles.lightboxTop}>
-          <div className={styles.lightboxTitle}>
-            <strong id={titleId}>{current.name}</strong>
-            <small>{index + 1} dari {images.length} gambar</small>
-          </div>
-          <button ref={closeRef} type="button" className={styles.lightboxButton} onClick={onClose}>
-            Tutup <span aria-hidden="true">×</span>
-          </button>
-        </header>
-        <div className={styles.lightboxCanvas}>
-          <Image
-            src={current.url}
-            alt={`Pratinjau lampiran ${current.name}`}
-            width={1200}
-            height={900}
-            unoptimized
-            className={styles.fullImage}
-          />
-        </div>
-        <nav aria-label="Navigasi gambar" className={styles.lightboxNav}>
-          <button className={styles.lightboxButton} type="button" disabled={index === 0}
-            onClick={() => onChange(index - 1)}>← Sebelumnya</button>
-          <button className={styles.lightboxButton} type="button" disabled={index === images.length - 1}
-            onClick={() => onChange(index + 1)}>Berikutnya →</button>
-        </nav>
+    <dialog
+      className="lightbox"
+      ref={dialogRef}
+      aria-label={label}
+      onCancel={handleCancel}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="lightbox__head">
+        <span className="lightbox__counter" data-lightbox-counter aria-live="polite">
+          {position}
+        </span>
+        <button ref={closeRef} type="button" className="icon-btn" onClick={onClose}>
+          <X />
+          <span className="visually-hidden">{copy.action.close}</span>
+        </button>
       </div>
-    </div>
+
+      <figure className="lightbox__figure">
+        {/* The full rendition, not the thumbnail (FR-ATT-004). */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export: next/image cannot optimise, and explicit dimensions are required (R-D5) */}
+        <img src={current.fullUrl} alt={position} />
+        <figcaption className="lightbox__caption">{caption}</figcaption>
+      </figure>
+
+      <div className="lightbox__controls">
+        <button
+          type="button"
+          className="btn"
+          data-variant="secondary"
+          disabled={index === 0}
+          onClick={() => onChange(index - 1)}
+        >
+          {copy.action.previousImage}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          data-variant="secondary"
+          disabled={index === attachments.length - 1}
+          onClick={() => onChange(index + 1)}
+        >
+          {copy.action.nextImage}
+        </button>
+      </div>
+    </dialog>
   );
 }
 
-/** Use for attachments returned by a real backend after authentication. */
-export function AttachmentGallery({ images }: { images: AttachmentImage[] }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+/**
+ * C-10 thumbnails. Detail screens show every attachment; the lightbox reads from this list, so no
+ * extra request is made when a preview opens (FR-ATT-005). A failed image degrades to the deck's
+ * message instead of an empty box (FR-ATT-010).
+ */
+export function AttachmentStrip({
+  attachments,
+  onOpen,
+}: {
+  attachments: Attachment[];
+  onOpen: (index: number) => void;
+}) {
+  if (!attachments.length) {
+    return (
+      <p className="muted stat__hint">
+        <ImageIcon />
+        {copy.task.attachments.none}
+      </p>
+    );
+  }
+
   return (
-    <section aria-label="Galeri lampiran" className={styles.gallerySection}>
-      <div className={styles.galleryHeader}>
-        <h2>Lampiran gambar</h2>
-        <span>{images.length} gambar</span>
-      </div>
-      {images.length === 0 ? (
-        <p className={styles.hint}>Belum ada gambar yang tersedia.</p>
-      ) : (
-        <div className={styles.galleryGrid}>
-          {images.map((img, i) => (
-            <button type="button" key={img.id} className={styles.galleryCard}
-              onClick={() => setActiveIndex(i)} aria-label={`Lihat gambar ${img.name}`}>
-              <Image src={img.url} width={280} height={200} unoptimized alt={img.name} className={styles.thumbnail} />
-              <span title={img.name}>{img.name}</span>
+    <div className="thumbs" data-size="detail">
+      {attachments.map((attachment, index) => {
+        const label = fill(copy.task.attachments.open, {
+          index: index + 1,
+          count: attachments.length,
+        });
+        const caption =
+          [formatDimensions(attachment.width, attachment.height), formatBytes(attachment.sizeBytes)]
+            .filter(Boolean)
+            .join(' · ') || attachment.mime;
+        return (
+          <figure className="thumb-figure" key={attachment.id}>
+            <button
+              className="thumb thumb--detail"
+              type="button"
+              aria-label={label}
+              onClick={() => onOpen(index)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export: next/image cannot optimise, and explicit dimensions are required (R-D5) */}
+              <img src={attachment.thumbUrl} alt={label} width={208} height={156} loading="lazy" decoding="async" />
             </button>
-          ))}
-        </div>
-      )}
-      {activeIndex !== null && images[activeIndex] && (
-        <AttachmentLightbox images={images} index={activeIndex} onChange={setActiveIndex}
-          onClose={() => setActiveIndex(null)} />
-      )}
-    </section>
+            <figcaption className="thumb-figure__caption">{caption}</figcaption>
+          </figure>
+        );
+      })}
+    </div>
   );
 }

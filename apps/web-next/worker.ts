@@ -73,15 +73,42 @@ function forwardResponse(upstream: Response): Response {
   });
 }
 
+/**
+ * `/api/*` hop. Two transports, one contract:
+ *
+ * - **Production** uses the `API` service binding: `fetch` between `*.workers.dev` Workers is blocked
+ *   by Cloudflare (error 1042), so the binding is the only path.
+ * - **Local `wrangler dev --local`** resolves the binding but has no `rweb-api` Worker to forward to,
+ *   so it answers a gateway error. A gateway error therefore retries against the ElysiaJS dev server
+ *   on `DEV_API`. In production that retry cannot succeed (nothing listens on localhost:8787), so the
+ *   original binding response is returned and a genuine outage is never masked.
+ *
+ * Neither branch makes an access decision: the API's own session and same-origin checks decide, and
+ * `Cookie` / `Origin` are forwarded untouched (07 §6.2).
+ */
+const GATEWAY_STATUS: Record<number, true> = { 502: true, 503: true, 504: true };
+
 async function proxyApi(request: Request, url: URL, api: Fetcher | undefined): Promise<Response> {
   const pathAndQuery = `${url.pathname}${url.search}`;
-  const target = new URL(pathAndQuery, api ? 'https://api.internal' : DEV_API).toString();
-  const body = request.method === 'GET' || request.method === 'HEAD' ? null : await request.arrayBuffer();
-  const upstream = await (api ?? fakeFetcher()).fetch(target, {
+  const body =
+    request.method === 'GET' || request.method === 'HEAD' ? null : await request.arrayBuffer();
+  const init: RequestInit = {
     method: request.method,
     headers: forwardedHeaders(request),
     body,
-  });
+  };
+
+  const target = new URL(pathAndQuery, api ? 'https://api.internal' : DEV_API).toString();
+  const upstream = await (api ?? fakeFetcher()).fetch(target, init);
+
+  if (api && GATEWAY_STATUS[upstream.status]) {
+    try {
+      const local = await fakeFetcher().fetch(new URL(pathAndQuery, DEV_API).toString(), init);
+      return forwardResponse(local);
+    } catch {
+      return forwardResponse(upstream);
+    }
+  }
   return forwardResponse(upstream);
 }
 

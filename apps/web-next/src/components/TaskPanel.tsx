@@ -26,6 +26,7 @@ import {
   type TaskStatus,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
+import { AttachmentSection } from './AttachmentSection';
 import { TaskFormDialog, TaskDeleteDialog, type TaskDraft } from './TaskDialogs';
 
 const LIST_BASE = '/app/?view=tasks';
@@ -519,6 +520,12 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
         ) : null}
       </div>
       {task.description?.trim() ? <p className="detail-body">{task.description}</p> : null}
+      <AttachmentSection
+        target="task"
+        targetId={task.id}
+        attachments={task.attachments}
+        onChanged={() => setReload((value) => value + 1)}
+      />
       <hr className="divider" />
       <p className="muted">
         {fill(copy.task.updatedAt, { relative: formatRelative(task.updatedAt) })}

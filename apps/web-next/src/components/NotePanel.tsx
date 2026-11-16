@@ -8,6 +8,7 @@ import {
   type ItemResponse, type ListResponse, type Note, type NoteListQuery, type NoteListItem,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
+import { AttachmentSection } from './AttachmentSection';
 import { NoteDeleteDialog, NoteFormDialog, type NoteDraft } from './NoteDialogs';
 
 const NOTES_PATH = '/app/?view=notes';
@@ -244,6 +245,12 @@ export function NotePanel({ id }: { id: string | null }) {
                 ))}
               </div>
             </div>
+            <AttachmentSection
+              target="note"
+              targetId={note.id}
+              attachments={note.attachments}
+              onChanged={() => setRevision((value) => value + 1)}
+            />
             <hr className="divider" />
           </>
         )}
