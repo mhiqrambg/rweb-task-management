@@ -1,41 +1,34 @@
 /**
- * Production host for the Next.js static export on a Cloudflare Worker with Static Assets.
+ * Production host for the Next.js static export on Cloudflare Workers.
  *
- * Routing truth (Workers Static Assets `routing/static-site-generation`): a request that
- * matches a file in `out/` is served directly and this entry never runs — that includes `/`
- * (`out/index.html`) and every page/asset at the export root, for navigations and `fetch`
- * alike. Only requests with no asset match reach this entry:
+ * Wrangler Static Assets is configured with:
+ *   directory: ./out
+ *   base_path: /b
+ *   not_found_handling: 404-page
  *
- * - `/api/*`: the static export fetches the API same-origin (`NEXT_PUBLIC_API_ORIGIN` is empty in
- *   `build:prod`), so every browser request lands here. It is forwarded over the `API` service
- *   binding — Worker-to-Worker `fetch` between `*.workers.dev` hosts is blocked by Cloudflare
- *   (error 1042) — with the session cookie and the `Origin` header untouched, so the API's own
- *   same-origin guard (`07` §6.2) still decides.
- * - `/b/*`: the static export has no `/b` directory and its asset URLs start with `/b/`, so this
- *   entry strips the mount prefix and lets the ASSETS binding serve the file underneath.
- * - anything else: 404, never a fallback page (browser navigations instead get `404.html` via
- *   `not_found_handling`, without invoking this entry).
+ * Requests to /b/ and /b/<page>/ are resolved from the root of ./out.
+ * Cloudflare normally serves matching assets directly, before invoking this Worker.
  *
- * Deliberately no `/` → `/b/` redirect here: it could never fire, `/` always matches
- * `out/index.html` first. Both `/` and `/b/` serve the app; `/b/` is canonical in-app.
+ * Requests that reach this Worker:
+ * - /api/*: proxy to the API service binding with headers and session cookies preserved.
+ * - /b/*: forward the original public URL to the ASSETS binding (do not strip /b).
+ * - anything else: return 404. In particular, / is not a mounted asset URL.
  *
- * No SSR, no middleware, no per-request HTML (`.planning/14` §10): the Worker is a prefix strip in
- * front of static files plus a transparent API hop. It owns no authorisation decision, no cache
- * and no body rewriting.
+ * No SSR, no dynamic HTML rendering, and no authorization decision in this Worker.
  */
 
 interface Env {
   ASSETS: Fetcher;
-  /** `rweb-api-production`. Absent only under `wrangler dev` without remote bindings. */
+  /** Service binding for `rweb-api-production`; may be absent in local preview. */
   API?: Fetcher;
 }
 
 const MOUNT = '/b';
 const API_PREFIX = '/api/';
-/** Fallback for `wrangler dev` preview: the ElysiaJS dev server on :8787. */
+/** Local fallback for Wrangler dev without remote service bindings. */
 const DEV_API = 'http://localhost:8787';
 
-/** Hop-by-hop headers must not be forwarded; `host` comes from the upstream URL. */
+/** Hop-by-hop headers must not be forwarded; host is set by the upstream URL. */
 const SKIPPED_HEADERS: Record<string, true> = {
   host: true,
   connection: true,
@@ -57,11 +50,10 @@ function forwardedHeaders(request: Request): Headers {
   return headers;
 }
 
-/** Keeps every `Set-Cookie`: one response can refresh the session and clear it. */
+/** Preserve multiple Set-Cookie headers when the upstream returns them. */
 function forwardResponse(upstream: Response): Response {
   const headers = new Headers(upstream.headers);
-  const cookies =
-    typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : [];
+  const cookies = typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : [];
   if (cookies.length > 1) {
     headers.delete('set-cookie');
     for (const cookie of cookies) headers.append('set-cookie', cookie);
@@ -85,7 +77,7 @@ async function proxyApi(request: Request, url: URL, api: Fetcher | undefined): P
   return forwardResponse(upstream);
 }
 
-/** `wrangler dev` preview without remote bindings reaches the ElysiaJS dev server directly. */
+/** Local preview fallback if an API service binding is not configured. */
 function fakeFetcher(): Fetcher {
   return {
     fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init),
@@ -103,7 +95,8 @@ export default {
     if (url.pathname !== MOUNT && !url.pathname.startsWith(`${MOUNT}/`)) {
       return new Response('Not Found', { status: 404 });
     }
-    const stripped = url.pathname.slice(MOUNT.length) || '/';
-    return env.ASSETS.fetch(new Request(`${url.origin}${stripped}${url.search}`, request));
+
+    // base_path=/b: keep the public path intact when fetching static assets.
+    return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
