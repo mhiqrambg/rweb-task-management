@@ -6,8 +6,8 @@
  * the session-dependent header, menu, footer links and closing CTA live in LandingCta's client
  * islands and start signed-out, matching FR-LAND-003 after their one /auth/me probe resolves.
  *
- * Hero image: design/assets/landing-illustration.png, intrinsic 576x433. Next runs at basePath
- * /b, so the asset URL is hard-coded; next/link hrefs stay basePath-free.
+ * Hero image: design/assets/landing-illustration.png, intrinsic 576x433, copied into `out/` at
+ * build; the src is root-relative so it resolves the same with and without a basePath.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -91,7 +91,7 @@ export default function LandingPage() {
 
           <figure className="hero__figure">
             <img
-              src="/b/landing-illustration.png"
+              src="/landing-illustration.png"
               alt={copy.landing.previewAlt}
               width={576}
               height={433}

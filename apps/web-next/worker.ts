@@ -11,17 +11,14 @@
  *   binding — Worker-to-Worker `fetch` between `*.workers.dev` hosts is blocked by Cloudflare
  *   (error 1042) — with the session cookie and the `Origin` header untouched, so the API's own
  *   same-origin guard (`07` §6.2) still decides.
- * - `/b/*`: the static export has no `/b` directory and its asset URLs start with `/b/`, so this
- *   entry strips the mount prefix and lets the ASSETS binding serve the file underneath.
- * - anything else: 404, never a fallback page (browser navigations instead get `404.html` via
- *   `not_found_handling`, without invoking this entry).
+ * - anything else: served through the ASSETS binding as-is (the export writes `app/`, `login/` … at
+ *   the asset root). A path with no matching file falls back to `404.html` via `not_found_handling`.
  *
- * Deliberately no `/` → `/b/` redirect here: it could never fire, `/` always matches
- * `out/index.html` first. Both `/` and `/b/` serve the app; `/b/` is canonical in-app.
+ * There is no mount prefix: the export is built without `basePath`, so asset and RSC payload URLs
+ * carry no prefix and the worker must not strip one.
  *
- * No SSR, no middleware, no per-request HTML (`.planning/14` §10): the Worker is a prefix strip in
- * front of static files plus a transparent API hop. It owns no authorisation decision, no cache
- * and no body rewriting.
+ * No SSR, no middleware, no per-request HTML (`.planning/14` §10): the Worker is a transparent file
+ * server plus an API hop. It owns no authorisation decision, no cache and no body rewriting.
  */
 
 interface Env {
@@ -30,7 +27,6 @@ interface Env {
   API?: Fetcher;
 }
 
-const MOUNT = '/b';
 const API_PREFIX = '/api/';
 /** Fallback for `wrangler dev` preview: the ElysiaJS dev server on :8787. */
 const DEV_API = 'http://localhost:8787';
@@ -127,10 +123,8 @@ export default {
       return proxyApi(request, url, env.API);
     }
 
-    if (url.pathname !== MOUNT && !url.pathname.startsWith(`${MOUNT}/`)) {
-      return new Response('Not Found', { status: 404 });
-    }
-    const stripped = url.pathname.slice(MOUNT.length) || '/';
-    return env.ASSETS.fetch(new Request(`${url.origin}${stripped}${url.search}`, request));
+    // Without `basePath` the export writes `app/`, `login/` … at the asset root, so serve the path
+    // as-is; the client's RSC payload URLs carry no prefix either.
+    return env.ASSETS.fetch(new Request(`${url.origin}${url.pathname}${url.search}`, request));
   },
 } satisfies ExportedHandler<Env>;
