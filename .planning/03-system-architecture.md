@@ -714,7 +714,6 @@ screen-local string (NFR-MAINT-006).
 | D1 | current | ADR-03, NFR-SEC-008 | No database access | Baseline |
 | `wrangler d1 migrations` | current | ADR-03; forward-only numbered migrations | Manual SQL application; no migration record | Baseline |
 | D1 (SQLite) | current | C-03, api-surface; case-insensitive unique email (`COLLATE NOCASE`); substring search via `LIKE` (FR-TASK-011, FR-NOTE-008) | Duplicate emails differing in case; unindexed `LIKE` scans (acceptable at A-04 row counts) | Baseline |
-| `@noble/hashes` (legacy hash verification only) | current | NFR-SEC-001, ADR-17 | Weak or hand-rolled password hashing | Baseline |
 | `file-type` | current | NFR-SEC-009 (magic-byte sniffing) | Extension/MIME trust → renamed-file bypass | Baseline |
 | `@jsquash` (Wasm WebP/JPEG codec) | current | FR-ATT-004 (≤320 px thumbnail), FR-ATT-010 (dimensions), decode validation | No thumbnails; list payloads carry full images; CLS budget unenforceable | Baseline |
 | `zod` | current | ADR-09, NFR-MAINT-001 | Duplicated validators in three packages | Baseline |

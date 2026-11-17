@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
+import { verifyPassword } from '../src/modules/auth/password';
 import { DEFAULT_IP, VALID_PASSWORD, call, registerUser, sidFrom } from './helpers';
 
 const REGISTER = '/api/v1/auth/register';
@@ -264,33 +265,25 @@ describe('POST /auth/login', () => {
     expect(await blocked.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
   });
 
-  it('upgrades a legacy Argon2id hash to PBKDF2 on a successful login (rehash-on-login)', async () => {
-    const ip = '198.51.100.33';
-    const email = 'rehash@example.test';
-    // Register normally, then overwrite the stored hash with a genuine Argon2id hash of
-    // VALID_PASSWORD (fixed salt), so the row starts in the pre-migration format.
-    await registerUser(email, { ip });
-    await env.DB.prepare('UPDATE users SET password_hash = ?1 WHERE email = ?2')
-      .bind(
-        '$argon2id$v=19$m=19456,t=2,p=1$AQIDBAUGBwgJCgsMDQ4PEA$qQMgn9BBXGm1FG5hbgVLTB/c49pso4YEKQMbq6g2F5M',
-        email,
-      )
-      .run();
+  it('rejects a hash written in the retired format instead of verifying it', async () => {
+    // ADR-17 + migration 0005: legacy rows are reset, and the verifier must not accept the
+    // retired format even when the password matches its preimage.
+    const retired =
+      '$argon2id$v=19$m=19456,t=2,p=1$AQIDBAUGBwgJCgsMDQ4PEA$qQMgn9BBXGm1FG5hbgVLTB/c49pso4YEKQMbq6g2F5M';
+    expect(await verifyPassword('correct horse battery', retired)).toBe(false);
+  });
 
-    const before = await env.DB
-      .prepare('SELECT password_hash FROM users WHERE email = ?1')
-      .bind(email)
-      .first<{ password_hash: string }>();
-    expect(before?.password_hash.startsWith('$argon2id$')).toBe(true);
-
-    const login = await call(LOGIN, { body: { email, password: VALID_PASSWORD }, ip });
-    expect(login.status).toBe(200);
-
-    const after = await env.DB
-      .prepare('SELECT password_hash FROM users WHERE email = ?1')
-      .bind(email)
-      .first<{ password_hash: string }>();
-    expect(after?.password_hash.startsWith('$pbkdf2$')).toBe(true);
+  it('refuses to store a hash outside the PBKDF2 format', async () => {
+    const email = 'retired-format@example.test';
+    await registerUser(email, { ip: '198.51.100.34' });
+    await expect(
+      env.DB.prepare('UPDATE users SET password_hash = ?1 WHERE email = ?2')
+        .bind(
+          '$argon2id$v=19$m=19456,t=2,p=1$AQIDBAUGBwgJCgsMDQ4PEA$qQMgn9BBXGm1FG5hbgVLTB/c49pso4YEKQMbq6g2F5M',
+          email,
+        )
+        .run(),
+    ).rejects.toThrow();
   });
 });
 

@@ -157,7 +157,7 @@ of truth, no duplicate regex to drift.
 |---|---|---|---|---|
 | `id` | `TEXT` | NO | UUID from `crypto.randomUUID()` | **PK** `users_pkey` |
 | `email` | `TEXT` | NO | — | **UNIQUE** `users_email_key` `COLLATE NOCASE`; stored lower-cased |
-| `password_hash` | `text` | NO | — | `CHECK (password_hash LIKE '$argon2id$%' OR password_hash LIKE '$pbkdf2$%')` — widened by `0004`; the argon2 branch only accepts legacy rows |
+| `password_hash` | `text` | NO | — | `CHECK (password_hash LIKE '$pbkdf2$%')` — narrowed by `0005`; accounts holding any other format were reset by that migration |
 | `display_name` | `TEXT` | NO | — | `CHECK (trim(display_name) <> '')` |
 | `role` | `TEXT` | NO | `'member'` | `CHECK (role IN ('member','admin'))`; admin extension BCR-01 |
 | `status` | `TEXT` | NO | `'active'` | `CHECK (status IN ('active','disabled'))`; `disabled` blocks login and invalidates live sessions |
@@ -165,9 +165,11 @@ of truth, no duplicate regex to drift.
 | `updated_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | set explicitly by #6 |
 
 `password_hash` stores the full PBKDF2-SHA256 encoded string (NFR-SEC-001, ADR-17 — iterations live inside
-the string, so tuning needs no migration). `migration 0004` widens the `CHECK` to also accept pre-ADR-17
-rows, which stay verifiable until rehashed on their next successful login. The `CHECK` guards against a
-plaintext or wrong-algorithm value ever being written; it is not a parameter check.
+the string, so tuning needs no migration). `migration 0005` narrows the `CHECK` to this format and resets
+accounts holding any other one: their sessions are deleted and the hash is replaced with a PBKDF2 sentinel
+whose preimage was discarded, so no password authenticates against it while the row and owned data stay.
+The `CHECK` guards against a plaintext or wrong-algorithm value ever being written; it is not a parameter
+check.
 
 `role` and `status` exist only for the approved admin extension (BCR-01, `design/09-admin-console.md`).
 Ownership authorization never consults them: every task, note and attachment query stays
@@ -300,7 +302,7 @@ storage) without rewriting ids, and so the sweep job (§7.2) has an authoritativ
 | Image type closed set | `attachments` | `CHECK mime IN (...)` |
 | Enum closure | `tasks` | two `CHECK ... IN (...)` |
 | Required text non-blank | `tasks.title`, `notes.title`, `notes.body`, `users.display_name` | `CHECK trim(...) <> ''` |
-| Secret never plaintext | `users` | `CHECK password_hash` accepts only PBKDF2-SHA256 or a legacy pre-ADR-17 hash |
+| Secret never plaintext | `users` | `CHECK password_hash` accepts only PBKDF2-SHA256 |
 | Session token never stored | `sessions` | `CHECK length(token_hash) = 32` |
 | Cascade on target delete | `attachments` | FK `ON DELETE CASCADE` on the composite key |
 

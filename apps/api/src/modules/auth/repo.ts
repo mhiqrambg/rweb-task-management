@@ -65,22 +65,6 @@ export async function findUserByEmail(db: D1Database, email: string): Promise<Us
   return db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?1`).bind(email).first<UserRow>();
 }
 
-/**
- * Rehash-on-login (§Argon2→PBKDF2 ADR): upgrades a legacy `$argon2id$…` row to the current
- * PBKDF2 format once the user has proven the password. Best-effort is wrong here — a failed
- * upgrade is logged at the call site, never swallowed, so the row is retried next login.
- */
-export async function updateUserPasswordHash(
-  db: D1Database,
-  userId: string,
-  passwordHash: string,
-): Promise<void> {
-  await db
-    .prepare('UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3')
-    .bind(passwordHash, isoFrom(Date.now()), userId)
-    .run();
-}
-
 /** Registration writes the user and its first session atomically (§2.1: user + session). */
 export async function createUserWithSession(
   db: D1Database,

@@ -1,18 +1,13 @@
-import { argon2idAsync } from '@noble/hashes/argon2.js';
 import { randomBytes } from '../../lib/ids';
 
 /**
- * Password hashing — two formats coexist during the Argon2id → PBKDF2 migration:
+ * Password hashing — one format: native `crypto.subtle` PBKDF2-SHA256.
  *
- * - **Legacy** `$argon2id$…` rows: still verifiable, never produced for new passwords.
- * - **Current** `$pbkdf2$…` rows: native `crypto.subtle` PBKDF2-SHA256, cheap enough for the
- *   Workers free-tier CPU budget (10 ms/request).
- *
- * Why the change: Argon2id (m=19456 KiB, t=2, pure-TS `@noble/hashes`) measured ~140 ms CPU per
- * hash. On Workers Free the limit is 10 ms/request, so register/login intermittently failed with
- * Cloudflare Error 1102 ("Worker exceeded resources") — measured on the deployed Worker. PBKDF2
- * runs on the platform's native `crypto.subtle`, which the Web Crypto docs call out as
- * "significantly faster than performing them purely in JavaScript".
+ * Why not a memory-hard KDF: the previous pure-TS implementation of one (`m=19456 KiB, t=2`)
+ * measured ~140 ms CPU per hash. On Workers Free the limit is 10 ms/request, so register/login
+ * intermittently failed with Cloudflare Error 1102 ("Worker exceeded resources") — measured on the
+ * deployed Worker. PBKDF2 runs on the platform's native `crypto.subtle`, which the Web Crypto docs
+ * call out as "significantly faster than performing them purely in JavaScript".
  *
  * Measured cost on the deployed production Worker (one hash per request, `wrangler tail` cpuTime):
  * 20k iters = 4 ms, 30k = 6 ms, 40k = 12 ms, 100k = 15 ms. `crypto.subtle` also hard-caps
@@ -22,7 +17,7 @@ import { randomBytes } from '../../lib/ids';
  * read + response serialisation in the same request. This is below the OWASP PBKDF2-SHA256
  * recommendation (600 000) — a deliberate, documented trade-off to stay on the free tier. It is
  * offset by the 12-character minimum password policy (A-11) and a unique 16-byte salt per user.
- * Recorded in the ADR referenced from NFR-SEC-001.
+ * Recorded in ADR-17, referenced from NFR-SEC-001.
  */
 const PBKDF2_ITERATIONS = 30_000;
 const PBKDF2_ALGORITHM = 'PBKDF2';
@@ -31,8 +26,6 @@ const PBKDF2_DIGEST_BYTES = 32;
 const PBKDF2_SALT_BYTES = 16;
 const PBKDF2_PREFIX = '$pbkdf2$';
 
-const PHC_VERSION = 'v=19';
-
 /**
  * A real PBKDF2 hash of a value nobody knows, for the unknown-email timing path (T-02).
  * Same format and iteration count as a live row, so the burn costs the same ~6 ms and never
@@ -40,13 +33,6 @@ const PHC_VERSION = 'v=19';
  */
 const DUMMY_HASH =
   '$pbkdf2$SHA-256$30000$CxclKTVDR1NhZXF/g4uVnQ$zdbweozwjwvICs4ZQGBbuj2yvWvwvvjtNVqSu+XmRt8';
-
-interface Argon2Parameters {
-  t: number;
-  m: number;
-  p: number;
-  dkLen: number;
-}
 
 function encodeBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -62,33 +48,6 @@ function decodeBase64(value: string): Uint8Array {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
-}
-
-function decodeArgon2id(
-  encoded: string,
-): { params: Argon2Parameters; salt: Uint8Array; digest: Uint8Array } | null {
-  const parts = encoded.split('$');
-  if (parts.length !== 6) return null;
-  const [, algorithm, version, options, salt, digest] = parts;
-  if (algorithm !== 'argon2id' || version !== PHC_VERSION || !options || !salt || !digest) {
-    return null;
-  }
-
-  const params: Argon2Parameters = { t: 0, m: 0, p: 0, dkLen: 0 };
-  for (const pair of options.split(',')) {
-    const [key, raw] = pair.split('=');
-    const value = Number(raw);
-    if (!key || !Number.isInteger(value) || value <= 0) return null;
-    if (key === 't') params.t = value;
-    else if (key === 'm') params.m = value;
-    else if (key === 'p') params.p = value;
-    else return null;
-  }
-  if (params.t === 0 || params.m === 0 || params.p === 0) return null;
-
-  const digestBytes = decodeBase64(digest);
-  params.dkLen = digestBytes.length;
-  return { params, salt: decodeBase64(salt), digest: digestBytes };
 }
 
 function matchesConstantTime(left: Uint8Array, right: Uint8Array): boolean {
@@ -147,33 +106,14 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * Verifies a password against either stored format. Returns the matched format so the login flow
- * can upgrade a legacy Argon2id row to the current one (rehash-on-login).
+ * Verifies a password against the stored PBKDF2 hash. Any other format — including hashes written
+ * before ADR-17 — returns false; those accounts were reset by migration `0005`.
  */
-export async function verifyPassword(
-  password: string,
-  encoded: string,
-): Promise<{ ok: boolean; format: 'pbkdf2' | 'argon2id' | 'unknown' }> {
-  if (encoded.startsWith(PBKDF2_PREFIX)) {
-    const parsed = decodePbkdf2(encoded);
-    if (!parsed) return { ok: false, format: 'unknown' };
-    const digest = await derivePbkdf2(password, parsed.salt, parsed.iterations);
-    return { ok: matchesConstantTime(digest, parsed.digest), format: 'pbkdf2' };
-  }
-
-  const parsed = decodeArgon2id(encoded);
-  if (!parsed) return { ok: false, format: 'unknown' };
-  const digest = await argon2idAsync(
-    new TextEncoder().encode(password),
-    parsed.salt,
-    parsed.params,
-  );
-  return { ok: matchesConstantTime(digest, parsed.digest), format: 'argon2id' };
-}
-
-/** True when a stored hash is not the current format and should be re-derived on a successful login. */
-export function needsRehash(encoded: string): boolean {
-  return !encoded.startsWith(PBKDF2_PREFIX);
+export async function verifyPassword(password: string, encoded: string): Promise<boolean> {
+  const parsed = decodePbkdf2(encoded);
+  if (!parsed) return false;
+  const digest = await derivePbkdf2(password, parsed.salt, parsed.iterations);
+  return matchesConstantTime(digest, parsed.digest);
 }
 
 export async function burnPasswordCheck(password: string): Promise<void> {

@@ -20,7 +20,6 @@ import { isoFrom } from '../../lib/time';
 import {
   burnPasswordCheck,
   hashPassword,
-  needsRehash,
   verifyPassword,
 } from './password';
 import {
@@ -28,7 +27,6 @@ import {
   deleteSessionById,
   findUserByEmail,
   type UserRow,
-  updateUserPasswordHash,
 } from './repo';
 import { issueSession, persistSession, resolveSession, userFromRow } from './session';
 
@@ -148,27 +146,9 @@ authRoutes.post(api.auth.login, async ({ request, body, set }) => {
   // FR-ADMIN-004: a disabled member is refused exactly like a wrong password. The message stays
   // generic, so the refusal does not reveal that the account exists or that it was disabled.
   const verified = await verifyPassword(password, user.password_hash);
-  if (user.status === 'disabled' || !verified.ok) {
+  if (user.status === 'disabled' || !verified) {
     await consumeRateLimit(cfg.db, LOGIN_FAIL_BUCKET, failureKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
     throw new ApiError('UNAUTHENTICATED', copy.auth.error.invalidCredentials);
-  }
-
-  // Rehash-on-login: a legacy `$argon2id$…` row is upgraded to the current PBKDF2 format now that
-  // the password is proven. Never blocks the login — a failed upgrade is logged and retried on the
-  // next successful login, so the user is never locked out by the migration.
-  if (needsRehash(user.password_hash)) {
-    try {
-      const upgraded = await hashPassword(password);
-      await updateUserPasswordHash(cfg.db, user.id, upgraded);
-    } catch (error) {
-      console.error(
-        JSON.stringify({
-          message: 'password rehash-on-login failed',
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
   }
 
   const session = await issueSession(cfg, request, user.id);
