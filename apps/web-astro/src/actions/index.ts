@@ -15,7 +15,6 @@ import {
 } from '@taskapp/contracts';
 import {
   login as loginWithPassword,
-  logout as endSession,
   register as registerAccount,
 } from '../lib/server/auth';
 import { request as apiRequest, toResult } from '../lib/server/api';
@@ -26,7 +25,8 @@ import { applySessionCookie, cookieHeader } from '../lib/server/session';
  *
  * A non-JS POST re-renders the page with the result; the page reads `Astro.getActionResult` and
  * either redirects (success) or shows the field/form errors with the typed values intact.
- * No endpoint of our own exists, so Astro's own origin check protects every unsafe method.
+ * Logout is the exception: it terminates at the `/logout` endpoint, because the shell layout that
+ * carries the form cannot return a response-level redirect.
  */
 
 export interface FormFailure {
@@ -130,16 +130,6 @@ export const server = {
 
       applySessionCookie(context.cookies, setCookie);
       return success(safeNextPath(text(form, 'next')) ?? routes.dashboard);
-    },
-  }),
-
-  logout: defineAction({
-    accept: 'form',
-    handler: async (_form, context): Promise<FormOutcome> => {
-      const { setCookie } = await endSession(cookieHeader(context.request));
-      // A 401 means the session was already gone; clearing the cookie is still the right ending.
-      applySessionCookie(context.cookies, setCookie);
-      return success(`${routes.login}?toast=signedOut`);
     },
   }),
 

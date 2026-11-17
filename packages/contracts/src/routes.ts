@@ -45,6 +45,8 @@ export const routes = {
   notes: '/notes',
   note: (id: string) => `/notes/${encodeURIComponent(id)}`,
   account: '/account',
+  /** Astro-only endpoint: form POST that revokes the session and redirects to login. */
+  logout: '/logout',
 } as const;
 
 /** Query key order is fixed so a copied list URL is stable (design/05 §5). */
