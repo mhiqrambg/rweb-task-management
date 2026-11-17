@@ -41,7 +41,7 @@ describe('POST /auth/register', () => {
     )
       .bind(email)
       .first<{ password_hash: string }>();
-    expect(storedUser?.password_hash.startsWith('$argon2id$')).toBe(true);
+    expect(storedUser?.password_hash.startsWith('$pbkdf2$')).toBe(true);
     expect(storedUser?.password_hash).not.toContain(VALID_PASSWORD);
 
     const storedSession = await env.DB.prepare(
@@ -262,6 +262,35 @@ describe('POST /auth/login', () => {
     });
     expect(blocked.status).toBe(429);
     expect(await blocked.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+  });
+
+  it('upgrades a legacy Argon2id hash to PBKDF2 on a successful login (rehash-on-login)', async () => {
+    const ip = '198.51.100.33';
+    const email = 'rehash@example.test';
+    // Register normally, then overwrite the stored hash with a genuine Argon2id hash of
+    // VALID_PASSWORD (fixed salt), so the row starts in the pre-migration format.
+    await registerUser(email, { ip });
+    await env.DB.prepare('UPDATE users SET password_hash = ?1 WHERE email = ?2')
+      .bind(
+        '$argon2id$v=19$m=19456,t=2,p=1$AQIDBAUGBwgJCgsMDQ4PEA$qQMgn9BBXGm1FG5hbgVLTB/c49pso4YEKQMbq6g2F5M',
+        email,
+      )
+      .run();
+
+    const before = await env.DB
+      .prepare('SELECT password_hash FROM users WHERE email = ?1')
+      .bind(email)
+      .first<{ password_hash: string }>();
+    expect(before?.password_hash.startsWith('$argon2id$')).toBe(true);
+
+    const login = await call(LOGIN, { body: { email, password: VALID_PASSWORD }, ip });
+    expect(login.status).toBe(200);
+
+    const after = await env.DB
+      .prepare('SELECT password_hash FROM users WHERE email = ?1')
+      .bind(email)
+      .first<{ password_hash: string }>();
+    expect(after?.password_hash.startsWith('$pbkdf2$')).toBe(true);
   });
 });
 

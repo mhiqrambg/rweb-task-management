@@ -759,6 +759,52 @@ the same fact: locally `wrangler dev` runs the app as a Node process on `:8787`;
 Cloudflare Worker. Revisit if a Node deployment target, an off-Cloudflare CI requirement, or a second API
 host appears.
 
+## ADR-17 — Password hashing: native PBKDF2-SHA256, replacing Argon2id (free-tier CPU budget)
+
+Status: Proposed · Deciders: project owner (approval pending)
+
+**Context.** NFR-SEC-001 baseline was Argon2id `m=19456 KiB, t=2, p=1` via pure-TS `@noble/hashes`
+(~140 ms CPU per hash, measured). On Workers **Free** the CPU budget is **10 ms/request**, so
+`register`/`login` — the only endpoints that hash — intermittently fail with Cloudflare **Error 1102**
+("Worker exceeded resources"); `GET /health` stays 200. Measured on the deployed Worker, the native
+`crypto.subtle` PBKDF2 costs: 20k iters = 4 ms, 30k = 6 ms, 40k = 12 ms, 100k = 15 ms; above 100 000
+iterations `crypto.subtle` refuses with "iteration counts above 100000 are not supported".
+
+**Problem.** How can password hashing stay inside the free-tier 10 ms budget without weakening it past
+the point of usefulness?
+
+**Options considered.**
+1. Native `crypto.subtle` PBKDF2-SHA256, 30 000 iterations (chosen). Stays on Cloudflare, stays free.
+2. Lower the Argon2id parameters. Memory-hard Argon2id is CPU-heavy at any useful parameter set; it
+   cannot be tuned into 10 ms without defeating its purpose.
+3. Offload auth to Supabase Auth (or similar). Removes the CPU cost but reopens ADR-02/03/06/15 and
+   adds a second vendor; rejected for now as a larger change than the problem needs. Recorded here as
+   the fallback if the free-tier budget or request volume makes PBKDF2 untenable.
+4. Upgrade to Workers Paid. Keeps Argon2id, but the free tier is a stated constraint.
+
+**Decision.** Option 1. `hashPassword` writes `$pbkdf2$SHA-256$30000$<salt>$<digest>` using
+`crypto.subtle.deriveBits` (native, 16-byte random salt, 32-byte digest). `verifyPassword` accepts
+**both** `$pbkdf2$…` and legacy `$argon2id$…` rows. On a successful login against a legacy row the
+password is re-derived into the current format (`needsRehash` + `updateUserPasswordHash`), so the fleet
+migrates lazily with no outage. `NFR-SEC-001` wording updates to PBKDF2 with these parameters; the
+Argon2id baseline above is retired.
+
+**Rationale.** Measured, not assumed: the free-tier 10 ms budget is a hard platform limit, and the
+native Web Crypto path is the documented fast path for crypto on Workers. 30 000 iterations lands at
+~6 ms, leaving headroom for the session read and response serialisation in the same request.
+
+**Trade-offs.** PBKDF2-SHA256 @30k is ~5 % of the OWASP recommendation (600 000) and weaker than
+memory-hard Argon2id against GPU/ASIC cracking — a real reduction accepted deliberately for the free
+tier. It is offset by the 12-character minimum password policy (A-11), a unique 16-byte salt per user,
+and constant-time comparison. The `crypto.subtle` 100 000-iteration cap is a fixed platform ceiling.
+Migration is lazy: a legacy row is upgraded on its next successful login, so no backfill job or
+downtime.
+
+**Consequences.** `migration 0004` widens the `users.password_hash` CHECK to accept both prefixes (a
+rebuild, because SQLite cannot drop a CHECK, and ordered to avoid the `RENAME`-orphaned-FK trap).
+Existing accounts are never bricked. Revisit if the free-tier CPU budget changes, if Workers Paid is
+adopted, or if a stronger KDF becomes affordable.
+
 ## Register
 
 | ADR | Subject | Status | Blocks / blocked by |
@@ -779,6 +825,7 @@ host appears.
 | ADR-14 | Vitest + Playwright | Proposed | Blocks P-05 test scaffolding, `09`, and the benchmark driver (T-1001) |
 | ADR-15 | Cloudflare deploy: Worker + Astro SSR + Next static + D1 + R2 on one origin | Proposed | Blocked by ADR-01/ADR-05; blocks T-405, T-801, `03` §11 mechanisms and NFR-REL-008 rehearsal |
 | ADR-16 | One API entry (Cloudflare Worker); Node.js is the toolchain | Proposed | Blocked by ADR-01/ADR-02/ADR-07; blocks any `dev:node` script, and `03` §6.1 wording |
+| ADR-17 | Password hashing: native PBKDF2-SHA256 @30k, replacing Argon2id | Proposed | Updates NFR-SEC-001 and `migration 0004`; blocked by nothing |
 
 ## Objections to the locked inputs
 
