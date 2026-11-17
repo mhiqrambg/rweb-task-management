@@ -139,7 +139,7 @@ export function AttachmentStrip({
   /** Lists show three 80×60 thumbs; detail screens show every attachment at 208×156 (design/05 §1). */
   size?: 'card' | 'detail';
   overflow?: number;
-  onOpen: (index: number) => void;
+  onOpen?: (index: number) => void;
   onRemove?: (index: number) => void;
 }) {
   const shown = size === 'detail' ? attachments : attachments.slice(0, 3);
@@ -175,7 +175,7 @@ export function AttachmentStrip({
               className={size === 'detail' ? 'thumb thumb--detail' : 'thumb'}
               type="button"
               aria-label={label}
-              onClick={() => onOpen(index)}
+              onClick={() => onOpen?.(index)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static export: next/image cannot optimise, and explicit dimensions are required (R-D5) */}
               <img

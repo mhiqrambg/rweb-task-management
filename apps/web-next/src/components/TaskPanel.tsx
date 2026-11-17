@@ -26,6 +26,7 @@ import {
   type TaskStatus,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
+import { AttachmentLightbox, AttachmentStrip } from './AttachmentLightbox';
 import { AttachmentSection } from './AttachmentSection';
 import { TaskFormDialog, TaskDeleteDialog, type TaskDraft } from './TaskDialogs';
 
@@ -43,17 +44,20 @@ function isOverdue(task: TaskCardData): boolean {
 
 export type TaskCardData = Pick<
   TaskListItem,
-  'id' | 'title' | 'status' | 'priority' | 'dueDate'
+  'id' | 'title' | 'status' | 'priority' | 'dueDate' | 'attachments' | 'attachmentCount'
 > & { isOverdue?: boolean };
 
 function TaskCard({
   task,
   onOpen,
   onStatusChange,
+  onOpenImage,
 }: {
   task: TaskCardData;
   onOpen?: (id: string) => void;
   onStatusChange?: (id: string, status: TaskStatus) => void;
+  /** Index into the grid's flattened attachment list, so one lightbox serves every card. */
+  onOpenImage?: (index: number) => void;
 }) {
   const overdue = isOverdue(task);
   return (
@@ -85,6 +89,13 @@ function TaskCard({
             ? formatDate(task.dueDate)
             : copy.task.field.dueDateEmpty}
       </p>
+      {task.attachments.length > 0 ? (
+        <AttachmentStrip
+          attachments={task.attachments}
+          overflow={Math.max(0, task.attachmentCount - task.attachments.length)}
+          onOpen={onOpenImage}
+        />
+      ) : null}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -106,7 +117,6 @@ function TaskCard({
   );
 }
 
-/** Shared card grid markup: the task list and the component preview render the same cards. */
 export function TaskCards({
   tasks,
   onOpen,
@@ -116,12 +126,39 @@ export function TaskCards({
   onOpen?: (id: string) => void;
   onStatusChange?: (id: string, status: TaskStatus) => void;
 }) {
+  // Astro's list wraps every card's attachments in one Lightbox; a card strip opens its slide by
+  // index into this flattened list.
+  const [openAt, setOpenAt] = useState<number | null>(null);
+  let cursor = 0;
+  const slides = tasks.flatMap((task) => task.attachments);
+  const offsets = new Map<string, number>();
+  for (const task of tasks) {
+    offsets.set(task.id, cursor);
+    cursor += task.attachments.length;
+  }
   return (
+    <>
     <div className="card-grid">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} onOpen={onOpen} onStatusChange={onStatusChange} />
+        <TaskCard
+          key={task.id}
+          task={task}
+          onOpen={onOpen}
+          onStatusChange={onStatusChange}
+          onOpenImage={task.attachments.length ? (index) => setOpenAt((offsets.get(task.id) ?? 0) + index) : undefined}
+        />
       ))}
     </div>
+    {openAt !== null && slides[openAt] ? (
+      <AttachmentLightbox
+        label={copy.task.attachments.open}
+        attachments={slides}
+        index={openAt}
+        onChange={setOpenAt}
+        onClose={() => setOpenAt(null)}
+      />
+    ) : null}
+    </>
   );
 }
 
