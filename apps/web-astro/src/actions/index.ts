@@ -95,6 +95,10 @@ export const server = {
         if (result.code === 'RATE_LIMITED') {
           return failure({}, copy.auth.error.rateLimited);
         }
+        // A transport or server failure should not say "That did not load" on a form page.
+        if (result.code === 'INTERNAL') {
+          return failure({}, copy.state.error.body);
+        }
         return failure(toFieldErrors(result.details), result.message);
       }
 
@@ -124,6 +128,10 @@ export const server = {
         }
         if (result.code === 'RATE_LIMITED') {
           return failure({}, copy.auth.error.rateLimited);
+        }
+        // A transport or server failure should not say "That did not load" on a form page.
+        if (result.code === 'INTERNAL') {
+          return failure({}, copy.state.error.body);
         }
         return failure(toFieldErrors(result.details), result.message);
       }

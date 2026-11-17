@@ -70,13 +70,16 @@ function ExpiredNotice() {
 }
 
 function errorCopy(mode: Mode, cause: unknown): { field?: FieldErrors; message?: string } {
-  if (!(cause instanceof ApiError)) return { message: copy.error.form };
+  if (!(cause instanceof ApiError)) return { message: copy.state.error.body };
   switch (cause.status) {
+    case 0:
+      // Network failure: the API is unreachable. Never say "check the highlighted fields".
+      return { message: copy.state.error.body };
     case 401:
       return { message: copy.auth.error.invalidCredentials };
     case 409:
       // Login while authenticated is a precondition conflict (Q-15), not an email error.
-      return mode === 'register' ? { field: { email: copy.auth.error.emailTaken } } : { message: copy.error.form };
+      return mode === 'register' ? { field: { email: copy.auth.error.emailTaken } } : { message: copy.state.error.body };
     case 422: {
       // Parity with Astro: map the API's per-field details onto the fields (so they get
       // highlighted) and use a specific top message when exactly one field failed. The
@@ -91,7 +94,7 @@ function errorCopy(mode: Mode, cause: unknown): { field?: FieldErrors; message?:
     case 429:
       return { message: copy.auth.error.rateLimited };
     default:
-      return { message: copy.error.form };
+      return { message: copy.state.error.body };
   }
 }
 
