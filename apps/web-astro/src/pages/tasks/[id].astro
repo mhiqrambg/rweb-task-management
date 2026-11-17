@@ -1,0 +1,239 @@
+---
+/**
+ * Task detail (tk-05, tk-09, tk-11; design/02 §5). Every stored field, the full attachment grid,
+ * the lightbox, the inline status control and the edit/delete actions (FR-TASK-005/007/021).
+ *
+ * A 404 from the API — absent or foreign-owned, indistinguishable (FR-TASK-019) — renders the
+ * shared not-found page rather than an error, because that is what the caller is allowed to learn.
+ */
+import { actions } from 'astro:actions';
+import {
+  copy,
+  fill,
+  formatBytes,
+  formatDate,
+  formatDimensions,
+  formatRelative,
+  routes,
+  taskPriorityLabel,
+  taskStatusLabel,
+} from '@taskapp/contracts';
+import AppLayout from '../../layouts/AppLayout.astro';
+import Button from '../../components/Button.astro';
+import StateBlock from '../../components/StateBlock.astro';
+import ThumbStrip from '../../components/ThumbStrip.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import ConfirmDialog from '../../components/ConfirmDialog.astro';
+import { cookieHeader } from '../../lib/server/session';
+import { getTask } from '../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect(routes.tasks);
+
+const result = await getTask(cookieHeader(Astro.request), id);
+
+const statusResult = Astro.getActionResult(actions.setTaskStatus);
+if (statusResult?.data?.ok) return Astro.redirect(statusResult.data.redirect, 303);
+if (statusResult?.data && !statusResult.data.ok) {
+  // A 404 outcome means the record is gone or not ours; both apps show the not-found page.
+  return Astro.redirect(routes.tasks, 303);
+}
+
+/**
+ * One upload per submission (D-8): a success redirects back here with the `imageAdded` toast, and
+ * a rejection re-renders with the per-file reason (FR-ATT-009).
+ */
+/**
+ * Removal is a redirect like any other mutation: the record page has already been re-read, so a
+ * success sends the person back to it with the `imageRemoved` toast (FR-ATT-007).
+ */
+const removeResult = Astro.getActionResult(actions.deleteAttachment);
+if (removeResult?.data?.ok) return Astro.redirect(removeResult.data.redirect, 303);
+
+const uploadResult = Astro.getActionResult(actions.uploadAttachment);
+if (uploadResult?.data?.ok) return Astro.redirect(uploadResult.data.redirect, 303);
+const uploadFailure = uploadResult?.data && !uploadResult.data.ok ? uploadResult.data : null;
+
+const editResult = Astro.getActionResult(actions.updateTask);
+if (editResult?.data && !editResult.data.ok) {
+  if (editResult.data.message === copy.state.notFound.body) {
+    return Astro.redirect(routes.tasks, 303);
+  }
+}
+if (editResult?.data?.ok) return Astro.redirect(editResult.data.redirect, 303);
+
+const detail = result.ok ? result.value : null;
+/** Where the status form returns to: the list the person came from, when we can tell. */
+const backHref = routes.tasks;
+---
+
+<AppLayout title={detail?.title ?? copy.task.title} current="tasks">
+  {
+    !result.ok ? (
+      result.status === 404 ? (
+        <StateBlock
+          kind="empty"
+          title={copy.state.notFound.title}
+          body={copy.state.notFound.body}
+          actionLabel={copy.state.notFound.action}
+          actionHref={routes.dashboard}
+        />
+      ) : (
+        <StateBlock
+          kind="error"
+          title={copy.state.error.detail}
+          body={result.message}
+          actionLabel={copy.action.retry}
+          actionHref={routes.task(id)}
+        />
+      )
+    ) : detail ? (
+      <>
+        <div class="detail-head">
+          <div>
+            <h1 class="detail-head__title">{detail.title}</h1>
+            <div class="detail-meta">
+              <span class="badge" data-kind="status" data-value={detail.status}>
+                {taskStatusLabel(detail.status)}
+              </span>
+              <span class="badge" data-kind="priority" data-value={detail.priority}>
+                {taskPriorityLabel(detail.priority)}
+              </span>
+              {detail.dueDate ? (
+                <span class="task-card__due" data-overdue={detail.isOverdue ? '' : undefined}>
+                  {detail.isOverdue ? `${copy.task.overdue} · ` : ''}
+                  {formatDate(detail.dueDate)}
+                </span>
+              ) : (
+                <span class="muted">{copy.task.field.dueDateEmpty}</span>
+              )}
+            </div>
+          </div>
+
+          <div class="detail-head__actions">
+            <form method="POST" action={actions.setTaskStatus}>
+              <input type="hidden" name="id" value={detail.id} />
+              <input type="hidden" name="next" value={backHref} />
+              <label class="visually-hidden" for="detail-status">{copy.task.field.status}</label>
+              <select class="field__input" id="detail-status" name="status" data-status-form>
+                <option value="todo" selected={detail.status === 'todo'}>
+                  {taskStatusLabel('todo')}
+                </option>
+                <option value="in_progress" selected={detail.status === 'in_progress'}>
+                  {taskStatusLabel('in_progress')}
+                </option>
+                <option value="completed" selected={detail.status === 'completed'}>
+                  {taskStatusLabel('completed')}
+                </option>
+              </select>
+              <Button type="submit" variant="secondary" small>
+                {copy.action.save}
+              </Button>
+            </form>
+
+            <a class="btn" data-variant="secondary" href={routes.taskEdit(detail.id)}>
+              {copy.action.edit}
+            </a>
+
+            <button class="btn" data-variant="danger" type="button" data-confirm-open
+              data-confirm-form="#record-delete" data-confirm-id={detail.id}>
+              {copy.action.delete}
+            </button>
+          </div>
+        </div>
+
+        {
+          detail.description ? (
+            <section class="detail-section">
+              <p class="detail-body">{detail.description}</p>
+            </section>
+          ) : null
+        }
+
+        <section class="detail-section" aria-labelledby="task-images">
+          <h2 class="detail-section__title" id="task-images">{copy.task.field.images}</h2>
+
+          <ThumbStrip attachments={detail.attachments} size="detail" target="task" />
+
+          {detail.attachments.length === 0 ? (
+            <p class="muted stat__hint">{copy.task.attachments.noneHint}</p>
+          ) : null}
+
+          <form
+            method="POST"
+            action={actions.uploadAttachment}
+            enctype="multipart/form-data"
+            class="dropzone"
+            data-dropzone
+          >
+            <input type="hidden" name="targetType" value="task" />
+            <input type="hidden" name="targetId" value={detail.id} />
+            <input type="hidden" name="next" value={routes.task(detail.id)} />
+
+            <label class="dropzone__label" for="task-upload">
+              {copy.dropzone.idle}
+              <span class="visually-hidden">{copy.task.attachments.add}</span>
+            </label>
+            <p class="dropzone__hint">{copy.dropzone.hint.replace('{target}', 'task')}</p>
+            {uploadFailure?.message ? (
+              <p class="inline-error" role="alert">{uploadFailure.message}</p>
+            ) : null}
+            <input
+              class="visually-hidden"
+              id="task-upload"
+              type="file"
+              name="file"
+              accept="image/jpeg,image/png,image/webp"
+              data-file-input
+            />
+            <button class="btn" data-variant="secondary" type="submit">
+              {copy.task.attachments.add}
+            </button>
+          </form>
+        </section>
+
+        <p class="muted stat__hint detail-section">
+          {fill(copy.task.updatedAt, { relative: formatRelative(detail.updatedAt) })}
+        </p>
+
+        <Lightbox
+          label={detail.title}
+          slides={detail.attachments.map((attachment) => ({
+            full: attachment.fullUrl,
+            alt: fill(copy.task.attachments.open, { index: 1, count: detail.attachments.length }),
+            caption: [formatDimensions(attachment.width, attachment.height), formatBytes(attachment.sizeBytes)]
+              .filter(Boolean)
+              .join(' · '),
+          }))}
+        />
+
+        <ConfirmDialog
+          title={copy.confirm.deleteTask.title}
+          body={fill(copy.confirm.deleteTask.body, { title: detail.title })}
+        />
+        <form method="POST" action={actions.deleteTask} id="record-delete">
+          <input type="hidden" name="id" value={detail.id} />
+        </form>
+        <form method="POST" action={actions.deleteAttachment} id="image-delete">
+          <input type="hidden" name="id" value="" />
+          <input type="hidden" name="targetType" value="task" />
+          <input type="hidden" name="next" value={routes.task(detail.id)} />
+        </form>
+      </>
+    ) : null
+  }
+</AppLayout>
+
+<script>
+  import '../../scripts/lightbox';
+  import '../../scripts/drawer';
+  import '../../scripts/confirm';
+
+
+  for (const select of document.querySelectorAll<HTMLSelectElement>('select[data-status-form]')) {
+    select.addEventListener('change', () => select.form?.requestSubmit());
+  }
+</script>

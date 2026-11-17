@@ -21,10 +21,19 @@ let apiService: ApiService | null | undefined;
  * `workers.dev` (Cloudflare error 1042), so production uses the binding; local dev and the test
  * environment have none and fall back to a public `fetch`.
  *
+ * The binding forwards to the production `rweb-api` Worker regardless of what URL is passed to it,
+ * so it must only be used when the configured base points at the production origin. A local dev run
+ * (`--var PUBLIC_API_BASE_URL:http://localhost:…`) sets the URL but not the binding's destination,
+ * so the binding is skipped and a plain fetch is used instead.
+ *
  * Dynamic import on purpose: `cloudflare:workers` exists only in the Workers runtime, so a static
  * import would break `astro dev` and Vitest.
  */
 async function serviceBinding(): Promise<ApiService | null> {
+  const base = apiBaseUrl();
+  if (new URL(base).hostname === 'localhost' || new URL(base).hostname === '127.0.0.1') {
+    return null;
+  }
   if (apiService !== undefined) return apiService;
   try {
     const runtime = await import('cloudflare:workers');
@@ -59,20 +68,29 @@ async function liveRequest(input: ApiRequestInput): Promise<ApiRaw> {
   }
 
   let response: Response;
-  // Contract routes already carry `/api/v1`; resolving the absolute path against the base keeps
-  // the prefix once even though PUBLIC_API_BASE_URL also ends in `/api/v1` (03 §7).
-  const url = new URL(input.path, `${apiBaseUrl()}/`).toString();
+  // `input.path` is absolute (`/api/v1/...`), and `new URL(abs, base)` discards the base's path.
+  // Only its origin is wanted here, so the origin is taken from the configured base and the
+  // contract path is appended unchanged.
+  const url = `${new URL(apiBaseUrl()).origin}${input.path}`;
   const init: RequestInit = {
     method: input.method,
     headers,
     body: body ?? null,
     signal: AbortSignal.timeout(TIMEOUT_MS),
   };
+  // In production the API service binding is the supported path (Cloudflare error 1042: Worker-to-
+  // Worker fetch between `*.workers.dev` hosts is blocked). In local `wrangler dev --local` the
+  // binding resolves but throws because there is no local `rweb-api` Worker to forward to, so a
+  // throw falls through to a plain fetch — production still uses the binding, local dev still works.
   try {
     const service = await serviceBinding();
     response = service ? await service.fetch(url, init) : await fetch(url, init);
   } catch {
-    return transportFailure();
+    try {
+      response = await fetch(url, init);
+    } catch {
+      return transportFailure();
+    }
   }
 
   const setCookie = response.headers.get('set-cookie');

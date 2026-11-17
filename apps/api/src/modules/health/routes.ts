@@ -1,19 +1,36 @@
-import { api } from '@taskapp/contracts';
+import { api, type HealthResponse } from '@taskapp/contracts';
 import { Elysia } from 'elysia';
 import { getConfig } from '../../context';
 
 /**
- * #22 — readiness only. D-5 (`storage`) waits for the R2 attachment module, so it is not reported
- * until it exists; a fabricated `ok` is worse than an absent field.
+ * #22 — readiness. D-5: readiness must reflect storage as well as the database, because an API
+ * that cannot read an attachment is not ready to serve the screens that show one. The degraded
+ * response still carries a **success** envelope (D-5), so a diagnostic is never mistaken for a
+ * broken contract.
  */
 export const healthRoutes = new Elysia().get(api.health, async () => {
+  const { db, bucket } = getConfig();
+
+  let database: HealthResponse['data']['db'] = 'down';
   try {
-    await getConfig().db.prepare('SELECT 1 AS ok').first();
-    return { data: { status: 'ok', db: 'ok' } };
+    await db.prepare('SELECT 1 AS ok').first();
+    database = 'ok';
   } catch {
-    return new Response(
-      JSON.stringify({ data: { status: 'degraded', db: 'down' } }),
-      { status: 503, headers: { 'content-type': 'application/json' } },
-    );
+    database = 'down';
   }
+
+  // A list is the cheapest call that proves the binding resolves; it does not read an object.
+  let storage: HealthResponse['data']['storage'] = 'down';
+  try {
+    await bucket.list({ limit: 1 });
+    storage = 'ok';
+  } catch {
+    storage = 'down';
+  }
+
+  const ready = database === 'ok' && storage === 'ok';
+  return {
+    data: { status: ready ? 'ok' : 'degraded', db: database, storage },
+    ...(ready ? {} : { status: 503 }),
+  };
 });

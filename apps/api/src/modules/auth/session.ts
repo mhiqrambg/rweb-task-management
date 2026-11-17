@@ -17,6 +17,9 @@ export interface ActiveSession {
   sessionId: string;
   user: User;
   expiresAt: string;
+  /** D-12. Derived from the users row on every request, never from the cookie. */
+  role: MemberRole;
+  status: MemberStatus;
 }
 
 export interface SessionResolution {
@@ -46,6 +49,21 @@ function userFromSessionRow(row: SessionWithUserRow): User {
 }
 
 /**
+ * The admin extension's role (D-12). It rides on the resolved session so every admin route makes
+ * one check, and it is never accepted from a request.
+ */
+export type MemberRole = 'member' | 'admin';
+export type MemberStatus = 'active' | 'disabled';
+
+export function roleOf(row: SessionWithUserRow): MemberRole {
+  return row.user_role === 'admin' ? 'admin' : 'member';
+}
+
+export function statusOf(row: SessionWithUserRow): MemberStatus {
+  return row.user_status === 'disabled' ? 'disabled' : 'active';
+}
+
+/**
  * §2.2: absolute expiry from the row, idle expiry from `last_used_at`, hourly conditional refresh.
  * `peek` never refreshes and never clears, so a login cannot be raced by a cookie rewrite.
  */
@@ -68,13 +86,18 @@ export async function resolveSession(
     Number.isNaN(expiresAtMs) ||
     Number.isNaN(lastUsedMs) ||
     expiresAtMs <= now ||
-    lastUsedMs <= now - cfg.sessionIdleMs;
+    lastUsedMs <= now - cfg.sessionIdleMs ||
+    // FR-ADMIN-004: a disabled member is treated exactly like an expired session, so an existing
+    // cookie stops working on the request it arrives on and the cookie is cleared.
+    statusOf(row) === 'disabled';
   if (unusable) return { active: null, cookie: cleared };
 
   const active: ActiveSession = {
     sessionId: row.session_id,
     user: userFromSessionRow(row),
     expiresAt: row.expires_at,
+    role: roleOf(row),
+    status: statusOf(row),
   };
 
   if (mode === 'peek' || lastUsedMs > now - cfg.sessionRefreshMs) {

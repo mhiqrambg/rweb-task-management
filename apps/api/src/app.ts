@@ -3,10 +3,13 @@ import { Elysia } from 'elysia';
 import { getConfig } from './context';
 import { ApiError } from './lib/errors';
 import { DEV_ORIGIN, errorResponse, requestIdFrom } from './lib/http';
+import { adminRoutes } from './modules/admin/routes';
+import { attachmentsRoutes } from './modules/attachments/routes';
 import { authRoutes } from './modules/auth/routes';
 import { healthRoutes } from './modules/health/routes';
 import { notesRoutes } from './modules/notes/routes';
 import { tasksRoutes } from './modules/tasks/routes';
+import { usersRoutes } from './modules/users/routes';
 
 const UNSAFE_METHODS: Record<string, true> = { POST: true, PATCH: true, PUT: true, DELETE: true };
 
@@ -23,11 +26,15 @@ export const app = new Elysia({
   // dynamic (non-AoT) composer. See the docs' Cloudflare Worker 'Limitations' section.
   aot: false,
 })
-  // Elysia reads the body once here; handlers then parse that text themselves (`parseJsonBody`),
-  // so a request stream is never consumed twice. Returning `undefined` for a bodyless method
-  // leaves the default behaviour untouched.
+  // JSON bodies are read once here so handlers never touch the stream twice (`parseJsonBody`).
+  // A multipart body must reach the upload route as bytes: it parses the multipart framing itself,
+  // and a text decode would corrupt the image payload. Returning `undefined` leaves a bodyless
+  // method untouched.
   .onParse(({ request }: { request: Request }) => {
     if (request.method === 'GET' || request.method === 'HEAD') return undefined;
+    if ((request.headers.get('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) {
+      return request.arrayBuffer();
+    }
     return request.text();
   })
   .onBeforeHandle(async ({ request }: { request: Request }) => {
@@ -45,9 +52,12 @@ export const app = new Elysia({
     }
   })
   .use(authRoutes)
+  .use(usersRoutes)
   .use(healthRoutes)
   .use(tasksRoutes)
   .use(notesRoutes)
+  .use(attachmentsRoutes)
+  .use(adminRoutes)
   // Let Elysia infer the handler's context type; annotating it defeats the inference.
   .onError(({ request, code, error, set }) => {
     // Unmatched route → `NOT_FOUND` envelope, identical to a foreign-owned resource (§1.9).

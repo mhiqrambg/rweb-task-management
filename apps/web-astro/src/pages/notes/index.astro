@@ -1,0 +1,219 @@
+---
+/**
+ * Note list (n-02, n-03, n-06; design/02 §6). Pinned first, then last-updated (FR-NOTE-003), with
+ * search and the cursor in the URL so a reload reproduces the page (FR-TASK-014 applied to notes).
+ *
+ * A note row shows its title, excerpt, pin marker, updated time and thumbnails (FR-NOTE-004).
+ */
+import { actions } from 'astro:actions';
+import {
+  copy,
+  noteListHref,
+  parseNoteListQuery,
+  routes,
+} from '@taskapp/contracts';
+import AppLayout from '../../layouts/AppLayout.astro';
+import Field from '../../components/Field.astro';
+import StateBlock from '../../components/StateBlock.astro';
+import NoteCard from '../../components/NoteCard.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import { cookieHeader } from '../../lib/server/session';
+import { getNotes } from '../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const query = parseNoteListQuery(Astro.url.searchParams);
+const result = await getNotes(cookieHeader(Astro.request), query);
+const hasFilters = Boolean(query.q || query.pinned !== null);
+
+function hrefWith(patch: Partial<typeof query>): string {
+  return noteListHref({ ...query, cursor: null, ...patch }, routes.notes);
+}
+
+const actionResult = Astro.getActionResult(actions.createNote);
+const actionFailure = actionResult?.data && !actionResult.data.ok ? actionResult.data : null;
+if (actionResult?.data?.ok) return Astro.redirect(actionResult.data.redirect, 303);
+
+const showCreate = Astro.url.searchParams.get('new') === '1';
+
+// n-02: pinned notes sit in their own labelled block above the rest of the grid.
+const items = result.ok ? result.value.items : [];
+const pinnedNotes = items.filter((note) => note.pinned);
+const restNotes = items.filter((note) => !note.pinned);
+---
+
+<AppLayout title={copy.note.title} current="notes">
+  <div class="page-head">
+    <div class="page-head__row">
+      <h1 class="page-head__title">{copy.note.title}</h1>
+
+      <form class="search" role="search" method="GET" action={routes.notes}>
+        <label class="visually-hidden" for="note-search">{copy.note.search.label}</label>
+        <input
+          class="field__input"
+          id="note-search"
+          type="search"
+          name="q"
+          value={query.q}
+          maxlength={200}
+          placeholder={copy.note.search.label}
+        />
+        {query.pinned !== null ? (
+          <input type="hidden" name="pinned" value={String(query.pinned)} />
+        ) : null}
+      </form>
+
+      <a class="btn" data-variant="primary" href={`${routes.notes}?new=1`}>
+        {copy.note.new}
+      </a>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a
+      class="btn"
+      data-variant="secondary"
+      href={hrefWith({ pinned: query.pinned === true ? null : true })}
+      aria-pressed={query.pinned === true}
+    >
+      {copy.note.pinned}
+    </a>
+    {hasFilters ? (
+      <a class="btn" data-variant="ghost" href={routes.notes}>
+        {copy.filter.clear}
+      </a>
+    ) : null}
+    {query.q ? <p class="toolbar__note">{copy.filter.applied}</p> : null}
+  </div>
+
+  {
+    !result.ok ? (
+      <StateBlock
+        kind="error"
+        title={copy.state.error.notes}
+        body={result.message}
+        actionLabel={copy.action.retry}
+        actionHref={noteListHref(query, routes.notes)}
+      />
+    ) : result.value.items.length === 0 ? (
+      hasFilters ? (
+        <StateBlock
+          kind="empty"
+          title={copy.note.noResults.title}
+          body={copy.note.noResults.body}
+          actionLabel={copy.filter.clear}
+          actionHref={routes.notes}
+        />
+      ) : (
+        <StateBlock
+          kind="empty"
+          title={copy.note.empty.title}
+          body={copy.note.empty.body}
+          actionLabel={copy.note.new}
+          actionHref={`${routes.notes}?new=1`}
+        />
+      )
+    ) : (
+      <>
+        {pinnedNotes.length > 0 ? (
+          <section class="stack-sm" aria-labelledby="notes-pinned">
+            <h2 class="section__title" id="notes-pinned">{copy.note.pinned}</h2>
+            <div class="card-grid">
+              {pinnedNotes.map((note) => (
+                <NoteCard note={note} href={noteListHref(query, routes.note(note.id))} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <div class="card-grid">
+          {restNotes.map((note) => (
+            <NoteCard note={note} href={noteListHref(query, routes.note(note.id))} />
+          ))}
+        </div>
+
+        <div class="pagination">
+          {
+            result.value.page.nextCursor ? (
+              <a
+                class="btn"
+                data-variant="secondary"
+                href={noteListHref({ ...query, cursor: result.value.page.nextCursor }, routes.notes)}
+              >
+                {copy.pagination.loadMore}
+              </a>
+            ) : (
+              <span class="pagination__end muted">{copy.pagination.end}</span>
+            )
+          }
+        </div>
+      </>
+    )
+  }
+
+  {
+    showCreate ? (
+      <dialog class="dialog" id="note-form" data-modal aria-label={copy.note.new}>
+        <div class="dialog__head">
+            <h2 class="dialog__title">{copy.note.new}</h2>
+        </div>
+        <form method="POST" action={actions.createNote}>
+          <div class="dialog__body stack">
+
+          {actionFailure?.message ? (
+            <p class="inline-error" role="alert">{actionFailure.message}</p>
+          ) : null}
+
+          <Field
+            name="title"
+            label={copy.note.field.title}
+            value=""
+            error={actionFailure?.errors.title}
+            maxlength={200}
+            required
+          />
+          <Field
+            name="body"
+            label={copy.note.field.body}
+            as="textarea"
+            rows={8}
+            error={actionFailure?.errors.body}
+            counter
+            maxlength={20000}
+            required
+          />
+
+          </div>
+          <div class="dialog__actions">
+            <a class="btn" data-variant="secondary" href={routes.notes}>
+              {copy.action.cancel}
+            </a>
+            <button class="btn" data-variant="primary" type="submit" data-submit>
+              {copy.note.new}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    ) : null
+  }
+
+  <Lightbox
+    label={copy.note.title}
+    slides={result.ok
+      ? result.value.items.flatMap((note) =>
+          note.attachments.map((attachment) => ({
+            full: attachment.fullUrl,
+            alt: copy.task.attachments.open,
+            caption: '',
+          })),
+        )
+      : []}
+  />
+</AppLayout>
+
+<script>
+  import '../../scripts/lightbox';
+  import '../../scripts/drawer';
+  import '../../scripts/modal';
+</script>

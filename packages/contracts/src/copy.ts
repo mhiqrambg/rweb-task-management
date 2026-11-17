@@ -117,6 +117,8 @@ export const copy = {
       open: 'Open image {index} of {count}',
       loading: 'Loading image',
       broken: 'This image could not be loaded',
+      // C-11 lightbox position, e.g. "2 of 5".
+      counter: '{index} of {count}',
     },
   },
 
@@ -208,6 +210,9 @@ export const copy = {
     close: 'Close',
     edit: 'Edit',
     back: 'Back',
+    // C-11 lightbox arrow controls. The deck carries the labels so neither app invents one.
+    previousImage: 'Previous image',
+    nextImage: 'Next image',
   },
 
   confirm: {
@@ -221,7 +226,7 @@ export const copy = {
     },
     deleteImage: {
       title: 'Remove this image?',
-      body: '“{filename}” will be removed from this {target}.',
+      body: 'Image {index} of {count} will be removed from this {target}.',
     },
     confirmDelete: 'Delete',
   },

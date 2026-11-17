@@ -26,6 +26,11 @@ export const api = {
   attachmentContent: (id: string, variant: 'thumb' | 'full' = 'thumb') =>
     `${API_PREFIX}/attachments/${encodeURIComponent(id)}/content?variant=${variant}`,
   health: `${API_PREFIX}/health`,
+  /** Admin extension (D-12). Never called by either member frontend (FR-ADMIN-006). */
+  admin: {
+    members: `${API_PREFIX}/admin/members`,
+    member: (id: string) => `${API_PREFIX}/admin/members/${encodeURIComponent(id)}`,
+  },
 } as const;
 
 /** Astro pages (MPA). The Next app mirrors these under /b with a view query (ADR-04). */

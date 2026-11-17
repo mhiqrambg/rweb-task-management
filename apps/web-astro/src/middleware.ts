@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { routes, safeNextPath } from '@taskapp/contracts';
 import { applySessionCookie, loadSession } from './lib/server/session';
+import { proxyApi } from './lib/server/proxy';
 import { isProduction } from './lib/server/env';
 
 /**
@@ -11,8 +12,11 @@ import { isProduction } from './lib/server/env';
  * The API remains the authorization authority; this middleware is UX only. It never checks a row.
  */
 
-/** Authenticated screens in the current slice. The shell adds /app, /tasks and /notes. */
-const PROTECTED_PREFIXES = ['/account'] as const;
+/** Authenticated screens: everything under the app shell, the task/note screens and the account. */
+const PROTECTED_PREFIXES = ['/app', '/tasks', '/notes', '/account'] as const;
+
+/** Every API path the browser reaches (`/api/v1/...`) is forwarded to the API Worker unchanged. */
+const API_PREFIX = '/api/';
 
 const PUBLIC_ONLY = new Set<string>([routes.login, routes.register]);
 
@@ -112,6 +116,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const { pathname } = context.url;
 
+  // `/api/*` is a transparent hop to the API Worker: attachment URLs are relative (06 §3.4) and
+  // any client-side call is same-origin, so this Worker has to forward them. The API still makes
+  // every access decision; the proxy forwards `Cookie` and `Origin` untouched (07 §6.2).
+  if (pathname === '/api' || pathname.startsWith(API_PREFIX)) {
+    return withSecurityHeaders(await proxyApi(context.request), requestId);
+  }
+
   if (!isStatic(pathname)) {
     context.locals.formValues = await readFormValues(context.request);
 
@@ -120,7 +131,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.locals.session = session;
 
     if (!session && isProtected(pathname)) {
-      const nextPath = safeNextPath(pageTarget(context.url)) ?? routes.account;
+      const nextPath = safeNextPath(pageTarget(context.url)) ?? routes.dashboard;
       return withSecurityHeaders(
         context.redirect(`${routes.login}?next=${encodeURIComponent(nextPath)}`, 302),
         requestId,
@@ -128,7 +139,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     if (session && PUBLIC_ONLY.has(pathname)) {
-      const nextPath = safeNextPath(context.url.searchParams.get('next')) ?? routes.account;
+      const nextPath = safeNextPath(context.url.searchParams.get('next')) ?? routes.dashboard;
       return withSecurityHeaders(context.redirect(nextPath, 302), requestId);
     }
   }

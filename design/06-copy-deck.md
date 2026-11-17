@@ -125,6 +125,7 @@ above the submit button inside `role="alert"`.
 | `task.attachments.open` | Open image {index} of {count} |
 | `task.attachments.loading` | Loading image |
 | `task.attachments.broken` | This image could not be loaded |
+| `task.attachments.counter` | {index} of {count} |
 
 ## 7. Notes
 
@@ -205,12 +206,14 @@ above the submit button inside `role="alert"`.
 | `action.close` | Close |
 | `action.edit` | Edit |
 | `action.back` | Back |
+| `action.previousImage` | Previous image |
+| `action.nextImage` | Next image |
 | `confirm.deleteTask.title` | Delete this task? |
 | `confirm.deleteTask.body` | “{title}” and its images will be deleted. This cannot be undone. |
 | `confirm.deleteNote.title` | Delete this note? |
 | `confirm.deleteNote.body` | “{title}” and its images will be deleted. This cannot be undone. |
 | `confirm.deleteImage.title` | Remove this image? |
-| `confirm.deleteImage.body` | “{filename}” will be removed from this {target}. |
+| `confirm.deleteImage.body` | Image {index} of {count} will be removed from this {target}. |
 | `confirm.confirmDelete` | Delete |
 | `toast.taskCreated` | Task created |
 | `toast.taskSaved` | Changes saved |

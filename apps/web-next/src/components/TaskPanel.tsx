@@ -26,6 +26,8 @@ import {
   type TaskStatus,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
+import { AttachmentLightbox, AttachmentStrip } from './AttachmentLightbox';
+import { AttachmentSection } from './AttachmentSection';
 import { TaskFormDialog, TaskDeleteDialog, type TaskDraft } from './TaskDialogs';
 
 const LIST_BASE = '/app/?view=tasks';
@@ -42,14 +44,25 @@ function isOverdue(task: TaskCardData): boolean {
 
 export type TaskCardData = Pick<
   TaskListItem,
-  'id' | 'title' | 'status' | 'priority' | 'dueDate'
+  'id' | 'title' | 'status' | 'priority' | 'dueDate' | 'attachments' | 'attachmentCount'
 > & { isOverdue?: boolean };
 
-function TaskCard({ task, onOpen }: { task: TaskCardData; onOpen?: (id: string) => void }) {
+function TaskCard({
+  task,
+  onOpen,
+  onStatusChange,
+  onOpenImage,
+}: {
+  task: TaskCardData;
+  onOpen?: (id: string) => void;
+  onStatusChange?: (id: string, status: TaskStatus) => void;
+  /** Index into the grid's flattened attachment list, so one lightbox serves every card. */
+  onOpenImage?: (index: number) => void;
+}) {
   const overdue = isOverdue(task);
   return (
     <article className="card card--hoverable task-card" data-overdue={overdue || undefined}>
-      <h3 className="task-card__title">
+      <h2 className="task-card__title">
         <Link
           href={`${LIST_BASE}&id=${encodeURIComponent(task.id)}`}
           onClick={(event) => {
@@ -60,7 +73,7 @@ function TaskCard({ task, onOpen }: { task: TaskCardData; onOpen?: (id: string) 
         >
           {task.title}
         </Link>
-      </h3>
+      </h2>
       <div className="task-card__meta">
         <span className="badge" data-kind="status" data-value={task.status}>
           {taskStatusLabel(task.status)}
@@ -74,26 +87,78 @@ function TaskCard({ task, onOpen }: { task: TaskCardData; onOpen?: (id: string) 
           ? `${copy.task.overdue} · ${formatDate(task.dueDate)}`
           : task.dueDate
             ? formatDate(task.dueDate)
-            : null}
+            : copy.task.field.dueDateEmpty}
       </p>
+      {task.attachments.length > 0 ? (
+        <AttachmentStrip
+          attachments={task.attachments}
+          overflow={Math.max(0, task.attachmentCount - task.attachments.length)}
+          onOpen={onOpenImage}
+        />
+      ) : null}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = String(new FormData(event.currentTarget).get('status') ?? '');
+          if (value && value !== task.status) onStatusChange?.(task.id, value as TaskStatus);
+        }}
+      >
+        <span className="visually-hidden">{copy.task.field.status}</span>
+        <select className="field__input" name="status" defaultValue={task.status} aria-label={copy.task.field.status}>
+          <option value="todo">{taskStatusLabel('todo')}</option>
+          <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+          <option value="completed">{taskStatusLabel('completed')}</option>
+        </select>
+        <button className="btn btn--sm" data-variant="ghost" type="submit">
+          {copy.action.save}
+        </button>
+      </form>
     </article>
   );
 }
 
-/** Shared card grid markup: the task list and the component preview render the same cards. */
 export function TaskCards({
   tasks,
   onOpen,
+  onStatusChange,
 }: {
   tasks: TaskCardData[];
   onOpen?: (id: string) => void;
+  onStatusChange?: (id: string, status: TaskStatus) => void;
 }) {
+  // Astro's list wraps every card's attachments in one Lightbox; a card strip opens its slide by
+  // index into this flattened list.
+  const [openAt, setOpenAt] = useState<number | null>(null);
+  let cursor = 0;
+  const slides = tasks.flatMap((task) => task.attachments);
+  const offsets = new Map<string, number>();
+  for (const task of tasks) {
+    offsets.set(task.id, cursor);
+    cursor += task.attachments.length;
+  }
   return (
+    <>
     <div className="card-grid">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} onOpen={onOpen} />
+        <TaskCard
+          key={task.id}
+          task={task}
+          onOpen={onOpen}
+          onStatusChange={onStatusChange}
+          onOpenImage={task.attachments.length ? (index) => setOpenAt((offsets.get(task.id) ?? 0) + index) : undefined}
+        />
       ))}
     </div>
+    {openAt !== null && slides[openAt] ? (
+      <AttachmentLightbox
+        label={copy.task.attachments.open}
+        attachments={slides}
+        index={openAt}
+        onChange={setOpenAt}
+        onClose={() => setOpenAt(null)}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -157,7 +222,9 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
   // The URL is the source of truth for q (back/forward included); the draft only outlives it while typing.
   const searchDraft = searchEdit?.forQ === query.q ? searchEdit.value : query.q;
   // A request-key mismatch means the view moved on, so its dialog is closed without an effect reset.
-  const createOpen = createFor === requestKey;
+  // `?new=1` is the same entry point Astro serves, so a reload keeps the dialog open.
+  const urlCreate = urlParams.get('new') === '1';
+  const createOpen = createFor === requestKey || (urlCreate && !id);
 
   const items = list?.key === requestKey ? list.items : null;
   const nextCursor = list?.key === requestKey ? list.nextCursor : null;
@@ -278,6 +345,15 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
     }
   }
 
+  async function changeStatus(targetId: string, status: TaskStatus) {
+    try {
+      await requestJson(api.task(targetId), { method: 'PATCH', body: JSON.stringify({ status }) });
+      setReload((value) => value + 1);
+    } catch (cause) {
+      setReadError({ key: requestKey, message: messageOf(cause) });
+    }
+  }
+
   async function remove() {
     if (!id) return;
     try {
@@ -390,6 +466,19 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
             <option value="none">{copy.filter.dueValue.none}</option>
           </select>
         </label>
+        <label className="field toolbar__field">
+          <span className="field__label">{copy.sort.label}</span>
+          <select
+            className="field__input"
+            value={query.sort}
+            onChange={(event) => replaceQuery({ sort: event.target.value as TaskListQuery['sort'] })}
+          >
+            <option value="updated">{copy.sort.updated}</option>
+            <option value="created">{copy.sort.created}</option>
+            <option value="due">{copy.sort.due}</option>
+            <option value="priority">{copy.sort.priority}</option>
+          </select>
+        </label>
         <button
           className="btn"
           data-variant="secondary"
@@ -440,13 +529,13 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
         )
       ) : (
         <>
-          <TaskCards tasks={items} />
+          <TaskCards tasks={items} onStatusChange={(taskId, status) => void changeStatus(taskId, status)} />
           {paginationError && (
             <p className="inline-error" role="alert">
               {paginationError}
             </p>
           )}
-          {nextCursor && (
+          {nextCursor ? (
             <div className="pagination">
               <button
                 className="btn"
@@ -459,6 +548,8 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
                 {copy.pagination.loadMore}
               </button>
             </div>
+          ) : (
+            <span className="pagination__end muted">{copy.pagination.end}</span>
           )}
         </>
       )}
@@ -483,8 +574,43 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
   ) : (
     <>
       <div className="detail-head">
-        <h1 className="detail-head__title">{task.title}</h1>
+        <div>
+          <h1 className="detail-head__title">{task.title}</h1>
+          <div className="detail-meta">
+            <span className="badge" data-kind="status" data-value={task.status}>
+              {taskStatusLabel(task.status)}
+            </span>
+            <span className="badge" data-kind="priority" data-value={task.priority}>
+              {taskPriorityLabel(task.priority)}
+            </span>
+            {task.dueDate ? (
+              <span className="task-card__due" data-overdue={task.isOverdue ? '' : undefined}>
+                {task.isOverdue ? `${copy.task.overdue} · ` : ''}
+                {formatDate(task.dueDate)}
+              </span>
+            ) : (
+              <span className="muted">{copy.task.field.dueDateEmpty}</span>
+            )}
+          </div>
+        </div>
         <div className="detail-head__actions">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = String(new FormData(event.currentTarget).get('status') ?? '');
+              if (value && value !== task.status) void changeStatus(task.id, value as TaskStatus);
+            }}
+          >
+            <span className="visually-hidden">{copy.task.field.status}</span>
+            <select className="field__input" name="status" defaultValue={task.status} aria-label={copy.task.field.status}>
+              <option value="todo">{taskStatusLabel('todo')}</option>
+              <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+              <option value="completed">{taskStatusLabel('completed')}</option>
+            </select>
+            <button className="btn btn--sm" data-variant="secondary" type="submit">
+              {copy.action.save}
+            </button>
+          </form>
           <button
             className="btn"
             data-variant="secondary"
@@ -507,20 +633,18 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
           </button>
         </div>
       </div>
-      <div className="detail-meta">
-        <span className="badge" data-kind="status" data-value={task.status}>
-          {taskStatusLabel(task.status)}
-        </span>
-        <span className="badge" data-kind="priority" data-value={task.priority}>
-          {taskPriorityLabel(task.priority)}
-        </span>
-        {task.dueDate ? (
-          <span>{task.isOverdue ? `${copy.task.overdue} · ${formatDate(task.dueDate)}` : formatDate(task.dueDate)}</span>
-        ) : null}
-      </div>
-      {task.description?.trim() ? <p className="detail-body">{task.description}</p> : null}
-      <hr className="divider" />
-      <p className="muted">
+      {task.description?.trim() ? (
+        <section className="detail-section">
+          <p className="detail-body">{task.description}</p>
+        </section>
+      ) : null}
+      <AttachmentSection
+        target="task"
+        targetId={task.id}
+        attachments={task.attachments}
+        onChanged={() => setReload((value) => value + 1)}
+      />
+      <p className="muted stat__hint detail-section">
         {fill(copy.task.updatedAt, { relative: formatRelative(task.updatedAt) })}
       </p>
     </>
@@ -528,10 +652,17 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
 
   return (
     <section aria-label={copy.task.title}>
-      {id ? detailView : listView}
+      {id ? (mode === 'edit' ? null : detailView) : listView}
 
       {createOpen && !id && (
-        <TaskFormDialog kind="create" onSave={create} onClose={() => setCreateFor(null)} />
+        <TaskFormDialog
+          kind="create"
+          onSave={create}
+          onClose={() => {
+            setCreateFor(null);
+            if (urlCreate) router.replace(LIST_BASE);
+          }}
+        />
       )}
 
       {id && task && mode === 'edit' && (

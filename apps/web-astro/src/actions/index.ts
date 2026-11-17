@@ -1,11 +1,16 @@
 import { defineAction } from 'astro:actions';
 import {
+  api,
   copy,
+  createNoteSchema,
+  createTaskSchema,
   loginSchema,
   parseForm,
   registerSchema,
   routes,
   safeNextPath,
+  updateNoteSchema,
+  updateTaskSchema,
   type ValidationDetail,
 } from '@taskapp/contracts';
 import {
@@ -13,6 +18,7 @@ import {
   logout as endSession,
   register as registerAccount,
 } from '../lib/server/auth';
+import { request as apiRequest, toResult } from '../lib/server/api';
 import { applySessionCookie, cookieHeader } from '../lib/server/session';
 
 /**
@@ -85,7 +91,7 @@ export const server = {
       }
 
       applySessionCookie(context.cookies, setCookie);
-      return success(safeNextPath(text(form, 'next')) ?? routes.account);
+      return success(safeNextPath(text(form, 'next')) ?? routes.dashboard);
     },
   }),
 
@@ -115,7 +121,7 @@ export const server = {
       }
 
       applySessionCookie(context.cookies, setCookie);
-      return success(safeNextPath(text(form, 'next')) ?? routes.account);
+      return success(safeNextPath(text(form, 'next')) ?? routes.dashboard);
     },
   }),
 
@@ -126,6 +132,285 @@ export const server = {
       // A 401 means the session was already gone; clearing the cookie is still the right ending.
       applySessionCookie(context.cookies, setCookie);
       return success(`${routes.login}?toast=signedOut`);
+    },
+  }),
+
+  /* -------------------------------------------------------------- tasks */
+
+  /**
+   * Creates a task and lands on its detail page (FR-TASK-020). The owner is never read from the
+   * form: the API derives it from the session (FR-TASK-001).
+   */
+  createTask: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const parsed = parseForm(createTaskSchema, {
+        title: text(form, 'title'),
+        description: text(form, 'description'),
+        status: text(form, 'status'),
+        priority: text(form, 'priority'),
+        dueDate: text(form, 'dueDate'),
+      });
+      if (!parsed.ok) return failure(parsed.errors);
+
+      const raw = await apiRequest({
+        method: 'POST',
+        path: api.tasks,
+        cookie: cookieHeader(context.request),
+        body: parsed.value,
+      });
+      const result = toResult<{ id: string }>(raw);
+      if (!result.ok) return failure(toFieldErrors(result.details), result.message);
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.task(result.value.id)}?toast=taskCreated`);
+    },
+  }),
+
+  /**
+   * Saves an edit and returns to the detail page with the changes-saved toast (FR-TASK-006).
+   * An absent or foreign id is a 404 from the API and renders as a not-found outcome, never a
+   * distinguishable error (FR-TASK-019).
+   */
+  updateTask: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      const parsed = parseForm(updateTaskSchema, {
+        title: text(form, 'title'),
+        description: text(form, 'description'),
+        status: text(form, 'status'),
+        priority: text(form, 'priority'),
+        dueDate: text(form, 'dueDate'),
+      });
+      if (!parsed.ok) return failure(parsed.errors);
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'PATCH',
+        path: api.task(id),
+        cookie: cookieHeader(context.request),
+        body: parsed.value,
+      });
+      const result = toResult<unknown>(raw);
+      if (!result.ok) {
+        if (result.status === 404) return failure({}, copy.state.notFound.body);
+        return failure(toFieldErrors(result.details), result.message);
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.task(id)}?toast=taskSaved`);
+    },
+  }),
+
+  /** Inline status change from the list or the detail view (FR-TASK-007). */
+  setTaskStatus: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      const status = text(form, 'status');
+      const back = safeNextPath(text(form, 'next')) ?? routes.tasks;
+      if (!id || !status) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'PATCH',
+        path: api.task(id),
+        cookie: cookieHeader(context.request),
+        body: { status },
+      });
+      const result = toResult<unknown>(raw);
+      if (!result.ok) {
+        if (result.status === 404) return failure({}, copy.state.notFound.body);
+        return failure({}, result.message);
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${back}?toast=taskSaved`);
+    },
+  }),
+
+  /** Delete with a confirmation the form already collected (FR-TASK-021). */
+  deleteTask: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'DELETE',
+        path: api.task(id),
+        cookie: cookieHeader(context.request),
+      });
+      if (raw.error && raw.status !== 404) {
+        return failure({}, raw.error.message);
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.tasks}?toast=taskDeleted`);
+    },
+  }),
+
+  /* -------------------------------------------------------------- notes */
+
+  createNote: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const parsed = parseForm(createNoteSchema, {
+        title: text(form, 'title'),
+        body: text(form, 'body'),
+        pinned: text(form, 'pinned') === 'on',
+      });
+      if (!parsed.ok) return failure(parsed.errors);
+
+      const raw = await apiRequest({
+        method: 'POST',
+        path: api.notes,
+        cookie: cookieHeader(context.request),
+        body: parsed.value,
+      });
+      const result = toResult<{ id: string }>(raw);
+      if (!result.ok) return failure(toFieldErrors(result.details), result.message);
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.note(result.value.id)}?toast=noteCreated`);
+    },
+  }),
+
+  updateNote: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      const parsed = parseForm(updateNoteSchema, {
+        title: text(form, 'title'),
+        body: text(form, 'body'),
+      });
+      if (!parsed.ok) return failure(parsed.errors);
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'PATCH',
+        path: api.note(id),
+        cookie: cookieHeader(context.request),
+        body: parsed.value,
+      });
+      const result = toResult<unknown>(raw);
+      if (!result.ok) {
+        if (result.status === 404) return failure({}, copy.state.notFound.body);
+        return failure(toFieldErrors(result.details), result.message);
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.note(id)}?toast=noteSaved`);
+    },
+  }),
+
+  /** Pin and unpin from either surface; an edit never touches `pinned` (FR-NOTE-006/007). */
+  setNotePinned: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      const pinned = text(form, 'pinned') === 'true';
+      const back = safeNextPath(text(form, 'next')) ?? routes.notes;
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'PATCH',
+        path: api.note(id),
+        cookie: cookieHeader(context.request),
+        body: { pinned },
+      });
+      const result = toResult<unknown>(raw);
+      if (!result.ok) {
+        if (result.status === 404) return failure({}, copy.state.notFound.body);
+        return failure({}, result.message);
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${back}?toast=${pinned ? 'notePinned' : 'noteUnpinned'}`);
+    },
+  }),
+
+  deleteNote: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'DELETE',
+        path: api.note(id),
+        cookie: cookieHeader(context.request),
+      });
+      if (raw.error && raw.status !== 404) return failure({}, raw.error.message);
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${routes.notes}?toast=noteDeleted`);
+    },
+  }),
+
+  /* -------------------------------------------------------------- attachments */
+
+  /**
+   * One upload per request, as the contract requires (D-8). The dropzone posts every selected file
+   * as its own `uploadAttachment` submission, so one rejection cannot hide another's success
+   * (FR-ATT-009) and a retry does not resend the files that already landed.
+   */
+  uploadAttachment: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const targetId = text(form, 'targetId');
+      const targetType = text(form, 'targetType');
+      const back = safeNextPath(text(form, 'next')) ?? routes.tasks;
+      const file = form.get('file');
+
+      if (!targetId || (targetType !== 'task' && targetType !== 'note')) {
+        return failure({}, copy.upload.reject.type);
+      }
+      if (!(file instanceof File) || file.size === 0) {
+        return failure({}, copy.upload.reject.type);
+      }
+
+      const body = new FormData();
+      body.set('targetType', targetType);
+      body.set('targetId', targetId);
+      body.set('file', file, file.name);
+
+      const raw = await apiRequest({
+        method: 'POST',
+        path: api.attachments,
+        cookie: cookieHeader(context.request),
+        form: body,
+      });
+      const result = toResult<unknown>(raw);
+      if (!result.ok) {
+        const detail = result.details[0];
+        return failure(
+          {},
+          detail?.file ? `${detail.message} (${detail.file})` : detail?.message ?? result.message,
+        );
+      }
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${back}?toast=imageAdded`);
+    },
+  }),
+
+  deleteAttachment: defineAction({
+    accept: 'form',
+    handler: async (form, context): Promise<FormOutcome> => {
+      const id = text(form, 'id');
+      const back = safeNextPath(text(form, 'next')) ?? routes.tasks;
+      if (!id) return failure({}, copy.state.notFound.body);
+
+      const raw = await apiRequest({
+        method: 'DELETE',
+        path: api.attachment(id),
+        cookie: cookieHeader(context.request),
+      });
+      if (raw.error && raw.status !== 404) return failure({}, raw.error.message);
+
+      applySessionCookie(context.cookies, raw.setCookie);
+      return success(`${back}?toast=imageRemoved`);
     },
   }),
 };

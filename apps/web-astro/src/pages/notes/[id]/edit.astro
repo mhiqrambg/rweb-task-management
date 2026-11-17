@@ -1,0 +1,97 @@
+---
+/**
+ * Note edit (n-05; design/02 §6). Title and body only: `pinned` is deliberately absent, so an edit
+ * can never change the pin state (FR-NOTE-006).
+ */
+import { actions } from 'astro:actions';
+import { copy, routes } from '@taskapp/contracts';
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Button from '../../../components/Button.astro';
+import Field from '../../../components/Field.astro';
+import InlineError from '../../../components/InlineError.astro';
+import StateBlock from '../../../components/StateBlock.astro';
+import { cookieHeader } from '../../../lib/server/session';
+import { getNote } from '../../../lib/server/data';
+
+// On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect(routes.notes);
+
+const result = await getNote(cookieHeader(Astro.request), id);
+if (!result.ok && result.status === 404) return Astro.redirect(routes.notes, 303);
+
+const note = result.ok ? result.value : null;
+
+const actionResult = Astro.getActionResult(actions.updateNote);
+const outcome = actionResult?.data;
+if (outcome?.ok) return Astro.redirect(outcome.redirect, 303);
+
+const failure = outcome && !outcome.ok ? outcome : null;
+if (failure?.message === copy.state.notFound.body) return Astro.redirect(routes.notes, 303);
+
+const draft = {
+  title: note?.title ?? '',
+  body: note?.body ?? '',
+};
+---
+
+<AppLayout title={copy.action.edit} current="notes">
+  {
+    !note ? (
+      <StateBlock
+        kind="error"
+        title={copy.state.error.detail}
+        body={result.ok ? copy.state.notFound.body : result.message}
+        actionLabel={copy.action.retry}
+        actionHref={routes.note(id)}
+      />
+    ) : (
+      <dialog class="dialog" id="note-form" data-modal aria-label={copy.action.edit}>
+        <div class="dialog__head">
+            <h2 class="dialog__title">{copy.action.edit}</h2>
+        </div>
+        <form method="POST" action={actions.updateNote}>
+          <div class="dialog__body stack">
+        <input type="hidden" name="id" value={note.id} />
+
+        {failure?.message ? <InlineError message={failure.message} /> : null}
+
+        <Field
+          name="title"
+          label={copy.note.field.title}
+          value={draft.title}
+          error={failure?.errors.title}
+          maxlength={200}
+          required
+        />
+
+        <Field
+          name="body"
+          label={copy.note.field.body}
+          as="textarea"
+          rows={8}
+          value={draft.body}
+          error={failure?.errors.body}
+          counter
+          maxlength={20000}
+          required
+        />
+
+          </div>
+          <div class="dialog__actions">
+            <a class="btn" data-variant="secondary" href={routes.note(note.id)}>
+              {copy.action.cancel}
+            </a>
+            <Button type="submit">{copy.action.save}</Button>
+          </div>
+        </form>
+      </dialog>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../../scripts/modal';
+</script>

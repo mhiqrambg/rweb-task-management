@@ -29,7 +29,7 @@ function safeNextDestination(): string | null {
     const parsed = new URL(requested, window.location.origin);
     if (
       parsed.origin === window.location.origin &&
-      parsed.pathname.startsWith('/b/app/') &&
+      parsed.pathname.startsWith('/app/') &&
       !parsed.username &&
       !parsed.password
     ) {

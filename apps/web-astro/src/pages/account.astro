@@ -1,7 +1,7 @@
 ---
 import { actions } from 'astro:actions';
 import { copy, formatDate, routes } from '@taskapp/contracts';
-import MarketingLayout from '../layouts/MarketingLayout.astro';
+import AppLayout from '../layouts/AppLayout.astro';
 import Button from '../components/Button.astro';
 // On-demand only: this page reads the session cookie and must never be prerendered (ADR-13).
 export const prerender = false;
@@ -16,7 +16,7 @@ if (!session) return Astro.redirect(`${routes.login}?next=${encodeURIComponent(r
 const { user } = session;
 ---
 
-<MarketingLayout title={copy.account.title}>
+<AppLayout title={copy.account.title} current="account">
   <section class="section account-panel">
     <h1 class="page-head__title">{copy.account.title}</h1>
 
@@ -43,4 +43,4 @@ const { user } = session;
       </form>
     </div>
   </section>
-</MarketingLayout>
+</AppLayout>

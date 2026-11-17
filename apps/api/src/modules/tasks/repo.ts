@@ -1,4 +1,4 @@
-import type { Dashboard, Task, TaskListItem } from '@taskapp/contracts';
+import type { Attachment, AttachmentSummary, Dashboard, Task, TaskListItem } from '@taskapp/contracts';
 import { newUuid } from '../../lib/ids';
 import {
   cursorPredicate,
@@ -41,7 +41,12 @@ function toPriority(value: string): TaskListItem['priority'] {
   throw new Error(`defect: tasks.priority holds ${JSON.stringify(value)}`);
 }
 
-function toListItem(row: TaskRow, today: string): TaskListItem {
+function toListItem(
+  row: TaskRow,
+  today: string,
+  attachments: AttachmentSummary[] = [],
+  attachmentCount = attachments.length,
+): TaskListItem {
   return {
     id: row.id,
     title: row.title,
@@ -49,18 +54,22 @@ function toListItem(row: TaskRow, today: string): TaskListItem {
     priority: toPriority(row.priority),
     dueDate: row.due_date,
     isOverdue: isOverdue(row.status, row.due_date, today),
-    // Attachments arrive with T-507; the shape is already final.
-    attachments: [],
-    attachmentCount: 0,
+    // The caller hydrates the first three of the stable order (FR-TASK-017) plus the exact total,
+    // so a fourth attachment shows as `+N` without a second read.
+    attachments,
+    attachmentCount,
     updatedAt: row.updated_at,
   };
 }
 
-function toTask(row: TaskRow, today: string): Task {
+function toTask(
+  row: TaskRow,
+  today: string,
+  attachments: Attachment[] = [],
+): Task {
   return {
-    ...toListItem(row, today),
-    // No attachment row can exist before T-507, so the full-attachment list is empty.
-    attachments: [],
+    ...toListItem(row, today, attachments),
+    attachments,
     description: row.description,
     createdAt: row.created_at,
   };
@@ -383,6 +392,7 @@ export async function listTasks(
   userId: string,
   parsed: ParsedTaskList,
   today: string,
+  attachments?: Map<string, { summaries: AttachmentSummary[]; count: number }>,
 ): Promise<TaskPage> {
   const rows = await db
     .prepare(
@@ -402,7 +412,13 @@ export async function listTasks(
       );
     }
   }
-  return { items: page.map((row) => toListItem(row, today)), nextCursor };
+  return {
+    items: page.map((row) => {
+      const entry = attachments?.get(row.id);
+      return toListItem(row, today, entry?.summaries ?? [], entry?.count ?? 0);
+    }),
+    nextCursor,
+  };
 }
 
 export { toListItem as taskRowToListItem, toTask as taskRowToTask };

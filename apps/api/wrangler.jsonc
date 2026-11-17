@@ -21,6 +21,18 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	// Attachment binaries (06 §8, 07 §1.2 B5). Keys are `<user_id>/<attachment_id>.<ext>`; nothing
+	// is ever served from the bucket directly — every read goes through the authenticated route.
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "rweb-attachments"
+		}
+	],
+	// T-511: session purge and the orphan-object sweep. Daily, off-peak.
+	"triggers": {
+		"crons": ["17 3 * * *"]
+	},
 	"env": {
 		"production": {
 			"d1_databases": [
@@ -31,6 +43,15 @@
 					"migrations_dir": "migrations"
 				}
 			],
+			"r2_buckets": [
+				{
+					"binding": "BUCKET",
+					"bucket_name": "rweb-attachments"
+				}
+			],
+			"triggers": {
+				"crons": ["17 3 * * *"]
+			},
 			"vars": {
 				"ENVIRONMENT": "production",
 				"APP_ORIGIN": "https://web-astro.wanaask.workers.dev",

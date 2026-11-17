@@ -584,6 +584,23 @@ select.field__input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.thumb-figure__remove {
+  font-size: var(--fs-12);
+  color: var(--color-danger, currentColor);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.thumb-figure__remove:focus-visible {
+  outline: 2px solid var(--color-focus, currentColor);
+  outline-offset: 2px;
+}
+
 
 /* ---------------------------------------------------------------- C-11 lightbox */
 
@@ -636,6 +653,14 @@ select.field__input {
   color: var(--color-ink-muted);
   border-top: 1px solid var(--color-line);
 }
+.lightbox__controls {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--color-line);
+}
+
 
 /* ---------------------------------------------------------------- C-12 dropzone */
 

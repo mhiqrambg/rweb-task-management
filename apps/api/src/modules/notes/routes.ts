@@ -25,6 +25,8 @@ import {
   parseNoteListQuery,
   updateNote,
 } from './repo';
+import { hydrateAttachments, noteAttachmentSets } from '../attachments/routes';
+import { attachmentKeysForTarget } from '../attachments/repo';
 
 export const notesRoutes = new Elysia();
 
@@ -144,7 +146,8 @@ notesRoutes.get(`${api.notes}/:id`, async ({ request, set, params }) => {
 
   const row = await findNote(cfg.db, user.id, routeId(params));
   if (!row) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
-  const note: Note = noteRowToNote(row);
+  const { all } = await noteAttachmentSets(cfg.db, user.id, row.id);
+  const note: Note = noteRowToNote(row, all);
   return { data: note };
 });
 
@@ -174,7 +177,8 @@ notesRoutes.patch(`${api.notes}/:id`, async ({ request, body, set, params }) => 
 
   const row = await updateNote(cfg.db, user.id, routeId(params), patch, new Date(Date.now()).toISOString());
   if (!row) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
-  const note: Note = noteRowToNote(row);
+  const { all } = await noteAttachmentSets(cfg.db, user.id, row.id);
+  const note: Note = noteRowToNote(row, all);
   return { data: note };
 });
 
@@ -185,7 +189,16 @@ notesRoutes.delete(`${api.notes}/:id`, async ({ request, set, params }) => {
   await enforceUserLimit(cfg.db, user.id);
   withSessionCookie(set, cookie);
 
-  const deleted = await deleteNote(cfg.db, user.id, routeId(params));
+  const id = routeId(params);
+  // FR-ATT-011: read the keys before the cascade removes the rows that name them, then sweep.
+  const keys = await attachmentKeysForTarget(cfg.db, user.id, { taskId: null, noteId: id });
+  const deleted = await deleteNote(cfg.db, user.id, id);
   if (!deleted) throw new ApiError('NOT_FOUND', copy.state.notFound.body);
+  await Promise.all(
+    keys.flatMap((entry) => [
+      cfg.bucket.delete(entry.storage_key),
+      entry.thumb_key ? cfg.bucket.delete(entry.thumb_key) : Promise.resolve(),
+    ]),
+  );
   set.status = 204;
 });

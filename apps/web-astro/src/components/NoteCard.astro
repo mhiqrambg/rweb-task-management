@@ -1,0 +1,41 @@
+---
+/**
+ * C-09 note card (n-02, design/05 §1). One card renderer so the pinned block and the main grid stay
+ * identical — a second copy is how the two frontends drift.
+ */
+import { copy, fill, formatRelative, type NoteListItem } from '@taskapp/contracts';
+import ThumbStrip from './ThumbStrip.astro';
+
+interface Props {
+  note: NoteListItem;
+  href: string;
+}
+
+const { note, href } = Astro.props;
+---
+
+<article class="card card--hoverable note-card" data-pinned={note.pinned ? '' : undefined}>
+  <h2 class="note-card__title">
+    <a href={href}>{note.title}</a>
+  </h2>
+
+  {note.pinned ? (
+    <span class="badge" data-kind="pin">
+      {copy.note.pinned}
+    </span>
+  ) : null}
+
+  <p class="note-card__body">{note.excerpt}</p>
+
+  <div class="note-card__meta">
+    <span>{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
+  </div>
+
+  {note.attachments.length > 0 ? (
+    <ThumbStrip
+      attachments={note.attachments}
+      overflow={Math.max(0, note.attachmentCount - note.attachments.length)}
+      target="note"
+    />
+  ) : null}
+</article>

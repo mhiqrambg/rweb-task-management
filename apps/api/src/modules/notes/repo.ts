@@ -1,4 +1,4 @@
-import type { Note, NoteListItem } from '@taskapp/contracts';
+import type { Attachment, AttachmentSummary, Note, NoteListItem } from '@taskapp/contracts';
 import { newUuid } from '../../lib/ids';
 import {
   cursorPredicate,
@@ -31,27 +31,30 @@ export function noteExcerpt(body: string): string {
   return body.slice(0, EXCERPT_CHARS).replace(/\s+/g, ' ').trim();
 }
 
-function toListItem(row: NoteRow): NoteListItem {
+function toListItem(
+  row: NoteRow,
+  attachments: AttachmentSummary[] = [],
+  attachmentCount = attachments.length,
+): NoteListItem {
   return {
     id: row.id,
     title: row.title,
     excerpt: noteExcerpt(row.body),
     pinned: row.pinned === 1,
-    // Attachments arrive with T-507; the shape is already final.
-    attachments: [],
-    attachmentCount: 0,
+    // The caller hydrates the first three of the stable order plus the exact total (FR-NOTE-004).
+    attachments,
+    attachmentCount,
     updatedAt: row.updated_at,
   };
 }
 
-function toNote(row: NoteRow): Note {
+function toNote(row: NoteRow, attachments: Attachment[] = []): Note {
   return {
     id: row.id,
     title: row.title,
     body: row.body,
     pinned: row.pinned === 1,
-    // No attachment row can exist before T-507, so the full-attachment list is empty.
-    attachments: [],
+    attachments,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -267,6 +270,7 @@ export async function listNotes(
   db: D1Database,
   userId: string,
   parsed: ParsedNoteList,
+  attachments?: Map<string, { summaries: AttachmentSummary[]; count: number }>,
 ): Promise<NotePage> {
   const rows = await db
     .prepare(`SELECT ${NOTE_COLUMNS} FROM notes WHERE ${parsed.where} ${parsed.orderBy} LIMIT ?`)
@@ -284,7 +288,13 @@ export async function listNotes(
       );
     }
   }
-  return { items: page.map(toListItem), nextCursor };
+  return {
+    items: page.map((row) => {
+      const entry = attachments?.get(row.id);
+      return toListItem(row, entry?.summaries ?? [], entry?.count ?? 0);
+    }),
+    nextCursor,
+  };
 }
 
 export { toListItem as noteRowToListItem, toNote as noteRowToNote };
@@ -306,6 +316,6 @@ export async function recentNotePreviews(db: D1Database, userId: string): Promis
     )
     .bind(userId)
     .all<NoteRow>();
-  return (rows.results ?? []).map(toListItem);
+  return (rows.results ?? []).map((row) => toListItem(row));
 }
 

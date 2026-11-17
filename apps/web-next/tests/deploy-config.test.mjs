@@ -17,8 +17,8 @@ test('web-next Worker has the API service binding', () => {
   assert.match(wrangler, /"service":\s*"rweb-api-production"/);
 });
 
-test('web-next Worker proxies /api before the static mount check', () => {
+test('web-next Worker proxies /api before serving static assets', () => {
   const apiBranch = worker.indexOf('API_PREFIX');
-  const mountCheck = worker.indexOf('url.pathname !== MOUNT');
-  assert.ok(apiBranch !== -1 && mountCheck !== -1 && apiBranch < mountCheck);
+  const assetBranch = worker.indexOf('env.ASSETS.fetch');
+  assert.ok(apiBranch !== -1 && assetBranch !== -1 && apiBranch < assetBranch);
 });

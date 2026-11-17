@@ -1,0 +1,28 @@
+---
+/**
+ * C-16 empty state and C-18 error state. Both are one `h2`, one sentence and, where an action
+ * exists, one primary action — never a bare "no data" string (FR-UI-002/003).
+ */
+interface Props {
+  kind: 'empty' | 'error';
+  title: string;
+  body: string;
+  actionLabel?: string | undefined;
+  actionHref?: string | undefined;
+}
+
+const { kind, title, body, actionLabel, actionHref } = Astro.props;
+---
+
+<div class={kind === 'error' ? 'error-state' : 'empty-state'}>
+  <h2>{title}</h2>
+  <p class={kind === 'error' ? 'error-state__body' : 'empty-state__body'}>{body}</p>
+  {
+    actionLabel && actionHref ? (
+      <a class="btn" data-variant="primary" href={actionHref}>
+        {actionLabel}
+      </a>
+    ) : null
+  }
+  <slot />
+</div>

@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  api, copy, fill, formatRelative, noteListHref, parseNoteListQuery, toApiNoteQuery,
+  api, copy, fill, formatDate, formatRelative, noteListHref, parseNoteListQuery, toApiNoteQuery,
   type ItemResponse, type ListResponse, type Note, type NoteListQuery, type NoteListItem,
 } from '@taskapp/contracts';
 import { requestJson } from '@/lib/api';
+import { AttachmentSection } from './AttachmentSection';
 import { NoteDeleteDialog, NoteFormDialog, type NoteDraft } from './NoteDialogs';
 
 const NOTES_PATH = '/app/?view=notes';
@@ -27,7 +28,7 @@ type ListState = { key: string; items: NoteListItem[]; nextCursor: string | null
 type DetailState = { key: string; note: Note };
 type Failure = { key: string; message: string };
 
-export function NotePanel({ id }: { id: string | null }) {
+export function NotePanel({ id, mode }: { id: string | null; mode: string | null }) {
   const router = useRouter();
   const params = useSearchParams();
   const queryKey = params.toString();
@@ -35,13 +36,16 @@ export function NotePanel({ id }: { id: string | null }) {
   const query = useMemo(() => parseNoteListQuery(new URLSearchParams(queryKey)), [queryKey]);
 
   const [revision, setRevision] = useState(0);
+  const editing = Boolean(id) && mode === 'edit';
   const loadKey = JSON.stringify([id, revision, query.q, query.pinned, query.sort, query.limit]);
   const [list, setList] = useState<ListState | null>(null);
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [loadError, setLoadError] = useState<Failure | null>(null);
   const [actionError, setActionError] = useState<Failure | null>(null);
   const [searchEdit, setSearchEdit] = useState<{ forQ: string; value: string } | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createRequested, setCreateRequested] = useState(false);
+  // `?new=1` is the same entry point Astro serves, so a reload keeps the dialog open.
+  const createOpen = createRequested || params.get('new') === '1';
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
@@ -55,6 +59,9 @@ export function NotePanel({ id }: { id: string | null }) {
   const inlineError = actionError?.key === loadKey ? actionError.message : '';
   const pageMoreError = moreError?.key === loadKey ? moreError.message : '';
   const loading = !failure && (id ? !note : !items);
+  const hasFilters = Boolean(query.q) || query.pinned !== null;
+  // Deep-linked edit opens the form; the local flag covers the in-page Edit action.
+  const editOpenNow = editing || editOpen;
   const pinnedItems = items?.filter((item) => item.pinned) ?? [];
   const restItems = items?.filter((item) => !item.pinned) ?? [];
 
@@ -105,14 +112,15 @@ export function NotePanel({ id }: { id: string | null }) {
     setRevision((value) => value + 1);
   }
 
-  function clearSearch() {
+  /** Clears every note filter, as Astro's state action does: the target is the bare list. */
+  function clearFilters() {
     setSearchEdit(null);
-    router.replace(notesHref({ ...query, q: '' }));
+    router.replace(NOTES_PATH);
   }
 
   async function create(draft: NoteDraft) {
     await requestJson(api.notes, { method: 'POST', body: JSON.stringify({ title: draft.title, body: draft.body }) });
-    setCreateOpen(false);
+    setCreateRequested(false);
     refresh();
   }
 
@@ -177,9 +185,9 @@ export function NotePanel({ id }: { id: string | null }) {
   function noteCard(item: NoteListItem) {
     return (
       <article className="card card--hoverable note-card" key={item.id}>
-        <h3 className="note-card__title">
+        <h2 className="note-card__title">
           <Link href={`${NOTES_PATH}&id=${encodeURIComponent(item.id)}`}>{item.title}</Link>
-        </h3>
+        </h2>
         {item.pinned && <span className="badge" data-kind="pin" data-value="pinned">{copy.note.pinned}</span>}
         <p className="note-card__body">{item.excerpt}</p>
         <p className="note-card__meta">
@@ -212,15 +220,35 @@ export function NotePanel({ id }: { id: string | null }) {
     );
   }
 
+  if (editing) {
+    return (
+      <>
+        {editOpenNow && note ? (
+          <NoteFormDialog key={note.id} kind="edit" initial={{ title: note.title, body: note.body }}
+            onSave={save} onClose={() => router.replace(NOTES_PATH)} />
+        ) : failure ? readError() : skeleton()}
+        {deleteOpen && note && (
+          <NoteDeleteDialog title={note.title} onConfirm={remove} onClose={() => setDeleteOpen(false)} />
+        )}
+      </>
+    );
+  }
+
   if (id) {
     return (
       <>
         {failure ? readError() : loading || !note ? skeleton() : (
           <>
-            <header className="detail-head">
-              <h1 className="detail-head__title">{note.title}</h1>
+            <div className="detail-head">
+              <div>
+                <h1 className="detail-head__title">{note.title}</h1>
+                <div className="detail-meta">
+                  {note.pinned && <span className="badge" data-kind="pin" data-value="pinned">{copy.note.pinned}</span>}
+                  <span className="muted">{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
+                </div>
+              </div>
               <div className="detail-head__actions">
-                <button type="button" className="btn" data-variant="secondary"
+                <button type="button" className="btn btn--sm" data-variant="secondary"
                   disabled={pinBusy} aria-busy={pinBusy || undefined} onClick={() => void togglePin()}>
                   {note.pinned ? copy.note.unpin : copy.note.pin}
                 </button>
@@ -231,23 +259,25 @@ export function NotePanel({ id }: { id: string | null }) {
                   {copy.action.delete}
                 </button>
               </div>
-            </header>
-            <div className="stack">
-              <div className="detail-meta">
-                {note.pinned && <span className="badge" data-kind="pin" data-value="pinned">{copy.note.pinned}</span>}
-                <span>{fill(copy.note.updatedAt, { relative: formatRelative(note.updatedAt) })}</span>
-              </div>
-              {inlineError && <div className="inline-error" role="alert">{inlineError}</div>}
-              <div className="detail-body stack">
-                {note.body.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean).map((paragraph, position) => (
-                  <p key={position}>{paragraph}</p>
-                ))}
-              </div>
             </div>
-            <hr className="divider" />
+            {inlineError && <div className="inline-error" role="alert">{inlineError}</div>}
+            <section className="detail-section">
+              <p className="detail-body">{note.body}</p>
+            </section>
+            <AttachmentSection
+              target="note"
+              targetId={note.id}
+              attachments={note.attachments}
+              onChanged={() => setRevision((value) => value + 1)}
+            />
+            <p className="muted stat__hint detail-section">
+              {fill(copy.task.updatedAt, { relative: formatRelative(note.updatedAt) })}
+              {' · '}
+              {fill(copy.task.createdAt, { date: formatDate(note.createdAt) })}
+            </p>
           </>
         )}
-        {editOpen && note && (
+        {editOpenNow && note && (
           <NoteFormDialog key={note.id} kind="edit" initial={{ title: note.title, body: note.body }}
             onSave={save} onClose={() => setEditOpen(false)} />
         )}
@@ -269,17 +299,36 @@ export function NotePanel({ id }: { id: string | null }) {
               placeholder={copy.note.search.label} value={search}
               onChange={(event) => setSearchEdit({ forQ: query.q, value: event.target.value })} />
           </form>
-          <button type="button" className="btn" data-variant="primary" onClick={() => setCreateOpen(true)}>
+          <button type="button" className="btn" data-variant="primary" onClick={() => setCreateRequested(true)}>
             {copy.note.new}
           </button>
         </div>
       </header>
+      <div className="toolbar">
+          <button
+            type="button"
+            className="btn"
+            data-variant="secondary"
+            aria-pressed={query.pinned === true}
+            onClick={() =>
+              router.replace(noteListHref({ ...query, pinned: query.pinned === true ? null : true, cursor: null }, NOTES_PATH))
+            }
+          >
+            {copy.note.pinned}
+          </button>
+          {hasFilters ? (
+            <button type="button" className="btn" data-variant="ghost" onClick={() => router.replace(NOTES_PATH)}>
+              {copy.filter.clear}
+            </button>
+          ) : null}
+          {query.q ? <p className="toolbar__note">{copy.filter.applied}</p> : null}
+      </div>
       {failure ? readError() : loading ? skeleton() : items && items.length === 0 ? (
-        query.q ? (
+        query.q || query.pinned !== null ? (
           <div className="empty-state">
             <h2>{copy.note.noResults.title}</h2>
             <p className="empty-state__body">{copy.note.noResults.body}</p>
-            <button type="button" className="btn" data-variant="secondary" onClick={clearSearch}>
+            <button type="button" className="btn" data-variant="secondary" onClick={clearFilters}>
               {copy.filter.clear}
             </button>
           </div>
@@ -287,7 +336,7 @@ export function NotePanel({ id }: { id: string | null }) {
           <div className="empty-state">
             <h2>{copy.note.empty.title}</h2>
             <p className="empty-state__body">{copy.note.empty.body}</p>
-            <button type="button" className="btn" data-variant="primary" onClick={() => setCreateOpen(true)}>
+            <button type="button" className="btn" data-variant="primary" onClick={() => setCreateRequested(true)}>
               {copy.note.new}
             </button>
           </div>
@@ -302,18 +351,27 @@ export function NotePanel({ id }: { id: string | null }) {
           )}
           {restItems.length > 0 && <div className="card-grid">{restItems.map(noteCard)}</div>}
           {pageMoreError && <div className="inline-error" role="alert">{pageMoreError}</div>}
-          {nextCursor && (
+          {nextCursor ? (
             <div className="pagination">
               <button type="button" className="btn" data-variant="secondary"
                 disabled={loadingMore} aria-busy={loadingMore || undefined} onClick={() => void loadMore()}>
                 {copy.pagination.loadMore}
               </button>
             </div>
+          ) : (
+            <span className="pagination__end muted">{copy.pagination.end}</span>
           )}
         </div>
       )}
       {createOpen && (
-        <NoteFormDialog kind="create" onSave={create} onClose={() => setCreateOpen(false)} />
+        <NoteFormDialog
+          kind="create"
+          onSave={create}
+          onClose={() => {
+            setCreateRequested(false);
+            if (params.get('new') === '1') router.replace(NOTES_PATH);
+          }}
+        />
       )}
     </>
   );
