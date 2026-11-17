@@ -133,7 +133,7 @@ No PR lowers coverage of the modules it touches.
 
 ## 9. Security rules (short form; full detail in `.planning/07-security-architecture.md`)
 
-- Passwords: Argon2id only. Never log, never return, never store plaintext.
+- Passwords: PBKDF2-SHA256 (30 000 iterations, native `crypto.subtle`, ADR-17). Never log, never return, never store plaintext.
 - Sessions: opaque token in `sid` (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`). Server stores only
   the SHA-256 hash. Never put a token in `localStorage`, a URL, or a log line.
 - Ownership check on **every** read and write, in the query (`WHERE user_id = $1`), not after the fetch.

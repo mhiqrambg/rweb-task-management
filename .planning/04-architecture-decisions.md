@@ -457,7 +457,7 @@ Status: Proposed · Deciders: project owner (approval pending)
 
 **Context.** NFR-COMPAT-003 requires recorded runtime and framework versions for every benchmark run;
 NFR-PERF-006/NFR-RESEARCH-003 require every run to record versions. The locked stack is a Cloudflare
-Worker for the API, D1 and R2 for state, ElysiaJS as the framework for both Node and Worker, `@noble/hashes` for Argon2id,
+Worker for the API, D1 and R2 for state, ElysiaJS as the framework for both Node and Worker, `@noble/hashes` for legacy hash verification,
 `@jsquash` for image decode, Astro 7.4.x and Next 16.4.x for the two frontends, and pnpm as the workspace
 manager.
 

@@ -46,7 +46,7 @@ a written reason in the PR.
 
 ## C. Security (authority: `.planning/07`)
 
-- **R-C1 MUST** hash passwords with Argon2id. NEVER log, return, or store plaintext.
+- **R-C1 MUST** hash passwords with PBKDF2-SHA256 (30 000 iterations, native `crypto.subtle`, ADR-17). NEVER log, return, or store plaintext.
 - **R-C2 MUST** keep sessions server-side: opaque token in the `sid` cookie (`HttpOnly`, `Secure`,
   `SameSite=Lax`, `Path=/`), only the SHA-256 hash stored. NEVER put a token in `localStorage`, a URL,
   or a log.

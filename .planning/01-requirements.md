@@ -10,7 +10,7 @@ skills:
   selected: [backend-development, security-review]
   used: [backend-development, security-review]
   changed:
-    - "backend-development: inserted NFR-SEC-008 (parameterized queries) and the 70/20/10 split in NFR-MAINT-003, plus Argon2id parameters in NFR-SEC-001."
+    - "backend-development: inserted NFR-SEC-008 (parameterized queries) and the 70/20/10 split in NFR-MAINT-003, plus PBKDF2-SHA256 parameters in NFR-SEC-001 (ADR-17)."
     - "security-review: produced the G-2 global rule (server authoritative, browser advisory), the 404-indistinguishability requirement NFR-SEC-005, the CSRF/same-origin requirement NFR-SEC-006, and made security tests run against the API rather than through the UI."
 edited_on_persistence: "FE notes condensed where they repeated the acceptance criteria; §10 traceability for brief §3.C-F and §11 handoff notes were authored by the architect from the specialist's FR set (the specialist's mapping was truncated at §3.B in transit). Requirement IDs, priorities, statuses, assumptions A-11..A-21, constraints C-13..C-16, questions Q-07..Q-14 and all acceptance criteria are unchanged."
 ---
@@ -271,7 +271,7 @@ C-11). "TBD by measurement protocol" means the protocol defines the number and t
 
 | ID | Requirement | Metric / verification | Target | Pri | Status |
 |---|---|---|---|---|---|
-| NFR-SEC-001 | Passwords MUST be stored only as salted KDF hashes with documented parameters; no plaintext, reversible, MD5/SHA-family, or unsalted storage anywhere. | Inspect the stored representation for a known account; grep hashing calls | PBKDF2-SHA256 via native `crypto.subtle`, 30 000 iterations, 16-byte salt, 32-byte digest (ADR-17) — measured 6 ms CPU on the free-tier 10 ms budget. Legacy `$argon2id$…` rows remain verifiable and are upgraded on login (rehash-on-login) | MUST | confirmed; Argon2id baseline retired (exceeded free-tier CPU) |
+| NFR-SEC-001 | Passwords MUST be stored only as salted KDF hashes with documented parameters; no plaintext, reversible, MD5/SHA-family, or unsalted storage anywhere. | Inspect the stored representation for a known account; grep hashing calls | PBKDF2-SHA256 via native `crypto.subtle`, 30 000 iterations, 16-byte salt, 32-byte digest (ADR-17) — measured 6 ms CPU on the free-tier 10 ms budget. Legacy pre-ADR-17 hashes remain verifiable and are upgraded on login (rehash-on-login) | MUST | confirmed; PBKDF2-SHA256 parameters per ADR-17 |
 | NFR-SEC-002 | Session tokens MUST be 32 random bytes from a CSPRNG, opaque to the client, stored server-side only as a SHA-256 hash. | Entropy check; DB shows hash only; a leaked row cannot be replayed | 100 % of sessions | MUST | confirmed |
 | NFR-SEC-003 | The `sid` cookie MUST be `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production, and never readable by script or duplicated into client storage. | Header inspection; script read attempt | 100 % of auth responses | MUST | confirmed |
 | NFR-SEC-004 | Authorization MUST be enforced server-side on every request by combining session user and row owner; client-side hiding MUST never be the only control. | API test suite bypassing the UI for every owned-resource operation | 100 % of operations | MUST | confirmed (G-2, 00 §4) |

@@ -117,7 +117,7 @@ Every task names one owner. "Both FE" means the change must land in `apps/web-as
 |---|---|---|---|---|
 | T-501 | Worker skeleton: Elysia router, middleware (cookie, security headers, D1-backed rate limit, multipart `request.formData()`), error envelope, structured JSON logger | Iqram | T-404 | `GET /health` green |
 | T-502 | Migration `0001_init` (5 tables, indexes) | Iqram | T-301 | `wrangler d1 migrations apply` from empty works |
-| T-503 | Auth module: register, login, logout, me, Argon2id, session table, cookie | Iqram | T-502 | auth integration tests |
+| T-503 | Auth module: register, login, logout, me, PBKDF2-SHA256, session table, cookie | Iqram | T-502 | auth integration tests |
 | T-504 | Authorization helper + `WHERE user_id` rule + 404 semantics | Iqram | T-503 | ownership tests |
 | T-505 | Tasks module (list w/ cursor+filters+search, CRUD) | Iqram | T-504 | module + tests |
 | T-506 | Notes module (list, CRUD, pinned ordering) | Iqram | T-504 | module + tests |

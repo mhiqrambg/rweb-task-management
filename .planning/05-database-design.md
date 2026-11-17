@@ -80,7 +80,7 @@ erDiagram
     users {
         TEXT id PK "crypto.randomUUID()"
         TEXT email UK "lower-cased, UNIQUE COLLATE NOCASE"
-        text password_hash "argon2id encoded, never exposed"
+        text password_hash "PBKDF2-SHA256 encoded, never exposed"
         text display_name
         text role "member | admin, default member"
         text status "active | disabled, default active"
@@ -157,16 +157,17 @@ of truth, no duplicate regex to drift.
 |---|---|---|---|---|
 | `id` | `TEXT` | NO | UUID from `crypto.randomUUID()` | **PK** `users_pkey` |
 | `email` | `TEXT` | NO | — | **UNIQUE** `users_email_key` `COLLATE NOCASE`; stored lower-cased |
-| `password_hash` | `text` | NO | — | `CHECK (password_hash LIKE '$argon2id$%')` |
+| `password_hash` | `text` | NO | — | `CHECK (password_hash LIKE '$argon2id$%' OR password_hash LIKE '$pbkdf2$%')` — widened by `0004`; the argon2 branch only accepts legacy rows |
 | `display_name` | `TEXT` | NO | — | `CHECK (trim(display_name) <> '')` |
 | `role` | `TEXT` | NO | `'member'` | `CHECK (role IN ('member','admin'))`; admin extension BCR-01 |
 | `status` | `TEXT` | NO | `'active'` | `CHECK (status IN ('active','disabled'))`; `disabled` blocks login and invalidates live sessions |
 | `created_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | — |
 | `updated_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | set explicitly by #6 |
 
-`password_hash` stores the full Argon2id encoded string (NFR-SEC-001 — parameters live inside the
-string, so tuning them needs no migration). The `CHECK` guards against a plaintext or wrong-algorithm
-value ever being written; it is not a parameter check.
+`password_hash` stores the full PBKDF2-SHA256 encoded string (NFR-SEC-001, ADR-17 — iterations live inside
+the string, so tuning needs no migration). `migration 0004` widens the `CHECK` to also accept pre-ADR-17
+rows, which stay verifiable until rehashed on their next successful login. The `CHECK` guards against a
+plaintext or wrong-algorithm value ever being written; it is not a parameter check.
 
 `role` and `status` exist only for the approved admin extension (BCR-01, `design/09-admin-console.md`).
 Ownership authorization never consults them: every task, note and attachment query stays
@@ -299,7 +300,7 @@ storage) without rewriting ids, and so the sweep job (§7.2) has an authoritativ
 | Image type closed set | `attachments` | `CHECK mime IN (...)` |
 | Enum closure | `tasks` | two `CHECK ... IN (...)` |
 | Required text non-blank | `tasks.title`, `notes.title`, `notes.body`, `users.display_name` | `CHECK trim(...) <> ''` |
-| Secret never plaintext | `users` | `CHECK password_hash LIKE '$argon2id$%'` |
+| Secret never plaintext | `users` | `CHECK password_hash` accepts only PBKDF2-SHA256 or a legacy pre-ADR-17 hash |
 | Session token never stored | `sessions` | `CHECK length(token_hash) = 32` |
 | Cascade on target delete | `attachments` | FK `ON DELETE CASCADE` on the composite key |
 
@@ -569,7 +570,7 @@ read-then-write sequence spanning requests.
 | Operation | Statements | Atomicity unit | Notes |
 |---|---|---|---|
 | #1 Register | `batch([INSERT users, INSERT sessions])` | one `batch()` | Two rows must both exist or neither: a user without a session would leave a registered account never authenticated. A unique-constraint error on `users_email_key` → batch rollback → `CONFLICT`. The cookie is set only after the batch commits. |
-| #2 Login | `SELECT users WHERE email`; Argon2id verify in the Worker; `INSERT sessions` | autocommit statement | Single write, no invariant spanning rows. The expensive hash verification never runs inside a batch. |
+| #2 Login | `SELECT users WHERE email`; PBKDF2 verify in the Worker; `INSERT sessions` | autocommit statement | Single write, no invariant spanning rows. The expensive hash verification never runs inside a batch. |
 | #3 Logout | `DELETE FROM sessions WHERE id = ?` | autocommit statement | Idempotent; 0 rows is still success (the cookie is cleared either way). |
 | #4 `/auth/me` + refresh | `SELECT` session by `token_hash`; conditional `UPDATE last_used_at` | autocommit statements | The refresh is guarded by `last_used_at < ?` (a Worker-computed cutoff), so concurrent requests in the same hour write nothing and no write is contended. |
 | #9 Create task | `INSERT ... RETURNING` | autocommit statement | One row; attachments are separate requests (§6.3). |

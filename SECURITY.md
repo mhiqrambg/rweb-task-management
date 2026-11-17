@@ -27,7 +27,7 @@ with no code path in this repository.
 ## Rules the code must already follow
 
 `.planning/07-security-architecture.md` is the authority. Short form in `RULES.md` section C, including
-Argon2id passwords, `sid` cookie flags, hashing session tokens at rest, content-sniffed MIME checks, and
+PBKDF2-SHA256 passwords, `sid` cookie flags, hashing session tokens at rest, content-sniffed MIME checks, and
 never serving the upload directory directly.
 
 ## What to include in a report

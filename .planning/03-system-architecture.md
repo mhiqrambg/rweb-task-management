@@ -135,7 +135,7 @@ flowchart TB
 | `web-next` | Serve one static shell for all authenticated views; parse `?view=&id=&mode=`; bootstrap identity via `GET /api/v1/auth/me`; fetch data client-side; render loading/empty/error states | Must not read `sid` (it is `HttpOnly`), be treated as access control, contain user data in build output or source maps, bind D1 or the R2 bucket, or upload directly to storage | In-memory per-view response cache and route state; cleared on every auth transition |
 | `admin` | Render account administration per request (SSR, server-authorised): member list, create, edit role/status, disable/enable, delete; enforce the admin role gate in the server before emitting HTML | Must not read or render another member's tasks or notes, ship any admin route into `web-astro` or `web-next`, or be included in the benchmark scenarios | Render context only; no durable data |
 | `api` | Own session issuance and verification, authorization, validation, persistence, upload validation, binary streaming, readiness | Must not render HTML, hold UI state, trust a client-declared owner, MIME type, size or filename, serve R2 objects statically, or log secrets | `users`, `sessions`, `tasks`, `notes`, `attachments` rows; binaries and thumbnails; D1 `rate_limits` counters |
-| `api` → `auth` module | Register, login, logout, `/auth/me`, Argon2id hashing, session row lifecycle, cookie set/clear, auth rate limits | Must not read task/note tables except through its own repository calls; must not expose password material in any response or log | `users`, `sessions` |
+| `api` → `auth` module | Register, login, logout, `/auth/me`, PBKDF2-SHA256 hashing, session row lifecycle, cookie set/clear, auth rate limits | Must not read task/note tables except through its own repository calls; must not expose password material in any response or log | `users`, `sessions` |
 | `api` → `tasks` module | Task CRUD, list with `q`/filters/sort/cursor, ownership predicate in every statement | Must not compute dashboard aggregates (that is `dashboard`), write attachment rows, or build SQL from strings | `tasks` |
 | `api` → `notes` module | Note CRUD, pinned ordering, search, cursor pagination | Must not touch tasks; must not change `pinned` on a title/body edit (FR-NOTE-006) | `notes` |
 | `api` → `attachments` module | Multipart intake, size and count limits, content sniffing, decode validation, generated storage keys, thumbnail generation, owner-scoped streaming, delete | Must not derive a key from a client filename, accept a client MIME claim, write outside the R2 bucket's key namespace, or serve a row whose binary is missing (NFR-REL-003) | `attachments` rows, R2 binary objects, thumbnails |
@@ -301,7 +301,7 @@ sequenceDiagram
   P->>A: forward same origin
   A->>S: POST /api/v1/auth/login
   S->>D: SELECT user by email
-  S->>S: verify Argon2id hash
+  S->>S: verify PBKDF2 hash
   S->>D: INSERT session token_hash expires_at last_used_at
   S-->>A: 200 data user and 401 alternative
   A-->>B: 303 Location /app plus Set-Cookie sid plus flash cookie
@@ -482,9 +482,10 @@ The server is the only place a rule is decided (G-2, NFR-SEC-004). Each row name
 ### 6.1 Topology
 
 The accepted Cloudflare Workers free-tier limits are 100,000 requests/day, 10 ms CPU/request, and 50
-subrequests/request. Argon2id password hashing and `@jsquash` image decoding/thumbnail generation are CPU-
-heavy operations that remain part of the design and may approach or exceed the CPU budget; this is a known
-platform constraint, not a reason to remove either operation. The API is one ElysiaJS application with two
+subrequests/request. PBKDF2-SHA256 password hashing is measured at ~6 ms on the deployed Worker (ADR-17),
+inside the budget; `@jsquash` image decoding/thumbnail generation remains CPU-heavy and may approach or
+exceed the budget. This is a known platform constraint, not a reason to remove either operation. The API
+is one ElysiaJS application with two
 runtimes: locally, `wrangler dev` runs the app as a Node process on `:8787` against emulated D1/R2 state;
 in production it is a Cloudflare Worker, where the D1 and R2 bindings are provided by the platform.
 `apps/api/src/index.ts` is the Worker entry and the only place a response leaves the app. There is no
@@ -679,7 +680,7 @@ screen-local string (NFR-MAINT-006).
 | Attribute | Requirement IDs | Mechanism in this architecture | Verification pointer |
 |---|---|---|---|
 | Authorization and non-disclosure | NFR-SEC-004, NFR-SEC-005, FR-TASK-019, FR-NOTE-013, FR-ATT-008 | one guard chain in the API; ownership predicate inside every owned-row statement; `404` for absent and foreign alike; no per-row UI check exists to be mistaken for a control | `07` ownership matrix; `09` cross-owner suite |
-| Credential and session integrity | NFR-SEC-001, NFR-SEC-002, NFR-SEC-003, FR-AUTH-004, FR-AUTH-012 | Argon2id; opaque token; SHA-256 at rest; cookie attributes per §5.1 | `07`; `09` auth tests |
+| Credential and session integrity | NFR-SEC-001, NFR-SEC-002, NFR-SEC-003, FR-AUTH-004, FR-AUTH-012 | PBKDF2-SHA256 (ADR-17); opaque token; SHA-256 at rest; cookie attributes per §5.1 | `07`; `09` auth tests |
 | CSRF and origin integrity | NFR-SEC-006 | `SameSite=Lax`; `Origin`/`Sec-Fetch-Site` on unsafe methods; no CORS in production; `/uploads` unreachable | `07` threat register; `09` forged-request tests |
 | Upload safety and binary privacy | NFR-SEC-009, NFR-SEC-010, FR-ATT-002/007/008/011 | sniff + decode validation; server-generated keys; owner-scoped stream; row-last write ordering | `07`; `09` upload battery |
 | No user data in static output | NFR-SEC-012, FR-LAND-004 | the export contains no runtime data by construction; grep gate over `out/` and bundles | `09` static-output gate (T-713) |
@@ -713,7 +714,7 @@ screen-local string (NFR-MAINT-006).
 | D1 | current | ADR-03, NFR-SEC-008 | No database access | Baseline |
 | `wrangler d1 migrations` | current | ADR-03; forward-only numbered migrations | Manual SQL application; no migration record | Baseline |
 | D1 (SQLite) | current | C-03, api-surface; case-insensitive unique email (`COLLATE NOCASE`); substring search via `LIKE` (FR-TASK-011, FR-NOTE-008) | Duplicate emails differing in case; unindexed `LIKE` scans (acceptable at A-04 row counts) | Baseline |
-| `@noble/hashes` (Argon2id) | current | NFR-SEC-001 | Weak or hand-rolled password hashing | Baseline |
+| `@noble/hashes` (legacy hash verification only) | current | NFR-SEC-001, ADR-17 | Weak or hand-rolled password hashing | Baseline |
 | `file-type` | current | NFR-SEC-009 (magic-byte sniffing) | Extension/MIME trust → renamed-file bypass | Baseline |
 | `@jsquash` (Wasm WebP/JPEG codec) | current | FR-ATT-004 (≤320 px thumbnail), FR-ATT-010 (dimensions), decode validation | No thumbnails; list payloads carry full images; CLS budget unenforceable | Baseline |
 | `zod` | current | ADR-09, NFR-MAINT-001 | Duplicated validators in three packages | Baseline |

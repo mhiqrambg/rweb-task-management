@@ -10,7 +10,7 @@ skills:
   selected: [backend-development, security-review]
   used: [backend-development, security-review]
   changed:
-    - "backend-development: forced explicit statement of the parameterized-query rule, Argon2id password handling, D1 batch atomicity, and the 70-20-10 test split that Stages 7-10 must honour."
+    - "backend-development: forced explicit statement of the parameterized-query rule, PBKDF2-SHA256 password handling (ADR-17), D1 batch atomicity, and the 70-20-10 test split that Stages 7-10 must honour."
     - "security-review: forced the authoritative-vs-advisory enforcement framing and the ban on flagging framework-mitigated patterns as risks in Stage 8."
 ---
 
