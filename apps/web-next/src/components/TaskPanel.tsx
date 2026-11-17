@@ -574,27 +574,31 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
   ) : (
     <div className="task-detail">
       <div className="detail-head">
-        <div className="detail-head__main">
-          <h1 className="detail-head__title">{task.title}</h1>
-          <div className="detail-meta">
-            <form
-              className="status-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const value = String(new FormData(event.currentTarget).get('status') ?? '');
+        <h1 className="detail-head__title">{task.title}</h1>
+        <div className="detail-meta">
+          <form
+            className="status-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <span className="visually-hidden">{copy.task.field.status}</span>
+            <select
+              className="field__input"
+              name="status"
+              defaultValue={task.status}
+              aria-label={copy.task.field.status}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
                 if (value && value !== task.status) void changeStatus(task.id, value as TaskStatus);
               }}
             >
-              <span className="visually-hidden">{copy.task.field.status}</span>
-              <select className="field__input" name="status" defaultValue={task.status} aria-label={copy.task.field.status}>
-                <option value="todo">{taskStatusLabel('todo')}</option>
-                <option value="in_progress">{taskStatusLabel('in_progress')}</option>
-                <option value="completed">{taskStatusLabel('completed')}</option>
-              </select>
-              <button className="btn btn--sm" data-variant="secondary" type="submit">
-                {copy.action.save}
-              </button>
-            </form>
+              <option value="todo">{taskStatusLabel('todo')}</option>
+              <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+              <option value="completed">{taskStatusLabel('completed')}</option>
+            </select>
+          </form>
+          <div className="detail-meta__facts">
             <span className="badge" data-kind="priority" data-value={task.priority}>
               {taskPriorityLabel(task.priority)}
             </span>
@@ -607,28 +611,6 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
               <span className="muted">{copy.task.field.dueDateEmpty}</span>
             )}
           </div>
-        </div>
-        <div className="detail-head__actions">
-          <button
-            className="btn"
-            data-variant="secondary"
-            type="button"
-            onClick={() =>
-              router.replace(
-                `${LIST_BASE}&id=${encodeURIComponent(task.id)}&mode=edit`,
-              )
-            }
-          >
-            {copy.action.edit}
-          </button>
-          <button
-            className="btn"
-            data-variant="danger"
-            type="button"
-            onClick={() => setDeleteFor(task.id)}
-          >
-            {copy.action.delete}
-          </button>
         </div>
       </div>
       {task.description?.trim() ? (
@@ -645,6 +627,28 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
       <p className="muted stat__hint detail-section">
         {fill(copy.task.updatedAt, { relative: formatRelative(task.updatedAt) })}
       </p>
+      <div className="detail-head__actions">
+        <button
+          className="btn"
+          data-variant="secondary"
+          type="button"
+          onClick={() =>
+            router.replace(
+              `${LIST_BASE}&id=${encodeURIComponent(task.id)}&mode=edit`,
+            )
+          }
+        >
+          {copy.action.edit}
+        </button>
+        <button
+          className="btn"
+          data-variant="danger"
+          type="button"
+          onClick={() => setDeleteFor(task.id)}
+        >
+          {copy.action.delete}
+        </button>
+      </div>
     </div>
   );
 

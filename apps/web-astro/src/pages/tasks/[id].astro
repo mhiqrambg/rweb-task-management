@@ -19,7 +19,6 @@ import {
   taskStatusLabel,
 } from '@taskapp/contracts';
 import AppLayout from '../../layouts/AppLayout.astro';
-import Button from '../../components/Button.astro';
 import StateBlock from '../../components/StateBlock.astro';
 import ThumbStrip from '../../components/ThumbStrip.astro';
 import Lightbox from '../../components/Lightbox.astro';
@@ -66,8 +65,6 @@ if (editResult?.data && !editResult.data.ok) {
 if (editResult?.data?.ok) return Astro.redirect(editResult.data.redirect, 303);
 
 const detail = result.ok ? result.value : null;
-/** Where the status form returns to: the list the person came from, when we can tell. */
-const backHref = routes.tasks;
 ---
 
 <AppLayout title={detail?.title ?? copy.task.title} current="tasks">
@@ -93,28 +90,25 @@ const backHref = routes.tasks;
     ) : detail ? (
       <div class="task-detail">
         <header class="detail-head">
-          <div class="detail-head__main">
-            <h1 class="detail-head__title">{detail.title}</h1>
-            <div class="detail-meta">
-              <form class="status-form" method="POST" action={actions.setTaskStatus}>
-                <input type="hidden" name="id" value={detail.id} />
-                <input type="hidden" name="next" value={backHref} />
-                <label class="visually-hidden" for="detail-status">{copy.task.field.status}</label>
-                <select class="field__input" id="detail-status" name="status" data-status-form>
-                  <option value="todo" selected={detail.status === 'todo'}>
-                    {taskStatusLabel('todo')}
-                  </option>
-                  <option value="in_progress" selected={detail.status === 'in_progress'}>
-                    {taskStatusLabel('in_progress')}
-                  </option>
-                  <option value="completed" selected={detail.status === 'completed'}>
-                    {taskStatusLabel('completed')}
-                  </option>
-                </select>
-                <Button type="submit" variant="secondary" small>
-                  {copy.action.save}
-                </Button>
-              </form>
+          <h1 class="detail-head__title">{detail.title}</h1>
+          <div class="detail-meta">
+            <form class="status-form" method="POST" action={actions.setTaskStatus}>
+              <input type="hidden" name="id" value={detail.id} />
+              <input type="hidden" name="next" value={routes.task(detail.id)} />
+              <label class="visually-hidden" for="detail-status">{copy.task.field.status}</label>
+              <select class="field__input" id="detail-status" name="status" data-status-form>
+                <option value="todo" selected={detail.status === 'todo'}>
+                  {taskStatusLabel('todo')}
+                </option>
+                <option value="in_progress" selected={detail.status === 'in_progress'}>
+                  {taskStatusLabel('in_progress')}
+                </option>
+                <option value="completed" selected={detail.status === 'completed'}>
+                  {taskStatusLabel('completed')}
+                </option>
+              </select>
+            </form>
+            <div class="detail-meta__facts">
               <span class="badge" data-kind="priority" data-value={detail.priority}>
                 {taskPriorityLabel(detail.priority)}
               </span>
@@ -127,16 +121,6 @@ const backHref = routes.tasks;
                 <span class="muted">{copy.task.field.dueDateEmpty}</span>
               )}
             </div>
-          </div>
-
-          <div class="detail-head__actions">
-            <a class="btn" data-variant="secondary" href={routes.taskEdit(detail.id)}>
-              {copy.action.edit}
-            </a>
-            <button class="btn" data-variant="danger" type="button" data-confirm-open
-              data-confirm-form="#record-delete" data-confirm-id={detail.id}>
-              {copy.action.delete}
-            </button>
           </div>
         </header>
 
@@ -170,7 +154,6 @@ const backHref = routes.tasks;
 
             <label class="dropzone__label" for="task-upload">
               {copy.dropzone.idle}
-              <span class="visually-hidden">{copy.task.attachments.add}</span>
             </label>
             <p class="dropzone__hint">{copy.dropzone.hint.replace('{target}', 'task')}</p>
             {uploadFailure?.message ? (
@@ -182,9 +165,11 @@ const backHref = routes.tasks;
               type="file"
               name="file"
               accept="image/jpeg,image/png,image/webp"
+              tabindex="-1"
+              aria-hidden="true"
               data-file-input
             />
-            <button class="btn" data-variant="secondary" type="submit">
+            <button class="btn" data-variant="secondary" type="submit" data-file-open>
               {copy.task.attachments.add}
             </button>
           </form>
@@ -193,6 +178,16 @@ const backHref = routes.tasks;
         <p class="muted stat__hint detail-section">
           {fill(copy.task.updatedAt, { relative: formatRelative(detail.updatedAt) })}
         </p>
+
+        <div class="detail-head__actions">
+          <a class="btn" data-variant="secondary" href={routes.taskEdit(detail.id)}>
+            {copy.action.edit}
+          </a>
+          <button class="btn" data-variant="danger" type="button" data-confirm-open
+            data-confirm-form="#record-delete" data-confirm-id={detail.id}>
+            {copy.action.delete}
+          </button>
+        </div>
 
         <Lightbox
           label={detail.title}
@@ -226,6 +221,7 @@ const backHref = routes.tasks;
   import '../../scripts/lightbox';
   import '../../scripts/drawer';
   import '../../scripts/confirm';
+  import '../../scripts/dropzone';
 
   // Status changes submit on change, which is the same guarantee as pressing Save.
   for (const select of document.querySelectorAll<HTMLSelectElement>('select[data-status-form]')) {

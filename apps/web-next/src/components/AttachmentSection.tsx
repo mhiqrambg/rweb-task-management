@@ -116,7 +116,6 @@ export function AttachmentSection({
       <div className="dropzone">
         <label className="dropzone__label" htmlFor={inputId}>
           {copy.dropzone.idle}
-          <span className="visually-hidden">{copy.task.attachments.add}</span>
         </label>
         <p className="dropzone__hint">{fill(copy.dropzone.hint, { target })}</p>
 
@@ -133,6 +132,8 @@ export function AttachmentSection({
           ref={inputRef}
           type="file"
           accept={ACCEPTED.join(',')}
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void upload(file);

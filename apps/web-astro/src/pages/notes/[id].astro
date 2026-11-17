@@ -138,7 +138,6 @@ const detailHref = routes.note(id);
 
             <label class="dropzone__label" for="note-upload">
               {copy.dropzone.idle}
-              <span class="visually-hidden">{copy.task.attachments.add}</span>
             </label>
             <p class="dropzone__hint">{copy.dropzone.hint.replace('{target}', 'note')}</p>
             {uploadFailure?.message ? (
@@ -150,8 +149,11 @@ const detailHref = routes.note(id);
               type="file"
               name="file"
               accept="image/jpeg,image/png,image/webp"
+              tabindex="-1"
+              aria-hidden="true"
+              data-file-input
             />
-            <button class="btn" data-variant="secondary" type="submit">
+            <button class="btn" data-variant="secondary" type="submit" data-file-open>
               {copy.task.attachments.add}
             </button>
           </form>
@@ -195,5 +197,5 @@ const detailHref = routes.note(id);
   import '../../scripts/lightbox';
   import '../../scripts/drawer';
   import '../../scripts/confirm';
-
+  import '../../scripts/dropzone';
 </script>
