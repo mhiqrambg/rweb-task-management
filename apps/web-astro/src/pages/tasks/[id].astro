@@ -91,14 +91,30 @@ const backHref = routes.tasks;
         />
       )
     ) : detail ? (
-      <>
-        <div class="detail-head">
-          <div>
+      <div class="task-detail">
+        <header class="detail-head">
+          <div class="detail-head__main">
             <h1 class="detail-head__title">{detail.title}</h1>
             <div class="detail-meta">
-              <span class="badge" data-kind="status" data-value={detail.status}>
-                {taskStatusLabel(detail.status)}
-              </span>
+              <form class="status-form" method="POST" action={actions.setTaskStatus}>
+                <input type="hidden" name="id" value={detail.id} />
+                <input type="hidden" name="next" value={backHref} />
+                <label class="visually-hidden" for="detail-status">{copy.task.field.status}</label>
+                <select class="field__input" id="detail-status" name="status" data-status-form>
+                  <option value="todo" selected={detail.status === 'todo'}>
+                    {taskStatusLabel('todo')}
+                  </option>
+                  <option value="in_progress" selected={detail.status === 'in_progress'}>
+                    {taskStatusLabel('in_progress')}
+                  </option>
+                  <option value="completed" selected={detail.status === 'completed'}>
+                    {taskStatusLabel('completed')}
+                  </option>
+                </select>
+                <Button type="submit" variant="secondary" small>
+                  {copy.action.save}
+                </Button>
+              </form>
               <span class="badge" data-kind="priority" data-value={detail.priority}>
                 {taskPriorityLabel(detail.priority)}
               </span>
@@ -114,40 +130,19 @@ const backHref = routes.tasks;
           </div>
 
           <div class="detail-head__actions">
-            <form method="POST" action={actions.setTaskStatus}>
-              <input type="hidden" name="id" value={detail.id} />
-              <input type="hidden" name="next" value={backHref} />
-              <label class="visually-hidden" for="detail-status">{copy.task.field.status}</label>
-              <select class="field__input" id="detail-status" name="status" data-status-form>
-                <option value="todo" selected={detail.status === 'todo'}>
-                  {taskStatusLabel('todo')}
-                </option>
-                <option value="in_progress" selected={detail.status === 'in_progress'}>
-                  {taskStatusLabel('in_progress')}
-                </option>
-                <option value="completed" selected={detail.status === 'completed'}>
-                  {taskStatusLabel('completed')}
-                </option>
-              </select>
-              <Button type="submit" variant="secondary" small>
-                {copy.action.save}
-              </Button>
-            </form>
-
             <a class="btn" data-variant="secondary" href={routes.taskEdit(detail.id)}>
               {copy.action.edit}
             </a>
-
             <button class="btn" data-variant="danger" type="button" data-confirm-open
               data-confirm-form="#record-delete" data-confirm-id={detail.id}>
               {copy.action.delete}
             </button>
           </div>
-        </div>
+        </header>
 
         {
           detail.description ? (
-            <section class="detail-section">
+            <section class="detail-section detail-description">
               <p class="detail-body">{detail.description}</p>
             </section>
           ) : null
@@ -222,7 +217,7 @@ const backHref = routes.tasks;
           <input type="hidden" name="targetType" value="task" />
           <input type="hidden" name="next" value={routes.task(detail.id)} />
         </form>
-      </>
+      </div>
     ) : null
   }
 </AppLayout>
@@ -232,7 +227,7 @@ const backHref = routes.tasks;
   import '../../scripts/drawer';
   import '../../scripts/confirm';
 
-
+  // Status changes submit on change, which is the same guarantee as pressing Save.
   for (const select of document.querySelectorAll<HTMLSelectElement>('select[data-status-form]')) {
     select.addEventListener('change', () => select.form?.requestSubmit());
   }

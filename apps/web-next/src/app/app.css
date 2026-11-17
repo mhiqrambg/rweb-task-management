@@ -1046,6 +1046,12 @@ select.field__input {
 
 /* ---------------------------------------------------------------- detail screens */
 
+.task-detail {
+  width: 100%;
+  /* Keep the detail readable on wide desktops; `--container` is the shell's page width. */
+  max-width: 960px;
+}
+
 .detail-head {
   display: flex;
   align-items: flex-start;
@@ -1054,8 +1060,16 @@ select.field__input {
   margin-bottom: var(--sp-3);
 }
 
+.detail-head__main {
+  flex: 1 1 var(--measure);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
 .detail-head__title {
-  flex: 1 1 320px;
+  margin: 0;
 }
 
 .detail-head__actions {
@@ -1063,6 +1077,8 @@ select.field__input {
   align-items: center;
   gap: var(--sp-2);
   flex-wrap: wrap;
+  margin-left: auto;
+  align-self: flex-start;
 }
 
 .detail-meta {
@@ -1072,6 +1088,21 @@ select.field__input {
   flex-wrap: wrap;
   font-size: var(--fs-14);
   color: var(--color-ink-muted);
+}
+
+.detail-meta__field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.detail-meta__field .field__input {
+  width: auto;
+}
+
+.task-edit__title-input {
+  width: 100%;
 }
 
 .detail-section {
@@ -1091,6 +1122,11 @@ select.field__input {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+}
+
+.status-form .field__input,
+.detail-meta__field .field__input {
+  width: auto;
 }
 
 .status-form select {

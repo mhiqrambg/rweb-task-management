@@ -28,7 +28,7 @@ import {
 import { requestJson } from '@/lib/api';
 import { AttachmentLightbox, AttachmentStrip } from './AttachmentLightbox';
 import { AttachmentSection } from './AttachmentSection';
-import { TaskFormDialog, TaskDeleteDialog, type TaskDraft } from './TaskDialogs';
+import { TaskFormDialog, TaskInlineEditForm, TaskDeleteDialog, type TaskDraft } from './TaskDialogs';
 
 const LIST_BASE = '/app/?view=tasks';
 
@@ -572,14 +572,29 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
   ) : !task ? (
     <TaskDetailSkeleton />
   ) : (
-    <>
+    <div className="task-detail">
       <div className="detail-head">
-        <div>
+        <div className="detail-head__main">
           <h1 className="detail-head__title">{task.title}</h1>
           <div className="detail-meta">
-            <span className="badge" data-kind="status" data-value={task.status}>
-              {taskStatusLabel(task.status)}
-            </span>
+            <form
+              className="status-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const value = String(new FormData(event.currentTarget).get('status') ?? '');
+                if (value && value !== task.status) void changeStatus(task.id, value as TaskStatus);
+              }}
+            >
+              <span className="visually-hidden">{copy.task.field.status}</span>
+              <select className="field__input" name="status" defaultValue={task.status} aria-label={copy.task.field.status}>
+                <option value="todo">{taskStatusLabel('todo')}</option>
+                <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+                <option value="completed">{taskStatusLabel('completed')}</option>
+              </select>
+              <button className="btn btn--sm" data-variant="secondary" type="submit">
+                {copy.action.save}
+              </button>
+            </form>
             <span className="badge" data-kind="priority" data-value={task.priority}>
               {taskPriorityLabel(task.priority)}
             </span>
@@ -594,23 +609,6 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
           </div>
         </div>
         <div className="detail-head__actions">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const value = String(new FormData(event.currentTarget).get('status') ?? '');
-              if (value && value !== task.status) void changeStatus(task.id, value as TaskStatus);
-            }}
-          >
-            <span className="visually-hidden">{copy.task.field.status}</span>
-            <select className="field__input" name="status" defaultValue={task.status} aria-label={copy.task.field.status}>
-              <option value="todo">{taskStatusLabel('todo')}</option>
-              <option value="in_progress">{taskStatusLabel('in_progress')}</option>
-              <option value="completed">{taskStatusLabel('completed')}</option>
-            </select>
-            <button className="btn btn--sm" data-variant="secondary" type="submit">
-              {copy.action.save}
-            </button>
-          </form>
           <button
             className="btn"
             data-variant="secondary"
@@ -647,7 +645,7 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
       <p className="muted stat__hint detail-section">
         {fill(copy.task.updatedAt, { relative: formatRelative(task.updatedAt) })}
       </p>
-    </>
+    </div>
   );
 
   return (
@@ -666,9 +664,8 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
       )}
 
       {id && task && mode === 'edit' && (
-        <TaskFormDialog
+        <TaskInlineEditForm
           key={task.id}
-          kind="edit"
           initial={{
             title: task.title,
             description: task.description ?? '',
@@ -677,7 +674,7 @@ export function TaskPanel({ id, mode }: { id: string | null; mode: string | null
             dueDate: task.dueDate ?? '',
           }}
           onSave={saveEdit}
-          onClose={() => router.replace(`${LIST_BASE}&id=${encodeURIComponent(task.id)}`)}
+          onCancel={() => router.replace(`${LIST_BASE}&id=${encodeURIComponent(task.id)}`)}
         />
       )}
 
