@@ -4,6 +4,7 @@
  * DESIGN.md §5). The nav is server-rendered per request, so the current section is correct on the
  * first byte (FR-DASH-007) and no client router is needed (R-A5).
  */
+import { actions } from 'astro:actions';
 import { copy, routes } from '@taskapp/contracts';
 import BaseLayout from './BaseLayout.astro';
 import ListChecks from '@lucide/astro/icons/list-checks';
@@ -23,6 +24,13 @@ interface Props {
 const { title, current: explicit } = Astro.props;
 const { pathname } = Astro.url;
 const session = Astro.locals.session;
+
+// The sidebar and drawer logout forms post `actions.logout` on whatever page is current, so every
+// shell page must consume the result and land on login — otherwise the POST just re-renders here
+// with a spent session.
+const logoutOutcome = Astro.getActionResult(actions.logout);
+const logoutData = logoutOutcome?.data;
+if (logoutData?.ok) return Astro.redirect(logoutData.redirect, 303);
 
 const current =
   explicit ??
@@ -68,7 +76,7 @@ const items = [
             ))
           }
         </nav>
-        <form class="shell__foot" method="POST" action="/logout">
+        <form class="shell__foot" method="POST" action={actions.logout}>
           <button class="nav-item nav-item--logout" type="submit" data-submit>
             <LogOut size={18} stroke-width={1.6} />
             <span class="nav-list__label">{copy.auth.logout}</span>
@@ -97,7 +105,7 @@ const items = [
             ))
           }
         </nav>
-        <form class="shell__foot" method="POST" action="/logout">
+        <form class="shell__foot" method="POST" action={actions.logout}>
           <button class="nav-item nav-item--logout" type="submit" data-submit>
             <LogOut size={18} stroke-width={1.6} />
             <span class="nav-list__label">{copy.auth.logout}</span>
@@ -116,4 +124,14 @@ const items = [
 
 <script>
   import '../scripts/drawer';
+
+  // The sidebar and drawer logout forms POST on the current URL. The shell layout is a component,
+  // not a page, so Astro cannot redirect its response — land on login on the client once the POST
+  // returns (the session is already revoked server-side).
+  import { routes } from '@taskapp/contracts';
+  for (const form of document.querySelectorAll<HTMLFormElement>('form.shell__foot')) {
+    form.addEventListener('submit', () => {
+      setTimeout(() => window.location.assign(routes.login), 0);
+    });
+  }
 </script>

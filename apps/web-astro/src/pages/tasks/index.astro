@@ -183,9 +183,12 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
       )
     ) : (
       <>
-        <div class="card-grid">
-          {result.value.items.map((task) => {
-            const detailHref = taskListHref(query, routes.task(task.id));
+      <div class="card-grid">
+        {result.value.items.map((task) => {
+          const detailHref = taskListHref(query, routes.task(task.id));
+          // A status change on the card must return to the list with the same filters (FR-TASK-007/014),
+          // not fall through to the detail screen.
+          const listHref = taskListHref(query, routes.tasks);
             return (
               <article class="card card--hoverable task-card" data-overdue={task.isOverdue ? '' : undefined}>
                 <h2 class="task-card__title">
@@ -220,7 +223,7 @@ const showCreate = Astro.url.searchParams.get('new') === '1';
 
                 <form method="POST" action={actions.setTaskStatus}>
                   <input type="hidden" name="id" value={task.id} />
-                  <input type="hidden" name="next" value={detailHref} />
+                  <input type="hidden" name="next" value={listHref} />
                   <label class="visually-hidden" for={`status-${task.id}`}>
                     {copy.task.field.status}
                   </label>

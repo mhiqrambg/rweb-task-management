@@ -474,6 +474,20 @@ select.field__input {
   min-height: var(--card-min-h);
 }
 
+/* The inline status form sits below the due date inside the card. A bare <form> is display:block
+   with no spacing, so the select and the Save button touched and read as one control. */
+.task-card > form {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.task-card > form .field__input {
+  flex: 1;
+  min-width: 0;
+}
+
 .note-card {
   min-height: var(--note-card-min-h);
 }

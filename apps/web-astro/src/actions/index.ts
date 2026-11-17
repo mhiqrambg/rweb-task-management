@@ -46,6 +46,14 @@ function success(redirect: string): FormSuccess {
   return { ok: true, redirect };
 }
 
+/**
+ * Appends a toast marker to a redirect target that may already carry a query string (e.g. a filtered
+ * list `?status=todo`), so we never emit a second `?` and break the URL.
+ */
+function withToast(redirect: string, toast: string): string {
+  return `${redirect}${redirect.includes('?') ? '&' : '?'}toast=${toast}`;
+}
+
 function failure(errors: Record<string, string> = {}, message?: string): FormFailure {
   return message === undefined ? { ok: false, errors } : { ok: false, errors, message };
 }
@@ -225,7 +233,7 @@ export const server = {
       }
 
       applySessionCookie(context.cookies, raw.setCookie);
-      return success(`${back}?toast=taskSaved`);
+      return success(withToast(back, 'taskSaved'));
     },
   }),
 
@@ -326,7 +334,7 @@ export const server = {
       }
 
       applySessionCookie(context.cookies, raw.setCookie);
-      return success(`${back}?toast=${pinned ? 'notePinned' : 'noteUnpinned'}`);
+      return success(withToast(back, pinned ? 'notePinned' : 'noteUnpinned'));
     },
   }),
 
@@ -391,7 +399,7 @@ export const server = {
       }
 
       applySessionCookie(context.cookies, raw.setCookie);
-      return success(`${back}?toast=imageAdded`);
+      return success(withToast(back, 'imageAdded'));
     },
   }),
 
@@ -410,7 +418,7 @@ export const server = {
       if (raw.error && raw.status !== 404) return failure({}, raw.error.message);
 
       applySessionCookie(context.cookies, raw.setCookie);
-      return success(`${back}?toast=imageRemoved`);
+      return success(withToast(back, 'imageRemoved'));
     },
   }),
 };
