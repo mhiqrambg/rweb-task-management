@@ -1,5 +1,5 @@
 import type { ErrorCode, PageMeta, ValidationDetail } from '@taskapp/contracts';
-import { apiBaseUrl, apiMode, appOrigin } from './env';
+import { apiBaseUrl, apiMode, appOrigin, isProduction } from './env';
 import type { ApiRaw, ApiRequestInput, Failure, Result } from './types';
 
 /**
@@ -30,6 +30,13 @@ let apiService: ApiService | null | undefined;
  * import would break `astro dev` and Vitest.
  */
 async function serviceBinding(): Promise<ApiService | null> {
+  // The binding is a production-only path: it forwards to the deployed `rweb-api` Worker, which is
+  // the only way to reach another Worker from `*.workers.dev` (Cloudflare error 1042). Under
+  // `astro dev` (platformProxy) the binding resolves but its fetch answers a bare 503 with no body
+  // — it does not throw, so the plain-fetch fallback below never runs and every auth call failed
+  // with the generic "That did not load.". Gating on a production build keeps dev on the plain
+  // fetch to whatever `PUBLIC_API_BASE_URL` names (local Worker or the deployed one).
+  if (!isProduction()) return null;
   const base = apiBaseUrl();
   if (new URL(base).hostname === 'localhost' || new URL(base).hostname === '127.0.0.1') {
     return null;
