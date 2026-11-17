@@ -1,22 +1,18 @@
 -- 0005_password_hash_pbkdf2_only — narrow `users.password_hash` to `$pbkdf2$` only.
 --
--- Supersedes 0004's dual-format CHECK. Accounts still holding a hash in the retired memory-hard
--- format cannot be verified any more, so they are reset:
---   * their sessions are deleted (any live cookie stops working immediately), and
---   * their `password_hash` is replaced with a PBKDF2 sentinel whose preimage was 32 random bytes,
---     generated once and discarded. No password authenticates against it, and it satisfies the new
---     CHECK; the account row and all owned tasks/notes/attachments are preserved. Recovery requires
---     an explicit password reset (out of scope for the benchmark product).
--- PBKDF2 rows are copied unchanged.
+-- Development-stage wipe. The owner does not need any existing accounts, so this migration deletes
+-- every user; `ON DELETE CASCADE` on sessions, tasks, notes and attachments removes their data too.
+-- The table is then rebuilt with the PBKDF2-only CHECK, leaving an empty, clean database.
 --
--- Why a rebuild: SQLite cannot DROP or ALTER a CHECK constraint in place. The ordering below is the
--- only one measured safe on D1 — `ALTER TABLE users RENAME TO users_old` rewrites every child
--- table's `REFERENCES users` to `REFERENCES users_old`, orphaning sessions/tasks/notes/attachments
--- when the old table is dropped. `PRAGMA writable_schema` is refused by D1 (`SQLITE_AUTH`).
--- Recreating `users` under the same name keeps every child FK valid (verified after 0004).
+-- Why a rebuild: SQLite cannot DROP or ALTER a CHECK in place. Deleting the rows first makes the
+-- recreate safe — `DROP TABLE users` performs an implicit DELETE of the remaining rows, and it is
+-- *that* implicit delete which cascades into every child table (measured when the table still had
+-- rows). With the table empty, nothing cascades. The create → drop → rename order keeps the child
+-- tables' `REFERENCES users` valid; renaming the original instead would rewrite those references to
+-- the old name (the trap documented in 0004).
+-- `PRAGMA writable_schema` is refused by D1 (`SQLITE_AUTH`).
 
-DELETE FROM sessions
-WHERE user_id IN (SELECT id FROM users WHERE password_hash NOT LIKE '$pbkdf2$%');
+DELETE FROM users;
 
 CREATE TABLE users_new (
   id TEXT PRIMARY KEY,
@@ -28,21 +24,6 @@ CREATE TABLE users_new (
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'admin')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled'))
 ) STRICT;
-
-INSERT INTO users_new (id, email, password_hash, display_name, created_at, updated_at, role, status)
-SELECT
-  id,
-  email,
-  CASE
-    WHEN password_hash LIKE '$pbkdf2$%' THEN password_hash
-    ELSE '$pbkdf2$SHA-256$30000$uEqfH0IHyGzKf9b3+OFv0g$rXYHNZSW4S6v8uG+rhulSOj+yLj//CAzP5LtHSv8/kg'
-  END,
-  display_name,
-  created_at,
-  updated_at,
-  role,
-  status
-FROM users;
 
 DROP TABLE users;
 

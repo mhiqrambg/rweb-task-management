@@ -122,12 +122,11 @@ Covers FR-AUTH-001..014, NFR-SEC-001..003, NFR-SEC-007.
 - **PBKDF2-SHA256** via native `crypto.subtle` (NFR-SEC-001, ADR-17): 30 000 iterations, 16-byte random
   salt, 32-byte digest, encoded as `$pbkdf2$SHA-256$<iterations>$<salt>$<digest>`. Iterations live inside
   the string, so tuning needs no migration. `crypto.subtle` hard-caps PBKDF2 at 100 000 iterations and the
-  free-tier 10 ms CPU budget makes 30 000 (~6 ms measured) the practical ceiling. `migration 0005` narrows
-  the `password_hash` CHECK to this format and resets accounts holding any other one: sessions are revoked
-  and the hash is replaced with a PBKDF2 sentinel whose preimage was discarded, so no password authenticates
-  against it while the row and owned data stay. PBKDF2 is not memory-hard: the 12-character minimum policy
-  (A-11) and the per-user salt are the compensating controls, and the reduced work factor is a recorded
-  free-tier trade-off.
+  free-tier 10 ms CPU budget makes 30 000 (~6 ms measured) the practical ceiling. `migration 0005` deletes
+  every pre-existing account — a development-stage reset requested by the owner — cascading all sessions,
+  tasks, notes and attachments, and leaves the table empty with the PBKDF2-only CHECK. PBKDF2 is not
+  memory-hard: the 12-character minimum policy (A-11) and the per-user salt are the compensating controls,
+  and the reduced work factor is a recorded free-tier trade-off.
 - **Salt**: per-user, 16 random bytes from the CSPRNG, stored inside the encoded hash. No application pepper:
   there is no key-management surface, and adding one creates a rotation problem with no benefit.
 - **Verification** compares the derived digest constant-time. On the **unknown-email path a dummy PBKDF2

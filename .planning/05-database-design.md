@@ -165,11 +165,10 @@ of truth, no duplicate regex to drift.
 | `updated_at` | `TEXT` | NO | ISO-8601 UTC from the Worker | set explicitly by #6 |
 
 `password_hash` stores the full PBKDF2-SHA256 encoded string (NFR-SEC-001, ADR-17 — iterations live inside
-the string, so tuning needs no migration). `migration 0005` narrows the `CHECK` to this format and resets
-accounts holding any other one: their sessions are deleted and the hash is replaced with a PBKDF2 sentinel
-whose preimage was discarded, so no password authenticates against it while the row and owned data stay.
-The `CHECK` guards against a plaintext or wrong-algorithm value ever being written; it is not a parameter
-check.
+the string, so tuning needs no migration). `migration 0005` deletes every pre-existing account — a
+development-stage reset requested by the owner — cascading all sessions, tasks, notes and attachments, and
+rebuilds the table empty with the PBKDF2-only CHECK. The `CHECK` guards against a plaintext or
+wrong-algorithm value ever being written; it is not a parameter check.
 
 `role` and `status` exist only for the approved admin extension (BCR-01, `design/09-admin-console.md`).
 Ownership authorization never consults them: every task, note and attachment query stays

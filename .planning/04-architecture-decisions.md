@@ -784,11 +784,10 @@ the point of usefulness?
 
 **Decision.** Option 1. `hashPassword` writes `$pbkdf2$SHA-256$30000$<salt>$<digest>` using
 `crypto.subtle.deriveBits` (native, 16-byte random salt, 32-byte digest). `verifyPassword` accepts only
-that format. Migration `0005` narrows the `users.password_hash` CHECK to `$pbkdf2$%` and resets accounts
-whose hash predates this ADR: their sessions are revoked and the hash is replaced with a PBKDF2 sentinel
-whose preimage was random and discarded, so no password authenticates against it; the account row and its
-owned tasks/notes/attachments are preserved. Recovery needs an explicit password reset (out of scope).
-`NFR-SEC-001` wording updates to PBKDF2 with these parameters.
+that format. Migration `0005` **deletes every existing account** — a development-stage reset the owner
+asked for — cascading all sessions, tasks, notes and attachments, then rebuilds `users` with the
+PBKDF2-only CHECK. The database starts clean; no account survives. `NFR-SEC-001` wording updates to
+PBKDF2 with these parameters.
 
 **Rationale.** Measured, not assumed: the free-tier 10 ms budget is a hard platform limit, and the
 native Web Crypto path is the documented fast path for crypto on Workers. 30 000 iterations lands at
@@ -800,9 +799,9 @@ is offset by the 12-character minimum password policy (A-11), a unique 16-byte s
 constant-time comparison. The `crypto.subtle` 100 000-iteration cap is a fixed platform ceiling.
 
 **Consequences.** Migrations `0004` and `0005` rebuild `users` (SQLite cannot drop a CHECK, and the
-ordering avoids the `RENAME`-orphaned-FK trap). Accounts with only the current format log in unchanged;
-pre-ADR-17 accounts are locked until reset. Revisit if the free-tier CPU budget changes, if Workers Paid
-is adopted, or if a stronger KDF becomes affordable.
+ordering keeps the child FKs valid). Migration `0005` wipes the pre-existing accounts and their owned
+rows, so the development database starts empty; every account after it is PBKDF2-only. Revisit if the
+free-tier CPU budget changes, if Workers Paid is adopted, or if a stronger KDF becomes affordable.
 
 ## Register
 
