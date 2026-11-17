@@ -1011,6 +1011,15 @@ select.field__input {
   gap: var(--sp-4);
 }
 
+/* The dashboard stacks several of these grids in a column (d-01). `gap` only spaces the columns, so
+   adjacent grid blocks would touch; space only the rows that follow another grid, leaving a lone
+   `.grid-2` inside a form or dialog unaffected. */
+.grid-3 + .grid-2,
+.grid-3 + .grid-3,
+.grid-2 + .grid-3 {
+  margin-top: var(--sp-5);
+}
+
 @media (min-width: 768px) {
   .grid-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
