@@ -474,9 +474,24 @@ select.field__input {
   min-height: var(--card-min-h);
 }
 
+/* The inline status form sits below the due date inside the card. A bare <form> is display:block
+   with no spacing, so the select and the Save button touched and read as one control. */
+.task-card > form {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.task-card > form .field__input {
+  flex: 1;
+  min-width: 0;
+}
+
 .note-card {
   min-height: var(--note-card-min-h);
 }
+
 
 .task-card__title a,
 .note-card__title a {
@@ -1011,6 +1026,15 @@ select.field__input {
   gap: var(--sp-4);
 }
 
+/* The dashboard stacks several of these grids in a column (d-01). `gap` only spaces the columns, so
+   adjacent grid blocks would touch; space only the rows that follow another grid, leaving a lone
+   `.grid-2` inside a form or dialog unaffected. */
+.grid-3 + .grid-2,
+.grid-3 + .grid-3,
+.grid-2 + .grid-3 {
+  margin-top: var(--sp-5);
+}
+
 @media (min-width: 768px) {
   .grid-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1023,6 +1047,12 @@ select.field__input {
 
 /* ---------------------------------------------------------------- detail screens */
 
+.task-detail {
+  width: 100%;
+  /* Keep the detail readable on wide desktops; `--container` is the shell's page width. */
+  max-width: 960px;
+}
+
 .detail-head {
   display: flex;
   align-items: flex-start;
@@ -1031,8 +1061,16 @@ select.field__input {
   margin-bottom: var(--sp-3);
 }
 
+.detail-head__main {
+  flex: 1 1 var(--measure);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
 .detail-head__title {
-  flex: 1 1 320px;
+  margin: 0;
 }
 
 .detail-head__actions {
@@ -1040,6 +1078,8 @@ select.field__input {
   align-items: center;
   gap: var(--sp-2);
   flex-wrap: wrap;
+  margin-left: auto;
+  align-self: flex-start;
 }
 
 .detail-meta {
@@ -1049,6 +1089,28 @@ select.field__input {
   flex-wrap: wrap;
   font-size: var(--fs-14);
   color: var(--color-ink-muted);
+}
+
+.status-form {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.status-form .field__input,
+.detail-meta__field .field__input {
+  width: auto;
+}
+
+.detail-meta__field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.task-edit__title-input {
+  width: 100%;
 }
 
 .detail-section {
@@ -1062,12 +1124,6 @@ select.field__input {
 
 .detail-body {
   max-width: var(--measure);
-}
-
-.status-form {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
 }
 
 .status-form select {

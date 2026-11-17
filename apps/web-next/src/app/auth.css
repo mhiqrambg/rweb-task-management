@@ -1,6 +1,6 @@
 /*
  * Auth screen chrome and card, copied rule-for-rule from apps/web-astro/src/styles/app.css so
- * /b/login and /b/register render the same box model as their Astro counterparts. Tokens only:
+ * /login and /register render the same box model as their Astro counterparts. Tokens only:
  * every value below is a var(--...) from @taskapp/design-tokens (R-E1, design/05 §2).
  */
 

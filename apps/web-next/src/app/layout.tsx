@@ -5,6 +5,8 @@ import './globals.css';
 export const metadata: Metadata = {
   title: copy.brand.name,
   description: copy.brand.valueLine,
+  // Separate icon so each member frontend carries its own favicon.
+  icons: { icon: '/favicon.svg' },
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en"><body>{children}</body></html>;

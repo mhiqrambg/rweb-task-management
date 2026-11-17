@@ -3,6 +3,9 @@
  * Task edit (tk-06; design/02 §5). A prefilled form on its own URL, so a reload keeps the draft
  * and Back returns to the detail (FR-TASK-005/006). The server field errors map onto the same
  * fields the person filled (FR-UI-005), and an absent or foreign id is a 404 (FR-TASK-019).
+ *
+ * Layout: the title input takes the title position in the same header, Save/Cancel sit at the right,
+ * and the other fields flow below as the metadata and description sections. No modal.
  */
 import { actions } from 'astro:actions';
 import {
@@ -71,95 +74,100 @@ const draft = {
         actionHref={routes.taskEdit(id)}
       />
     ) : (
-      <dialog class="dialog" id="task-form" data-modal aria-label={copy.action.edit}>
-        <div class="dialog__head">
-            <h2 class="dialog__title">{copy.action.edit}</h2>
-        </div>
-        <form method="POST" action={actions.updateTask}>
-          <div class="dialog__body stack">
-        <input type="hidden" name="id" value={task.id} />
+      <div class="task-detail">
+        <form class="task-edit" method="POST" action={actions.updateTask}>
+          <input type="hidden" name="id" value={task.id} />
 
-        {failure?.message ? <InlineError message={failure.message} /> : null}
+          <header class="detail-head">
+            <div class="detail-head__main">
+              <div class="detail-edit__title">
+                <label class="visually-hidden" for="edit-title">{copy.task.field.title}</label>
+                <input
+                  class="field__input detail-edit__title-input"
+                  id="edit-title"
+                  name="title"
+                  value={draft.title}
+                  required
+                  maxlength={200}
+                  autocomplete="off"
+                  aria-invalid={failure?.errors.title ? 'true' : undefined}
+                />
+                {failure?.errors.title ? (
+                  <p class="field__error" role="alert">{failure.errors.title}</p>
+                ) : null}
+              </div>
 
-        <Field
-          name="title"
-          label={copy.task.field.title}
-          value={draft.title}
-          error={failure?.errors.title}
-          maxlength={200}
-          required
-        />
+              <div class="detail-meta">
+                <label class="field detail-meta__field">
+                  <span class="visually-hidden">{copy.task.field.status}</span>
+                  <select class="field__input" name="status">
+                    <option value="todo" selected={draft.status === 'todo'}>
+                      {taskStatusLabel('todo')}
+                    </option>
+                    <option value="in_progress" selected={draft.status === 'in_progress'}>
+                      {taskStatusLabel('in_progress')}
+                    </option>
+                    <option value="completed" selected={draft.status === 'completed'}>
+                      {taskStatusLabel('completed')}
+                    </option>
+                  </select>
+                  {failure?.errors.status ? (
+                    <p class="field__error" role="alert">{failure.errors.status}</p>
+                  ) : null}
+                </label>
 
-        <Field
-          name="description"
-          label={copy.task.field.description}
-          as="textarea"
-          rows={4}
-          value={draft.description}
-          error={failure?.errors.description}
-          counter
-          maxlength={5000}
-        />
+                <label class="field detail-meta__field">
+                  <span class="visually-hidden">{copy.task.field.priority}</span>
+                  <select class="field__input" name="priority">
+                    <option value="low" selected={draft.priority === 'low'}>
+                      {taskPriorityLabel('low')}
+                    </option>
+                    <option value="medium" selected={draft.priority === 'medium'}>
+                      {taskPriorityLabel('medium')}
+                    </option>
+                    <option value="high" selected={draft.priority === 'high'}>
+                      {taskPriorityLabel('high')}
+                    </option>
+                  </select>
+                  {failure?.errors.priority ? (
+                    <p class="field__error" role="alert">{failure.errors.priority}</p>
+                  ) : null}
+                </label>
 
-        <div class="grid-2">
-          <label class="field">
-            <span class="field__label">{copy.task.field.status}</span>
-            <select class="field__input" name="status">
-              <option value="todo" selected={draft.status === 'todo'}>
-                {taskStatusLabel('todo')}
-              </option>
-              <option value="in_progress" selected={draft.status === 'in_progress'}>
-                {taskStatusLabel('in_progress')}
-              </option>
-              <option value="completed" selected={draft.status === 'completed'}>
-                {taskStatusLabel('completed')}
-              </option>
-            </select>
-            {failure?.errors.status ? (
-              <p class="field__error" role="alert">{failure.errors.status}</p>
-            ) : null}
-          </label>
+                <label class="field detail-meta__field">
+                  <span class="visually-hidden">{copy.task.field.dueDate}</span>
+                  <input class="field__input" type="date" name="dueDate" value={draft.dueDate} />
+                  {failure?.errors.dueDate ? (
+                    <p class="field__error" role="alert">{failure.errors.dueDate}</p>
+                  ) : null}
+                </label>
+              </div>
+            </div>
 
-          <label class="field">
-            <span class="field__label">{copy.task.field.priority}</span>
-            <select class="field__input" name="priority">
-              <option value="low" selected={draft.priority === 'low'}>
-                {taskPriorityLabel('low')}
-              </option>
-              <option value="medium" selected={draft.priority === 'medium'}>
-                {taskPriorityLabel('medium')}
-              </option>
-              <option value="high" selected={draft.priority === 'high'}>
-                {taskPriorityLabel('high')}
-              </option>
-            </select>
-            {failure?.errors.priority ? (
-              <p class="field__error" role="alert">{failure.errors.priority}</p>
-            ) : null}
-          </label>
-        </div>
+            <div class="detail-head__actions">
+              <a class="btn" data-variant="secondary" href={routes.task(task.id)}>
+                {copy.action.cancel}
+              </a>
+              <Button type="submit">{copy.action.save}</Button>
+            </div>
+          </header>
 
-        <Field
-          name="dueDate"
-          label={copy.task.field.dueDate}
-          type="date"
-          value={draft.dueDate}
-          error={failure?.errors.dueDate}
-        />
+          {failure?.message ? <InlineError message={failure.message} /> : null}
 
-          </div>
-          <div class="dialog__actions">
-            <a class="btn" data-variant="secondary" href={routes.task(task.id)}>
-              {copy.action.cancel}
-            </a>
-            <Button type="submit">{copy.action.save}</Button>
-          </div>
+          <section class="detail-section">
+            <Field
+              name="description"
+              label={copy.task.field.description}
+              as="textarea"
+              rows={6}
+              value={draft.description}
+              error={failure?.errors.description}
+              counter
+              maxlength={5000}
+            />
+          </section>
         </form>
-      </dialog>
+      </div>
     )
   }
 </AppLayout>
-
-<script>
-  import '../../../scripts/modal';
-</script>

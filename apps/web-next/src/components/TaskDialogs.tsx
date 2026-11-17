@@ -349,3 +349,201 @@ export function TaskDeleteDialog({
     </dialog>
   );
 }
+
+/**
+ * Inline task editor: the title input takes the title position in the detail header, Save/Cancel sit
+ * at the right of it, and the other fields flow below as the metadata and description sections. No
+ * modal, so view and edit never render at the same time.
+ */
+export function TaskInlineEditForm({
+  initial,
+  onCancel,
+  onSave,
+}: {
+  initial: TaskDraft;
+  onCancel: () => void;
+  onSave: (value: TaskDraft) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<TaskDraft>(initial);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const baseId = useId();
+
+  function patch<K extends keyof TaskDraft>(key: K, value: TaskDraft[K]) {
+    setDraft((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function errorProps(field: (typeof FIELD_NAMES)[number]) {
+    return {
+      'aria-invalid': errors[field] ? true : undefined,
+      'aria-describedby': errors[field] ? `${baseId}-${field}-error` : undefined,
+    } as const;
+  }
+
+  function fieldError(field: (typeof FIELD_NAMES)[number]) {
+    if (!errors[field]) return null;
+    return (
+      <p className="field__error" id={`${baseId}-${field}-error`}>
+        {errors[field]}
+      </p>
+    );
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const cleaned: TaskDraft = {
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      status: draft.status,
+      priority: draft.priority,
+      dueDate: draft.dueDate,
+    };
+    const parsed = updateTaskSchema.safeParse({
+      title: cleaned.title,
+      description: cleaned.description,
+      status: cleaned.status,
+      priority: cleaned.priority,
+      dueDate: cleaned.dueDate || null,
+    });
+    if (!parsed.success) {
+      const { byField, form } = fieldErrors(parsed.error.issues);
+      setErrors(byField);
+      setFormError(form);
+      return;
+    }
+    setErrors({});
+    setFormError('');
+    setBusy(true);
+    try {
+      await onSave(cleaned);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : copy.error.form);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="task-detail" noValidate onSubmit={(event) => void submit(event)}>
+      <header className="detail-head">
+        <div className="detail-head__main">
+          <div className="detail-edit__title">
+            <label className="visually-hidden" htmlFor={`${baseId}-title`}>
+              {copy.task.field.title}
+            </label>
+            <input
+              id={`${baseId}-title`}
+              className="field__input task-edit__title-input"
+              value={draft.title}
+              onChange={(event) => patch('title', event.target.value)}
+              maxLength={200}
+              autoComplete="off"
+              disabled={busy}
+              {...errorProps('title')}
+            />
+            {fieldError('title')}
+          </div>
+
+          <div className="detail-meta">
+            <label className="field detail-meta__field">
+              <span className="visually-hidden">{copy.task.field.status}</span>
+              <select
+                className="field__input"
+                name="status"
+                value={draft.status}
+                onChange={(event) => patch('status', event.target.value as TaskStatus)}
+                disabled={busy}
+                {...errorProps('status')}
+              >
+                <option value="todo">{taskStatusLabel('todo')}</option>
+                <option value="in_progress">{taskStatusLabel('in_progress')}</option>
+                <option value="completed">{taskStatusLabel('completed')}</option>
+              </select>
+              {fieldError('status')}
+            </label>
+
+            <label className="field detail-meta__field">
+              <span className="visually-hidden">{copy.task.field.priority}</span>
+              <select
+                className="field__input"
+                name="priority"
+                value={draft.priority}
+                onChange={(event) => patch('priority', event.target.value as TaskPriority)}
+                disabled={busy}
+                {...errorProps('priority')}
+              >
+                <option value="low">{taskPriorityLabel('low')}</option>
+                <option value="medium">{taskPriorityLabel('medium')}</option>
+                <option value="high">{taskPriorityLabel('high')}</option>
+              </select>
+              {fieldError('priority')}
+            </label>
+
+            <label className="field detail-meta__field">
+              <span className="visually-hidden">{copy.task.field.dueDate}</span>
+              <input
+                className="field__input"
+                type="date"
+                name="dueDate"
+                value={draft.dueDate}
+                onChange={(event) => patch('dueDate', event.target.value)}
+                disabled={busy}
+                {...errorProps('dueDate')}
+              />
+              {fieldError('dueDate')}
+            </label>
+          </div>
+        </div>
+
+        <div className="detail-head__actions">
+          <button
+            className="btn"
+            data-variant="secondary"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            {copy.action.cancel}
+          </button>
+          <button
+            className="btn"
+            data-variant="primary"
+            type="submit"
+            disabled={busy}
+            aria-busy={busy || undefined}
+          >
+            {copy.action.save}
+          </button>
+        </div>
+      </header>
+
+      {formError && (
+        <p className="inline-error" role="alert">
+          {formError}
+        </p>
+      )}
+
+      <section className="detail-section">
+        <div className="field">
+          <label className="field__label" htmlFor={`${baseId}-description`}>
+            {copy.task.field.description}
+          </label>
+          <textarea
+            id={`${baseId}-description`}
+            className="field__input"
+            value={draft.description}
+            onChange={(event) => patch('description', event.target.value)}
+            maxLength={MAX_DESCRIPTION}
+            rows={6}
+            disabled={busy}
+            {...errorProps('description')}
+          />
+          <span className="field__count">{`${draft.description.length}/${MAX_DESCRIPTION}`}</span>
+          {fieldError('description')}
+        </div>
+      </section>
+    </form>
+  );
+}
