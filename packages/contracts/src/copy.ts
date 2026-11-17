@@ -1,5 +1,7 @@
 /**
- * Every user-visible string, verbatim from design/06-copy-deck.md.
+ * Shared user-visible strings based on design/06-copy-deck.md.
+ * New landingExtended descriptions and FAQ questions are provisional, pending
+ * review against design/06-copy-deck.md section 13.
  *
  * Rules (R-F1, R-F2, design/06 §1): sentence case, no emoji, no exclamation marks, no trailing
  * arrows, an action keeps its name through the flow. A component that needs a new string adds it
@@ -24,6 +26,78 @@ export const copy = {
     featureTasksTitle: 'Tasks',
     featureNotesTitle: 'Notes',
     featureImagesTitle: 'Images',
+  },
+
+  /**
+   * Extended marketing sections l-04..l-10 (design/10-landing-sections.md).
+   * Titles explicitly specified by the design are preserved. Supporting descriptions
+   * and FAQ question wording are proposed copy pending design/copy-deck approval.
+   */
+  landingExtended: {
+    jumpLabel: 'Explore the page',
+    jump: {
+      features: 'Features',
+      how: 'How it works',
+      faq: 'FAQs',
+      register: 'Get started',
+      login: 'Log in',
+    },
+    features: {
+      title: 'One place for the details that matter',
+      intro: 'Manage tasks, capture notes, and keep relevant images close to the work.',
+      tasks: {
+        title: 'Task management',
+        body: 'Keep status, priority, and optional due dates visible as your work moves forward.',
+      },
+      notes: {
+        title: 'Notes management',
+        body: 'Save your ideas, pin what matters, and find the notes you need.',
+      },
+      images: {
+        title: 'Image attachments',
+        body: 'Keep up to ten images with each task or note, ready to preview.',
+      },
+    },
+    how: {
+      title: 'How it works',
+      intro: 'Three simple steps to keep your workspace organized.',
+      steps: [
+        { title: 'Create your tasks', body: 'Add a task, select its status and priority, and set a due date when needed.' },
+        { title: 'Add notes and images', body: 'Write notes and attach images directly to the related task or note.' },
+        { title: 'Track your progress', body: 'Review task status, pinned notes, and overdue work in one place.' },
+      ],
+    },
+    taskShowcase: {
+      title: 'Tasks that show their state',
+      intro: 'See priorities and progress at a glance, then narrow the list when you need to focus.',
+      activeFilter: 'Active',
+      highFilter: 'High priority',
+      none: 'No example tasks match these filters.',
+    },
+    noteShowcase: {
+      title: 'Notes and images, kept together',
+      intro: 'Keep the context beside the note, including a pinned reminder and its images.',
+      pinnedTitle: 'Sprint planning notes',
+      pinnedBody: 'Agenda, decisions, and the visual references for the next review.',
+      otherTitle: 'Weekly check-in',
+      otherBody: 'Capture follow-ups and keep the next action easy to find.',
+    },
+    faq: {
+      title: 'Frequently asked questions',
+      intro: 'A few details about getting started and keeping your work organized.',
+      items: [
+        { question: 'Is my workspace private?', answer: 'Each account has its own workspace. Only records that belong to your account are accessible; another account’s record returns a page-not-found response.' },
+        { question: 'How do I organize tasks?', answer: 'Give tasks a status and priority, and add an optional due date. Tasks past their due date can be marked overdue.' },
+        { question: 'Can I attach images to tasks and notes?', answer: 'Yes. You can attach up to 10 images to each task or note and view a larger preview.' },
+        { question: 'Which image formats are supported?', answer: 'JPEG, PNG, and WebP images are supported, up to 5 MB per file.' },
+        { question: 'What do I need to sign up?', answer: 'Create an account with your email address and a password of at least 12 characters.' },
+        { question: 'Can I share or collaborate on a workspace?', answer: 'The current version provides one personal workspace per account. Shared workspaces and collaboration are not available in this build.' },
+      ],
+    },
+    finalCta: {
+      title: 'Everything You Need to Stay Organized.',
+      body: 'Bring tasks, notes, and their images into one personal workspace.',
+    },
   },
 
   cta: {

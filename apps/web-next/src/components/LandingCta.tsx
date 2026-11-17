@@ -138,3 +138,14 @@ export function LandingCta() {
     </>
   );
 }
+
+/** A real link from the task showcase. Reuses the shared one-probe session state. */
+export function LandingNewTaskLink() {
+  const session = useSession();
+  const href = session ? `${routes.dashboard}/?view=tasks` : routes.register;
+  return (
+    <ActionLink href={href} variant="primary">
+      {copy.task.new}
+    </ActionLink>
+  );
+}
