@@ -1,0 +1,354 @@
+{
+  "metadata": {
+    "project": "Astro SSR vs Next.js SSG",
+    "report": "Laporan Pengujian Astro SSR/MPA vs Next.js SSG/SPA-style",
+    "browser": "Chrome DevTools MCP",
+    "browserVersion": "Chrome/158.0.0.0",
+    "viewport": "1280x800x1",
+    "cpuThrottling": "1x (baseline); 4x, 6x (stress)",
+    "networkThrottling": "none (baseline); Slow 4G, Slow 3G (stress)",
+    "cache": "cold (ignoreCache) and warm",
+    "methodology": "Chrome DevTools MCP performance traces (PageLoadMetrics UKM + LayoutShift + RunTask long tasks); load via staged-concurrency generator",
+    "repetitions": "2 cold + 1 warm per app for dashboard; 1 cold per app for tasks",
+    "date": "2026-11-19",
+    "targets": {
+      "astro": "https://web-astro.wanaask.workers.dev",
+      "next": "https://web-next.wanaask.workers.dev",
+      "api": "https://rweb-api-production.wanaask.workers.dev"
+    },
+    "account": "bench.1795020781387@example.com (seeded synthetic benchmark account, same on both apps)",
+    "palette": "background #F9F7F7 · surface #DBE2EF · aksen #3F72AF · gelap #112D4E"
+  },
+  "baseline": {
+    "astro": {
+      "dashboardCold": {
+        "run1": {
+          "lcp_ms": 350,
+          "fcp_ms": 350,
+          "cls": 0.0,
+          "tbt_ms": 0,
+          "ttfb_ms": 199
+        },
+        "run2": {
+          "lcp_ms": 442,
+          "fcp_ms": 442,
+          "cls": 0.0,
+          "tbt_ms": 0,
+          "ttfb_ms": 322
+        }
+      },
+      "dashboardWarm": {
+        "lcp_ms": 392,
+        "fcp_ms": 392,
+        "cls": 0.0,
+        "tbt_ms": 0,
+        "ttfb_ms": 300
+      },
+      "tasksCold": {
+        "lcp_ms": 328,
+        "fcp_ms": 328,
+        "cls": 0.0,
+        "tbt_ms": 0,
+        "ttfb_ms": 185
+      },
+      "footprint": {
+        "jsRequests": 6,
+        "jsTransferBytes": 31029,
+        "jsDecodedBytes": 93231,
+        "jsScriptEvalMs": 510,
+        "cssRequests": 1,
+        "cssTransferBytes": 6498,
+        "cssDecodedBytes": 26759,
+        "initialPageTransferBytes": 37527,
+        "docDecodedBytes": 14642,
+        "docTransferBytes": 3171
+      },
+      "api": {
+        "executionLocation": "server-side (Astro SSR Worker via service binding)",
+        "browserVisibleRequests": [],
+        "status": "200 via SSR fetch; not browser-visible",
+        "corsErrors": "none",
+        "dataConsistency": "same seeded data as Next"
+      }
+    },
+    "next": {
+      "dashboardCold": {
+        "run1": {
+          "lcp_ms": 464,
+          "fcp_ms": 147,
+          "cls": 0.0,
+          "tbt_ms": 0,
+          "ttfb_ms": 45
+        },
+        "run2": {
+          "lcp_ms": 635,
+          "fcp_ms": 352,
+          "cls": 0.0,
+          "tbt_ms": 0,
+          "ttfb_ms": 48
+        }
+      },
+      "dashboardWarm": {
+        "lcp_ms": 449,
+        "fcp_ms": 183,
+        "cls": 0.0,
+        "tbt_ms": 0,
+        "ttfb_ms": 81
+      },
+      "tasksCold": {
+        "lcp_ms": 446,
+        "fcp_ms": 163,
+        "cls": 0.0,
+        "tbt_ms": 0,
+        "ttfb_ms": 46
+      },
+      "footprint": {
+        "jsRequests": 9,
+        "jsTransferBytes": 198260,
+        "jsDecodedBytes": 650270,
+        "jsScriptEvalMs": 713,
+        "cssRequests": 3,
+        "cssTransferBytes": 9002,
+        "cssDecodedBytes": 33096,
+        "initialPageTransferBytes": 214547,
+        "docDecodedBytes": 10817,
+        "docTransferBytes": 3022,
+        "legacyJsHintBytes": 14200
+      },
+      "api": {
+        "executionLocation": "client-side (browser fetch via same-origin /api/v1 proxy)",
+        "browserVisibleRequests": [
+          "/api/v1/auth/me",
+          "/api/v1/dashboard",
+          "/api/v1/tasks?sort=-updated_at&limit=20",
+          "/api/v1/notes?limit=20",
+          "/api/v1/attachments/.../content?variant=thumb"
+        ],
+        "status": "200",
+        "responseHeaders": {
+          "contentEncoding": "zstd",
+          "cacheControl": "no-store",
+          "xRequestId": "present",
+          "server": "cloudflare"
+        },
+        "corsErrors": "none (same-origin proxy)",
+        "dataConsistency": "same seeded data as Astro"
+      }
+    }
+  },
+  "stress": {
+    "concurrentLoad": {
+      "astro": {
+        "edgeLanding": {
+          "stages": [
+            10,
+            20,
+            30
+          ],
+          "rps": 540.8,
+          "p50_ms": 61.1,
+          "p95_ms": 103.8,
+          "p99_ms": 238.1,
+          "errorRatePct": 0
+        },
+        "appSsr": {
+          "stages": [
+            20,
+            30,
+            40
+          ],
+          "rps": 191.7,
+          "p50_ms": 141.2,
+          "p95_ms": 290.7,
+          "p99_ms": 446.9,
+          "errorRatePct": 0
+        },
+        "traceUnderLoad": {
+          "lcp_ms": 311,
+          "ttfb_ms": 239,
+          "cls": 0.0
+        }
+      },
+      "next": {
+        "edgeDoc": {
+          "stages": [
+            20,
+            30,
+            40
+          ],
+          "rps": 447.1,
+          "p50_ms": 53.6,
+          "p95_ms": 105.4,
+          "p99_ms": 157.4,
+          "errorRatePct": 0
+        },
+        "traceUnderLoad": {
+          "lcp_ms": 508,
+          "ttfb_ms": 49,
+          "cls": 0.0
+        }
+      },
+      "api": {
+        "burst60s": {
+          "stages": [
+            10,
+            20,
+            30,
+            50
+          ],
+          "rps": 182.3,
+          "p50_ms": 133.7,
+          "p90_ms": 240.8,
+          "p95_ms": 278.3,
+          "p99_ms": 308.3,
+          "errorRatePct": 79.55,
+          "note": "per-user read rate-limit (300/min) tripped -> 429 after ~300 requests/user/window"
+        },
+        "steady60s": {
+          "stages": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "rps": 157.7,
+          "p50_ms": 96.7,
+          "p90_ms": 154,
+          "p95_ms": 177.6,
+          "p99_ms": 229.7,
+          "errorRatePct": 84.23,
+          "note": "same rate-limit cliff; sustained valid throughput below ~25 rps with 5 users"
+        }
+      }
+    },
+    "cpuNetworkConstraint": {
+      "astro": {
+        "cpu4x_g4": {
+          "lcp_ms": 1342,
+          "ttfb_ms": 564,
+          "cls": 0.0
+        },
+        "cpu6x_g4": {
+          "lcp_ms": 1413,
+          "ttfb_ms": 564,
+          "cls": 0.0
+        },
+        "cpu4x_g3": {
+          "lcp_ms": 4559,
+          "ttfb_ms": 2002,
+          "cls": 0.0
+        }
+      },
+      "next": {
+        "cpu4x_g4": {
+          "lcp_ms": 3927,
+          "ttfb_ms": 564,
+          "cls": 0.0
+        },
+        "cpu6x_g4": {
+          "lcp_ms": 4079,
+          "ttfb_ms": 563,
+          "cls": 0.0
+        },
+        "cpu4x_g3": {
+          "lcp_ms": 12829,
+          "ttfb_ms": 2002,
+          "cls": 0.0
+        }
+      }
+    },
+    "rapidInteraction": {
+      "astro": {
+        "routeSwitches": "MPA: each navigation full document load (~267ms LCP per page)",
+        "interactions": "filter select, search, lightbox open/close, load-more (full nav)",
+        "inp_ms": 71,
+        "cls": 0.0,
+        "heapBeforeMB": 6.5,
+        "heapAfterMB": 6.8,
+        "heapAfterIdleMB": 6.8,
+        "domBefore": 519,
+        "domAfterIdle": 328
+      },
+      "next": {
+        "routeSwitches": "SPA: 12 client-side route transitions in ~6s, no document reload",
+        "interactions": "filter select, search, dialog open/close, load-more (client-side API)",
+        "inp_ms": 71,
+        "cls": 0.08,
+        "heapBeforeMB": 9.2,
+        "heapAfterMB": 10.5,
+        "heapAfterIdleMB": 10.5,
+        "domBefore": 455,
+        "domAfterIdle": 137,
+        "traceSaved": false,
+        "traceNote": "Trace Next interaction burst tidak tersimpan ke file (stop tanpa filePath); metrik INP/CLS diambil dari ringkasan trace session live."
+      }
+    }
+  },
+  "degradation": {
+    "lcpStressVsBaselineDashboardWarm": {
+      "astro": {
+        "cpu4x_g4": "+242% (392 -> 1342ms)",
+        "cpu4x_g3": "+1063% (392 -> 4559ms)"
+      },
+      "next": {
+        "cpu4x_g4": "+774% (449 -> 3927ms)",
+        "cpu4x_g3": "+2757% (449 -> 12829ms)"
+      }
+    },
+    "lcpConcurrentVsBaseline": {
+      "astro": "-21% under load (392 -> 311ms, lower is better; redeployed edge)",
+      "next": "+13% under load (449 -> 508ms)"
+    }
+  },
+  "limitations": [
+    "inp measured via trace reported interaction in the burst run; not CrUX field data",
+    "server-side API latency for Astro not independently observable (no Server-Timing); only document TTFB seen",
+    "site burned 429 rate-limit on /api/v1/dashboard when >300 requests/user/60s; steady-state API comparisons capped",
+    "heap numbers from performance.memory (Chrome), not an external profiler",
+    "cold cache tests hit Cloudflare edge; actual origin cold start not isolated",
+    "not field data; results are lab measurements on 2026-11-19",
+    "Trace file untuk interaction burst Next.js tidak tersimpan; INP/CLS tetap terekam dari session trace live."
+  ],
+  "evidence": {
+    "traces": [
+      "docs/evidence/astro-baseline-cold.trace.json",
+      "docs/evidence/astro-baseline-cold-2.trace.json",
+      "docs/evidence/astro-baseline-warm.trace.json",
+      "docs/evidence/astro-tasks-cold.trace.json",
+      "docs/evidence/astro-stress-concurrent-app.trace.json",
+      "docs/evidence/astro-stress-cpu4g4.trace.json",
+      "docs/evidence/astro-stress-cpu6g4.trace.json",
+      "docs/evidence/astro-stress-cpu4g3.trace.json",
+      "docs/evidence/astro-interaction-burst.trace.json",
+      "docs/evidence/next-baseline-cold.trace.json",
+      "docs/evidence/next-baseline-cold-2.trace.json",
+      "docs/evidence/next-baseline-warm.trace.json",
+      "docs/evidence/next-tasks-cold.trace.json",
+      "docs/evidence/next-stress-concurrent-doc.trace.json",
+      "docs/evidence/next-stress-cpu4g4.trace.json",
+      "docs/evidence/next-stress-cpu6g4.trace.json",
+      "docs/evidence/next-stress-cpu4g3.trace.json"
+    ],
+    "screenshots": [
+      "docs/screenshoot/astro-ui-home.png",
+      "docs/screenshoot/astro-baseline-cwv.png",
+      "docs/screenshoot/astro-stress-cwv.png",
+      "docs/screenshoot/astro-network-api.png",
+      "docs/screenshoot/next-ui-home.png",
+      "docs/screenshoot/next-baseline-cwv.png",
+      "docs/screenshoot/next-stress-cwv.png",
+      "docs/screenshoot/next-network-api.png"
+    ],
+    "charts": [
+      "docs/evidence/chart-ttfb-cold.png",
+      "docs/evidence/chart-lcp-warm.png",
+      "docs/evidence/chart-js-decoded.png",
+      "docs/evidence/chart-throughput-rps.png",
+      "docs/evidence/chart-lcp-stress.png",
+      "docs/evidence/chart-lcp-degradation.png"
+    ],
+    "diagrams": [
+      "design/diagrams/03-benchmark-architecture.drawio"
+    ]
+  }
+}
