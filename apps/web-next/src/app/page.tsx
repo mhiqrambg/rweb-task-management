@@ -19,6 +19,7 @@ import {
   LandingHeaderActions,
   LandingMenuLinks,
 } from '@/components/LandingCta';
+import { LandingExtended } from '@/components/LandingExtended';
 import './landing.css';
 
 export const metadata: Metadata = {
@@ -151,6 +152,8 @@ export default function LandingPage() {
             <LandingCta />
           </div>
         </section>
+
+        <LandingExtended tasks={previewTasks} />
       </main>
 
       <footer className="m-footer">
